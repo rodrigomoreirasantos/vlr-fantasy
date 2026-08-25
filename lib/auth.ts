@@ -4,6 +4,7 @@ import { nextCookies } from "better-auth/next-js";
 
 import { db } from "@/db";
 import * as schema from "@/db/schema";
+import { ensureFantasyTeam } from "@/lib/team/queries";
 
 const googleConfigured = Boolean(
   process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET,
@@ -27,6 +28,17 @@ export const auth = betterAuth({
         clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
       },
     }),
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        // Todo usuário novo já nasce com um fantasy_team e as cinco vagas
+        // vazias da escalação — ver `ensureFantasyTeam` (lib/team/queries.ts).
+        after: async (user) => {
+          await ensureFantasyTeam(user.id, user.name);
+        },
+      },
+    },
   },
   // O plugin de cookies do Next.js precisa ser sempre o último.
   plugins: [nextCookies()],

@@ -7,5 +7,8 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
+    // UTC fixo: testes de data (lib/market/window.ts) não podem depender do
+    // fuso horário de quem roda a suíte.
+    env: { TZ: "UTC" },
   },
 });

@@ -10,6 +10,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
+    "db:seed": "tsx db/seed.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -18,9 +19,11 @@
     "better-auth": "^1.7.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dayjs": "^1.11.23",
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^1.33.0",
     "next": "16.3.1",
+    "next-safe-action": "^8.6.1",
     "next-themes": "^0.4.6",
     "pg": "^8.23.0",
     "radix-ui": "^1.6.7",
@@ -50,6 +53,7 @@
     "jsdom": "^30.0.1",
     "prettier": "^3.9.6",
     "tailwindcss": "^4",
+    "tsx": "^4.23.12",
     "typescript": "^5",
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.1.11"

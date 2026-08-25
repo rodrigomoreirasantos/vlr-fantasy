@@ -68,6 +68,9 @@ Path alias: `@/*` → `./*` (raiz do projeto).
 ### TypeScript
 - **NUNCA** use any.
 
+### Planejamento
+- **SEMPRE** salve os planos aprovados em `.claude/plans/` no repositório (não só no diretório global de memória).
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know

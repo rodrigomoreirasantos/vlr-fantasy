@@ -11,6 +11,7 @@ import type { RosterSlot } from "@/lib/team/types";
 
 function slot(nickname: string, score: number): RosterSlot {
   return {
+    id: nickname.toLowerCase(),
     captain: false,
     player: {
       id: nickname.toLowerCase(),
@@ -19,6 +20,8 @@ function slot(nickname: string, score: number): RosterSlot {
       agent: "Astra",
       role: "Controlador",
       score,
+      priceCents: 5000,
+      active: true,
     },
   };
 }
@@ -49,14 +52,14 @@ describe("highestScorer / lowestScorer", () => {
   });
 
   it("ignora as vagas vazias", () => {
-    const withGap = [{ player: null, captain: false }, ...roster];
+    const withGap = [{ id: null, player: null, captain: false }, ...roster];
 
     expect(highestScorer(withGap)?.nickname).toBe("Boaster");
     expect(lowestScorer(withGap)?.nickname).toBe("Sacy");
   });
 
   it("devolve null quando não há ninguém escalado", () => {
-    const empty = [{ player: null, captain: false }];
+    const empty = [{ id: null, player: null, captain: false }];
 
     expect(highestScorer(empty)).toBeNull();
     expect(lowestScorer(empty)).toBeNull();

@@ -7,7 +7,7 @@ declare global {
   var __dbPool: Pool | undefined;
 }
 
-const pool =
+export const pool =
   global.__dbPool ??
   new Pool({
     connectionString: process.env.DATABASE_URL,

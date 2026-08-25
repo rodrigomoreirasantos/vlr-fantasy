@@ -4,13 +4,13 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { SignOutButton } from "@/components/auth/sign-out-button";
-import { FormationBoard } from "@/components/team/formation-board";
-import { EmptyPlayerRow, PlayerRow } from "@/components/team/player-row";
+import { RosterPanel } from "@/components/team/roster-panel";
 import { ScorerHighlight } from "@/components/team/scorer-highlight";
 import { TeamStats } from "@/components/team/team-stats";
 import { auth } from "@/lib/auth";
-import { placeholderRoster, placeholderSummary } from "@/lib/team/placeholder";
+import { ensureFantasyTeam, getMarketByRole, getTeamOverview } from "@/lib/team/queries";
 import { highestScorer, lowestScorer } from "@/lib/team/score";
+import type { PlayerRole } from "@/lib/team/types";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -29,30 +29,6 @@ const SECTIONS = [
   { label: "Menu", icon: Menu },
 ];
 
-function Panel({
-  title,
-  children,
-  className,
-}: {
-  title: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <section
-      className={cn(
-        "clip-corner bg-card p-[18px] ring-1 ring-border [--clip:16px]",
-        className,
-      )}
-    >
-      <h2 className="mb-3.5 text-[10px] font-bold tracking-[0.14em] text-muted-foreground uppercase">
-        {title}
-      </h2>
-      {children}
-    </section>
-  );
-}
-
 export default async function MyTeamPage() {
   const session = await auth.api.getSession({ headers: await headers() });
 
@@ -60,8 +36,26 @@ export default async function MyTeamPage() {
     redirect("/login");
   }
 
-  const roster = placeholderRoster();
-  const summary = placeholderSummary();
+  let overview = await getTeamOverview(session.user.id);
+  if (!overview) {
+    // Contas criadas antes de o mercado existir não passaram pelo hook de
+    // criação do time (databaseHooks.user.create.after em lib/auth.ts).
+    // `ensureFantasyTeam` é idempotente, então serve de fallback aqui.
+    await ensureFantasyTeam(session.user.id, session.user.name);
+    overview = await getTeamOverview(session.user.id);
+  }
+  if (!overview) {
+    throw new Error("Não foi possível carregar o seu time.");
+  }
+
+  const { summary, roster } = overview;
+  const rolesEscaladas = Array.from(
+    new Set<PlayerRole>(
+      roster.flatMap((slot) => (slot.player ? [slot.player.role] : [])),
+    ),
+  );
+  const market = await getMarketByRole(rolesEscaladas);
+
   const best = highestScorer(roster);
   const worst = lowestScorer(roster);
 
@@ -112,27 +106,13 @@ export default async function MyTeamPage() {
       </header>
 
       <main className="mx-auto max-w-7xl px-6 py-9">
-        <div className="mb-6 grid items-start gap-6 lg:grid-cols-[420px_1fr]">
-          <Panel title="Resumo">
-            <ul className="flex flex-col gap-2">
-              {roster.map((slot, index) =>
-                slot.player ? (
-                  <PlayerRow
-                    key={slot.player.id}
-                    player={slot.player}
-                    captain={slot.captain}
-                  />
-                ) : (
-                  <EmptyPlayerRow key={`slot-${index}`} position={index + 1} />
-                ),
-              )}
-            </ul>
-          </Panel>
-
-          <Panel title="Time Montado">
-            <FormationBoard roster={roster} />
-          </Panel>
-        </div>
+        <RosterPanel
+          roster={roster}
+          market={market}
+          balanceCents={summary.balanceCents}
+          marketOpen={summary.market.open}
+          closesIn={summary.market.closesIn}
+        />
 
         <TeamStats summary={summary} />
 

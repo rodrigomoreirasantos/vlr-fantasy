@@ -1,11 +1,13 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 
 import { FormationBoard } from "@/components/team/formation-board";
 import type { RosterSlot } from "@/lib/team/types";
 
 function slot(nickname: string, score: number, captain = false): RosterSlot {
   return {
+    id: nickname.toLowerCase(),
     captain,
     player: {
       id: nickname.toLowerCase(),
@@ -14,6 +16,8 @@ function slot(nickname: string, score: number, captain = false): RosterSlot {
       agent: "Astra",
       role: "Controlador",
       score,
+      priceCents: 5000,
+      active: true,
     },
   };
 }
@@ -42,7 +46,7 @@ describe("FormationBoard", () => {
     render(
       <FormationBoard
         roster={[
-          { player: null, captain: false },
+          { id: null, player: null, captain: false },
           slot("TenZ", 18.2),
         ]}
       />,
@@ -67,5 +71,35 @@ describe("FormationBoard", () => {
     );
 
     expect(screen.queryByText("Excedente")).not.toBeInTheDocument();
+  });
+
+  it("sem onSelect, os marcadores não são botões", () => {
+    render(<FormationBoard roster={[slot("TenZ", 18.2)]} />);
+
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("com onSelect, o marcador de um jogador escalado vira botão", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    render(<FormationBoard roster={[slot("TenZ", 18.2)]} onSelect={onSelect} />);
+
+    const marker = screen.getByRole("button", {
+      name: "Substituir TenZ no campo",
+    });
+    await user.click(marker);
+
+    expect(onSelect).toHaveBeenCalledWith(0);
+  });
+
+  it("com onSelect, uma vaga vazia continua sem botão", () => {
+    render(
+      <FormationBoard
+        roster={[{ id: null, player: null, captain: false }]}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });

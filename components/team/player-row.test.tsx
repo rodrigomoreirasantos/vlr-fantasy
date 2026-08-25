@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 
 import { EmptyPlayerRow, PlayerRow } from "@/components/team/player-row";
 import type { Player } from "@/lib/team/types";
@@ -11,6 +12,8 @@ const player: Player = {
   agent: "Jett",
   role: "Duelista",
   score: 18.2,
+  priceCents: 5000,
+  active: true,
 };
 
 describe("PlayerRow", () => {
@@ -54,6 +57,43 @@ describe("PlayerRow", () => {
     );
 
     expect(screen.queryByLabelText("Capitão")).not.toBeInTheDocument();
+  });
+
+  it("sem onSelect, é uma linha inerte — sem botão", () => {
+    render(
+      <ul>
+        <PlayerRow player={player} />
+      </ul>,
+    );
+
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("com onSelect, vira um botão que dispara a seleção ao ser clicado", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    render(
+      <ul>
+        <PlayerRow player={player} onSelect={onSelect} />
+      </ul>,
+    );
+
+    const button = screen.getByRole("button", { name: /substituir tenz/i });
+    await user.click(button);
+
+    expect(onSelect).toHaveBeenCalledOnce();
+  });
+
+  it("reflete `selected` em aria-expanded", () => {
+    render(
+      <ul>
+        <PlayerRow player={player} onSelect={() => {}} selected />
+      </ul>,
+    );
+
+    expect(
+      screen.getByRole("button", { name: /substituir tenz/i }),
+    ).toHaveAttribute("aria-expanded", "true");
   });
 });
 

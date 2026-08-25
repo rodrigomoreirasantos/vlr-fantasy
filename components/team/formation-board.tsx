@@ -28,12 +28,30 @@ function Marker({
   slot,
   position,
   index,
+  onSelect,
+  selected = false,
 }: {
   slot: RosterSlot;
   position: Position;
   index: number;
+  /** Presente só quando a vaga pode abrir o mercado (janela aberta). */
+  onSelect?: (index: number) => void;
+  selected?: boolean;
 }) {
   const { player, captain } = slot;
+
+  const circle = (
+    <div
+      className={cn(
+        "size-14 rounded-full",
+        player
+          ? "ring-2 [background-image:repeating-linear-gradient(135deg,var(--accent)_0_4px,var(--muted)_4px_8px)]"
+          : "border border-dashed border-border",
+        player && (captain ? "ring-primary" : "ring-border"),
+        player && selected && "ring-primary",
+      )}
+    />
+  );
 
   return (
     <div
@@ -45,15 +63,20 @@ function Marker({
       className="absolute flex flex-col items-center gap-[5px]"
     >
       <div className="relative">
-        <div
-          className={cn(
-            "size-14 rounded-full",
-            player
-              ? "ring-2 [background-image:repeating-linear-gradient(135deg,var(--accent)_0_4px,var(--muted)_4px_8px)]"
-              : "border border-dashed border-border",
-            player && (captain ? "ring-primary" : "ring-border"),
-          )}
-        />
+        {player && onSelect ? (
+          <button
+            type="button"
+            onClick={() => onSelect(index)}
+            aria-haspopup="dialog"
+            aria-expanded={selected}
+            aria-label={`Substituir ${player.nickname} no campo`}
+            className="block rounded-full"
+          >
+            {circle}
+          </button>
+        ) : (
+          circle
+        )}
         {captain && (
           <span
             aria-label="Capitão"
@@ -79,8 +102,19 @@ function Marker({
   );
 }
 
+export type FormationBoardProps = {
+  roster: RosterSlot[];
+  /** Presente só quando a vaga pode abrir o mercado (janela aberta). */
+  onSelect?: (index: number) => void;
+  selectedIndex?: number | null;
+};
+
 /** O time disposto em campo, como o usuário o montou. */
-export function FormationBoard({ roster }: { roster: RosterSlot[] }) {
+export function FormationBoard({
+  roster,
+  onSelect,
+  selectedIndex = null,
+}: FormationBoardProps) {
   return (
     <div className="relative w-full overflow-hidden bg-card pt-[78%] ring-1 ring-border">
       {roster.slice(0, POSITIONS.length).map((slot, index) => (
@@ -89,6 +123,8 @@ export function FormationBoard({ roster }: { roster: RosterSlot[] }) {
           slot={slot}
           position={POSITIONS[index]}
           index={index}
+          onSelect={onSelect}
+          selected={index === selectedIndex}
         />
       ))}
     </div>

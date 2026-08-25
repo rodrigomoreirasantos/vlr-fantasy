@@ -29,23 +29,19 @@ function PlayerPortrait({ className }: { className?: string }) {
   );
 }
 
-export type PlayerRowProps = {
+export type PlayerIdentityProps = {
   player: Player;
   captain?: boolean;
 };
 
 /**
- * Linha compacta de jogador: retrato, identidade e pontuação. Compartilhada
- * entre "Meu Time" e o mercado de transferências.
+ * Retrato, identidade e pontuação de um jogador. Miolo de `PlayerRow`,
+ * extraído para que a linha possa alternar entre `<div>` (só exibição) e
+ * `<button>` (selecionável no mercado) sem duplicar esse markup.
  */
-export function PlayerRow({ player, captain = false }: PlayerRowProps) {
+export function PlayerIdentity({ player, captain = false }: PlayerIdentityProps) {
   return (
-    <li
-      className={cn(
-        "clip-corner flex items-center gap-2.5 bg-secondary px-3 py-2.5 ring-1 [--clip:10px]",
-        captain ? "ring-primary/40" : "ring-border",
-      )}
-    >
+    <>
       <div className="relative flex-none">
         <PlayerPortrait className="size-[46px]" />
         {captain && <CaptainBadge />}
@@ -70,6 +66,55 @@ export function PlayerRow({ player, captain = false }: PlayerRowProps) {
         surface="secondary"
         className="clip-corner flex-none [--clip:6px]"
       />
+    </>
+  );
+}
+
+export type PlayerRowProps = {
+  player: Player;
+  captain?: boolean;
+  /** Presente só quando a vaga pode abrir o mercado (janela aberta). */
+  onSelect?: () => void;
+  selected?: boolean;
+};
+
+/**
+ * Linha compacta de jogador: retrato, identidade e pontuação. Compartilhada
+ * entre "Meu Time" e o mercado de transferências. Sem `onSelect` é uma linha
+ * inerte; com `onSelect` vira um botão que abre o mercado para essa vaga.
+ */
+export function PlayerRow({
+  player,
+  captain = false,
+  onSelect,
+  selected = false,
+}: PlayerRowProps) {
+  const identity = <PlayerIdentity player={player} captain={captain} />;
+
+  return (
+    <li
+      className={cn(
+        "clip-corner bg-secondary ring-1 [--clip:10px]",
+        captain ? "ring-primary/40" : "ring-border",
+        selected && "ring-primary",
+      )}
+    >
+      {onSelect ? (
+        <button
+          type="button"
+          onClick={onSelect}
+          aria-haspopup="dialog"
+          aria-expanded={selected}
+          aria-label={`Substituir ${player.nickname}`}
+          className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left"
+        >
+          {identity}
+        </button>
+      ) : (
+        <div className="flex w-full items-center gap-2.5 px-3 py-2.5">
+          {identity}
+        </div>
+      )}
     </li>
   );
 }

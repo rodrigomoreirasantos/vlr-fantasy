@@ -1,3 +1,4 @@
+import { formatCredits } from "@/lib/market/money";
 import type { TeamSummary } from "@/lib/team/types";
 import { cn } from "@/lib/utils";
 
@@ -22,7 +23,7 @@ function Stat({
 
 /** Saldo, estado do mercado e progresso da rodada. */
 export function TeamStats({ summary }: { summary: TeamSummary }) {
-  const { balance, market, scoredMatches } = summary;
+  const { balanceCents, market, scoredMatches } = summary;
 
   return (
     <section className="grid grid-cols-1 ring-1 ring-border sm:grid-cols-3">
@@ -31,7 +32,7 @@ export function TeamStats({ summary }: { summary: TeamSummary }) {
         className="border-b border-border sm:border-r sm:border-b-0"
       >
         <p className="mt-1 text-xl font-extrabold text-info tabular-nums">
-          {balance.toFixed(1)}
+          {formatCredits(balanceCents)}
         </p>
       </Stat>
 
