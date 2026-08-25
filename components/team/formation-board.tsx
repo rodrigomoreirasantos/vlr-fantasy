@@ -70,7 +70,7 @@ function Marker({
             aria-haspopup="dialog"
             aria-expanded={selected}
             aria-label={`Substituir ${player.nickname} no campo`}
-            className="block rounded-full"
+            className="block cursor-pointer rounded-full transition-transform hover:scale-105"
           >
             {circle}
           </button>

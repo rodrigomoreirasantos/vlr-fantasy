@@ -116,4 +116,35 @@ describe("MarketSheet", () => {
       screen.getByRole("button", { name: /contratar yay/i }),
     ).toHaveAttribute("aria-disabled", "true");
   });
+
+  it("lista antes quem pode ser contratado, depois quem está bloqueado", () => {
+    const market = emptyMarket();
+    // Ordem de entrada deliberadamente "errada": o caro (bloqueado) vem
+    // primeiro no array, os dois acessíveis depois.
+    market.Duelista = [
+      makePlayer({ id: "caro", nickname: "Caro", priceCents: 1_000_000 }),
+      makePlayer({ id: "barato-a", nickname: "BaratoA", priceCents: 1000 }),
+      makePlayer({ id: "barato-b", nickname: "BaratoB", priceCents: 2000 }),
+    ];
+
+    render(
+      <MarketSheet
+        open
+        onOpenChange={vi.fn()}
+        outgoing={outgoing}
+        market={market}
+        balanceCents={10_000}
+        marketOpen
+        closesIn="36h 12m"
+        rosteredPlayerIds={["derke"]}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    const names = screen
+      .getAllByRole("listitem")
+      .map((item) => within(item).getByText(/^(Caro|BaratoA|BaratoB)$/).textContent);
+
+    expect(names).toEqual(["BaratoA", "BaratoB", "Caro"]);
+  });
 });

@@ -14,7 +14,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import type { SubstitutionContext } from "@/lib/market/eligibility";
+import { evaluateSubstitution, type SubstitutionContext } from "@/lib/market/eligibility";
 import type { Player, PlayerRole } from "@/lib/team/types";
 import { cn } from "@/lib/utils";
 
@@ -50,16 +50,27 @@ export function MarketSheet({
   onConfirm,
   pending = false,
 }: MarketSheetProps) {
-  const candidates = outgoing ? (market[outgoing.role] ?? []) : [];
-
   const ctx: SubstitutionContext | null = useMemo(() => {
     if (!outgoing) return null;
     return { marketOpen, balanceCents, outgoing, rosteredPlayerIds };
   }, [outgoing, marketOpen, balanceCents, rosteredPlayerIds]);
 
+  // Quem pode ser contratado aparece primeiro; quem está bloqueado (sem
+  // saldo, etc.) vai para o fim da lista. `sort` é estável, então a ordem
+  // por pontuação de `getMarketByRole` é preservada dentro de cada grupo.
+  const sortedCandidates = useMemo(() => {
+    if (!outgoing || !ctx) return [];
+    const candidates = market[outgoing.role] ?? [];
+    return [...candidates].sort((a, b) => {
+      const aBlocked = evaluateSubstitution(ctx, a).blockedBy !== null;
+      const bBlocked = evaluateSubstitution(ctx, b).blockedBy !== null;
+      return Number(aBlocked) - Number(bBlocked);
+    });
+  }, [market, outgoing, ctx]);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="flex w-full flex-col gap-0 sm:max-w-md">
+      <SheetContent className="flex w-full flex-col gap-0 data-[side=right]:w-full data-[side=right]:sm:max-w-lg">
         {outgoing && ctx && (
           <>
             <SheetHeader>
@@ -89,8 +100,15 @@ export function MarketSheet({
                 </Alert>
               )}
 
-              <ScrollArea className="-mx-1 flex-1 px-1">
-                {candidates.length === 0 ? (
+              {/*
+                min-h-0 é o que faz o flex-1 valer: sem ele, um flex item sem
+                overflow próprio assume min-height:auto e cresce para caber
+                todo o conteúdo (o `<ul>` inteiro), em vez de ser limitado
+                pelo espaço disponível no Sheet — daí a lista cortar sem
+                barra de rolagem.
+              */}
+              <ScrollArea className="-mx-1 min-h-0 flex-1 px-1">
+                {sortedCandidates.length === 0 ? (
                   <p className="py-6 text-center text-xs text-muted-foreground">
                     Nenhum {outgoing.role} disponível no mercado.
                   </p>
@@ -101,7 +119,7 @@ export function MarketSheet({
                       pending && "pointer-events-none opacity-70",
                     )}
                   >
-                    {candidates.map((candidate) => (
+                    {sortedCandidates.map((candidate) => (
                       <MarketPlayerRow
                         key={candidate.id}
                         ctx={ctx}
