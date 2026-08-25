@@ -1,26 +1,124 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/*
+ * Identidade visual: dark mode fixo, inspirado no Valorant.
+ * Sem @media (prefers-color-scheme) — o app não tem modo claro.
+ */
+:root,
+.dark {
+  --background: #0b0d0f;
+  --foreground: #f2f3f4;
+  --card: #16181c;
+  --card-foreground: #f2f3f4;
+  --popover: #16181c;
+  --popover-foreground: #f2f3f4;
+  --primary: #ff4655;
+  --primary-foreground: #ffffff;
+  --secondary: #1c1f24;
+  --secondary-foreground: #f2f3f4;
+  --muted: #191b1f;
+  --muted-foreground: #8b92a0;
+  --accent: #1f2329;
+  --accent-foreground: #f2f3f4;
+  --destructive: #e0303f;
+  /* Pontuação boa (verde) e destaques numéricos como saldo/pontos (ciano). */
+  --success: #3ddc84;
+  --success-foreground: #08120c;
+  --info: #4de3ee;
+  --info-foreground: #04161a;
+  --border: rgb(255 255 255 / 8%);
+  --input: rgb(255 255 255 / 14%);
+  --ring: #ff4655;
+  --chart-1: #ff4655;
+  --chart-2: #b7b7b7;
+  --chart-3: #8b92a0;
+  --chart-4: #5a616d;
+  --chart-5: #2b2f36;
+  --radius: 0.375rem;
+  --sidebar: #101215;
+  --sidebar-foreground: #f2f3f4;
+  --sidebar-primary: #ff4655;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1c1f24;
+  --sidebar-accent-foreground: #f2f3f4;
+  --sidebar-border: rgb(255 255 255 / 8%);
+  --sidebar-ring: #ff4655;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Cantos chanfrados — assinatura visual do Valorant (corta os cantos
+   superior-esquerdo e inferior-direito). Ajuste o tamanho com `[--clip:6px]`;
+   sem isso o corte segue em 12px. */
+@utility clip-corner {
+  clip-path: polygon(
+    var(--clip, 12px) 0,
+    100% 0,
+    100% calc(100% - var(--clip, 12px)),
+    calc(100% - var(--clip, 12px)) 100%,
+    0 100%,
+    0 var(--clip, 12px)
+  );
 }
