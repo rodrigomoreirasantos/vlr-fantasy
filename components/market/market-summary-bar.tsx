@@ -23,15 +23,19 @@ function Stat({
 
 export type MarketSummaryBarProps = {
   balanceCents: number;
-  outgoing: Player;
+  /** `null` numa vaga vazia — não há ninguém saindo da escalação. */
+  outgoing: Player | null;
+  /** Número da vaga (1-5), usado no lugar do nickname quando `outgoing` é `null`. */
+  position: number;
   marketOpen: boolean;
   closesIn: string;
 };
 
-/** Saldo, quem sai da escalação e o estado da janela de mercado. */
+/** Saldo, quem sai da escalação (ou a vaga sendo preenchida) e a janela de mercado. */
 export function MarketSummaryBar({
   balanceCents,
   outgoing,
+  position,
   marketOpen,
   closesIn,
 }: MarketSummaryBarProps) {
@@ -41,8 +45,13 @@ export function MarketSummaryBar({
         <PlayerPrice priceCents={balanceCents} className="text-base" />
       </Stat>
 
-      <Stat label="Sai" className="border-r border-border">
-        <p className="truncate text-sm font-bold uppercase">{outgoing.nickname}</p>
+      <Stat
+        label={outgoing ? "Sai" : "Vaga"}
+        className="border-r border-border"
+      >
+        <p className="truncate text-sm font-bold uppercase">
+          {outgoing ? outgoing.nickname : position}
+        </p>
       </Stat>
 
       <Stat label="Mercado">

@@ -1,8 +1,16 @@
-export type PlayerRole =
-  | "Duelista"
-  | "Iniciador"
-  | "Controlador"
-  | "Sentinela";
+/**
+ * As quatro funções de Valorant. Fonte única desta lista — `db/schema/players.ts`
+ * importa daqui para o `pgEnum`, e a UI itera sobre ela ao agrupar o mercado
+ * por função (vaga vazia: `components/market/market-sheet.tsx`).
+ */
+export const PLAYER_ROLES = [
+  "Duelista",
+  "Iniciador",
+  "Controlador",
+  "Sentinela",
+] as const;
+
+export type PlayerRole = (typeof PLAYER_ROLES)[number];
 
 export type Player = {
   id: string;

@@ -13,18 +13,11 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-import type { PlayerRole } from "@/lib/team/types";
+import { PLAYER_ROLES } from "@/lib/team/types";
 
 // Import unidirecional: o schema conhece o tipo de domínio, nunca o
-// contrário. `satisfies` faz a compilação falhar se os labels do enum
-// divergirem do tipo de domínio, sem redeclarar nada.
-export const PLAYER_ROLES = [
-  "Duelista",
-  "Iniciador",
-  "Controlador",
-  "Sentinela",
-] as const satisfies readonly PlayerRole[];
-
+// contrário. `PLAYER_ROLES` vive em `lib/team/types.ts` — única fonte da
+// lista de funções, reaproveitada pela UI para agrupar o mercado.
 export const playerRole = pgEnum("player_role", PLAYER_ROLES);
 
 export const player = pgTable(

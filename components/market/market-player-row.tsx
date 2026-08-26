@@ -1,6 +1,9 @@
 "use client";
 
-import { PlayerIdentity } from "@/components/team/player-row";
+import {
+  PlayerIdentity,
+  PlayerPortraitBadge,
+} from "@/components/team/player-row";
 import { PlayerPrice } from "@/components/team/player-price";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,7 +34,11 @@ export type MarketPlayerRowProps = {
  * identidade, preço, veredito e botão juntos numa linha só não cabiam na
  * largura do Sheet sem cortar texto.
  */
-export function MarketPlayerRow({ ctx, candidate, onConfirm }: MarketPlayerRowProps) {
+export function MarketPlayerRow({
+  ctx,
+  candidate,
+  onConfirm,
+}: MarketPlayerRowProps) {
   const verdict = evaluateSubstitution(ctx, candidate);
   const blocked = verdict.blockedBy !== null;
   const reasonId = `market-row-reason-${candidate.id}`;
@@ -44,12 +51,16 @@ export function MarketPlayerRow({ ctx, candidate, onConfirm }: MarketPlayerRowPr
       )}
     >
       <div className="flex items-center gap-2.5">
+        <PlayerPortraitBadge player={candidate} />
         <PlayerIdentity player={candidate} />
       </div>
 
       <div className="flex items-center justify-between gap-3 border-t border-border pt-2.5">
         <div className="min-w-0">
-          <PlayerPrice priceCents={candidate.priceCents} className="text-base" />
+          <PlayerPrice
+            priceCents={candidate.priceCents}
+            className="text-base"
+          />
 
           {blocked ? (
             <Badge variant="outline" className="mt-1 text-[10px]">
@@ -79,7 +90,7 @@ export function MarketPlayerRow({ ctx, candidate, onConfirm }: MarketPlayerRowPr
 
       {blocked && (
         <p id={reasonId} className="text-[10px] text-muted-foreground">
-          {blockReasonMessage(verdict.blockedBy!, ctx.outgoing.role)}
+          {blockReasonMessage(verdict.blockedBy!, ctx.outgoing?.role ?? null)}
         </p>
       )}
     </li>

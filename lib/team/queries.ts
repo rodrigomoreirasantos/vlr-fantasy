@@ -2,8 +2,17 @@ import { and, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { fantasyTeam, player, round, rosterSlot, transfer } from "@/db/schema";
-import { toDomainPlayer, toRosterSlots, toTeamSummary } from "@/lib/team/mappers";
-import type { PlayerRole, RosterSlot, TeamSummary, Player } from "@/lib/team/types";
+import {
+  toDomainPlayer,
+  toRosterSlots,
+  toTeamSummary,
+} from "@/lib/team/mappers";
+import type {
+  PlayerRole,
+  RosterSlot,
+  TeamSummary,
+  Player,
+} from "@/lib/team/types";
 
 export type Database = typeof db;
 export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
@@ -33,7 +42,9 @@ export async function getActiveRound(q: Querier = db) {
  * cinco vagas da escalação. `null` quando o usuário ainda não tem time —
  * cabe à página chamar `ensureFantasyTeam` e tentar de novo.
  */
-export async function getTeamOverview(userId: string): Promise<TeamOverview | null> {
+export async function getTeamOverview(
+  userId: string,
+): Promise<TeamOverview | null> {
   const team = await db.query.fantasyTeam.findFirst({
     where: eq(fantasyTeam.userId, userId),
     with: {
@@ -47,7 +58,10 @@ export async function getTeamOverview(userId: string): Promise<TeamOverview | nu
 
   const activeRound = await getActiveRound();
   const roster = toRosterSlots(team.slots);
-  const points = roster.reduce((total, slot) => total + (slot.player?.score ?? 0), 0);
+  const points = roster.reduce(
+    (total, slot) => total + (slot.player?.score ?? 0),
+    0,
+  );
 
   return {
     teamId: team.id,
@@ -67,10 +81,9 @@ export async function getTeamOverview(userId: string): Promise<TeamOverview | nu
 export async function getMarketByRole(
   roles: readonly PlayerRole[],
 ): Promise<Record<PlayerRole, Player[]>> {
-  const byRole = Object.fromEntries(roles.map((role) => [role, [] as Player[]])) as Record<
-    PlayerRole,
-    Player[]
-  >;
+  const byRole = Object.fromEntries(
+    roles.map((role) => [role, [] as Player[]]),
+  ) as Record<PlayerRole, Player[]>;
   if (roles.length === 0) return byRole;
 
   const rows = await db.query.player.findMany({
@@ -97,7 +110,11 @@ export async function lockTeamForUpdate(tx: Querier, userId: string) {
   return row ?? null;
 }
 
-export async function lockSlotForUpdate(tx: Querier, teamId: string, slotId: string) {
+export async function lockSlotForUpdate(
+  tx: Querier,
+  teamId: string,
+  slotId: string,
+) {
   const [row] = await tx
     .select()
     .from(rosterSlot)
@@ -111,7 +128,10 @@ export async function loadPlayersByIds(tx: Querier, ids: readonly string[]) {
   return tx.select().from(player).where(inArray(player.id, ids));
 }
 
-export async function loadRosteredPlayerIds(tx: Querier, teamId: string): Promise<string[]> {
+export async function loadRosteredPlayerIds(
+  tx: Querier,
+  teamId: string,
+): Promise<string[]> {
   const rows = await tx
     .select({ playerId: rosterSlot.playerId })
     .from(rosterSlot)
@@ -157,12 +177,58 @@ export async function applySubstitution(
 }
 
 /**
+ * Move a braçadeira de capitão para `slotId`, desmarcando quem era capitão
+ * antes. Duas atualizações em sequência, nessa ordem — desmarca, depois
+ * marca — para nunca haver duas vagas com `captain = true` ao mesmo tempo,
+ * reforçando `roster_slot_single_captain_uidx`.
+ */
+export async function setTeamCaptain(
+  tx: Querier,
+  teamId: string,
+  slotId: string,
+): Promise<void> {
+  await tx
+    .update(rosterSlot)
+    .set({ captain: false })
+    .where(
+      and(eq(rosterSlot.fantasyTeamId, teamId), eq(rosterSlot.captain, true)),
+    );
+
+  await tx
+    .update(rosterSlot)
+    .set({ captain: true })
+    .where(eq(rosterSlot.id, slotId));
+}
+
+/**
+ * O time já tem alguém com a braçadeira? Usada para marcar automaticamente
+ * o primeiro jogador contratado como capitão — um time montado do zero não
+ * teria capitão até o usuário clicar no "C" manualmente.
+ */
+export async function hasCaptain(
+  tx: Querier,
+  teamId: string,
+): Promise<boolean> {
+  const [row] = await tx
+    .select({ id: rosterSlot.id })
+    .from(rosterSlot)
+    .where(
+      and(eq(rosterSlot.fantasyTeamId, teamId), eq(rosterSlot.captain, true)),
+    )
+    .limit(1);
+  return row !== undefined;
+}
+
+/**
  * Garante o time (e as cinco vagas vazias) de um usuário. Idempotente —
  * chamada tanto por `databaseHooks.user.create.after` (lib/auth.ts), na
  * criação da conta, quanto como fallback em `/my-team` para quem já existia
  * antes de o mercado existir.
  */
-export async function ensureFantasyTeam(userId: string, userName: string): Promise<void> {
+export async function ensureFantasyTeam(
+  userId: string,
+  userName: string,
+): Promise<void> {
   await db.transaction(async (tx) => {
     const [inserted] = await tx
       .insert(fantasyTeam)
@@ -172,7 +238,11 @@ export async function ensureFantasyTeam(userId: string, userName: string): Promi
 
     const teamId =
       inserted?.id ??
-      (await tx.query.fantasyTeam.findFirst({ where: eq(fantasyTeam.userId, userId) }))?.id;
+      (
+        await tx.query.fantasyTeam.findFirst({
+          where: eq(fantasyTeam.userId, userId),
+        })
+      )?.id;
     if (!teamId) return;
 
     await tx
@@ -183,6 +253,8 @@ export async function ensureFantasyTeam(userId: string, userName: string): Promi
           position: index + 1,
         })),
       )
-      .onConflictDoNothing({ target: [rosterSlot.fantasyTeamId, rosterSlot.position] });
+      .onConflictDoNothing({
+        target: [rosterSlot.fantasyTeamId, rosterSlot.position],
+      });
   });
 }

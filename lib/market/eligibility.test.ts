@@ -22,7 +22,9 @@ function makePlayer(overrides: Partial<Player> = {}): Player {
   };
 }
 
-function makeContext(overrides: Partial<SubstitutionContext> = {}): SubstitutionContext {
+function makeContext(
+  overrides: Partial<SubstitutionContext> = {},
+): SubstitutionContext {
   return {
     marketOpen: true,
     balanceCents: 10_000,
@@ -37,9 +39,7 @@ describe("evaluateSubstitution — precedência", () => {
     const ctx = makeContext({ marketOpen: false });
     const incoming = makePlayer({ id: "chronicle", role: "Sentinela" });
 
-    expect(evaluateSubstitution(ctx, incoming).blockedBy).toBe(
-      "market-closed",
-    );
+    expect(evaluateSubstitution(ctx, incoming).blockedBy).toBe("market-closed");
   });
 
   it("função errada vence saldo insuficiente", () => {
@@ -50,9 +50,7 @@ describe("evaluateSubstitution — precedência", () => {
       priceCents: 1_000_000,
     });
 
-    expect(evaluateSubstitution(ctx, incoming).blockedBy).toBe(
-      "role-mismatch",
-    );
+    expect(evaluateSubstitution(ctx, incoming).blockedBy).toBe("role-mismatch");
   });
 
   it("mesmo jogador vence já escalado", () => {
@@ -124,9 +122,9 @@ describe("canSubstitute", () => {
     const incoming = makePlayer({ id: "tenz", priceCents: 3000 });
 
     expect(canSubstitute(ctx, incoming)).toBe(true);
-    expect(canSubstitute(ctx, makePlayer({ id: "tenz", role: "Sentinela" }))).toBe(
-      false,
-    );
+    expect(
+      canSubstitute(ctx, makePlayer({ id: "tenz", role: "Sentinela" })),
+    ).toBe(false);
   });
 });
 
@@ -135,5 +133,57 @@ describe("blockReasonMessage", () => {
     expect(blockReasonMessage("role-mismatch", "Controlador")).toBe(
       "Só é possível substituir por outro Controlador.",
     );
+  });
+
+  it("usa uma mensagem genérica quando não há função exigida", () => {
+    expect(blockReasonMessage("role-mismatch", null)).toBe(
+      "Só é possível substituir por outro jogador da mesma função.",
+    );
+  });
+});
+
+describe("evaluateSubstitution — vaga vazia (outgoing null)", () => {
+  it("o custo líquido é o preço cheio do candidato", () => {
+    const ctx = makeContext({ outgoing: null, balanceCents: 10_000 });
+    const incoming = makePlayer({ id: "tenz", priceCents: 5000 });
+
+    const verdict = evaluateSubstitution(ctx, incoming);
+    expect(verdict.netCostCents).toBe(5000);
+    expect(verdict.balanceAfterCents).toBe(5000);
+    expect(verdict.blockedBy).toBeNull();
+  });
+
+  it("libera qualquer função, sem role-mismatch", () => {
+    const ctx = makeContext({ outgoing: null, rosteredPlayerIds: [] });
+    const incoming = makePlayer({ id: "chronicle", role: "Sentinela" });
+
+    expect(evaluateSubstitution(ctx, incoming).blockedBy).toBeNull();
+  });
+
+  it("ainda bloqueia um candidato já escalado", () => {
+    const ctx = makeContext({ outgoing: null, rosteredPlayerIds: ["tenz"] });
+    const incoming = makePlayer({ id: "tenz" });
+
+    expect(evaluateSubstitution(ctx, incoming).blockedBy).toBe(
+      "already-rostered",
+    );
+  });
+
+  it("fronteira exata de saldo: preço igual ao saldo libera, um centavo a mais bloqueia", () => {
+    const incoming = makePlayer({ id: "tenz", priceCents: 5000 });
+
+    expect(
+      evaluateSubstitution(
+        makeContext({ outgoing: null, balanceCents: 5000 }),
+        incoming,
+      ).blockedBy,
+    ).toBeNull();
+
+    expect(
+      evaluateSubstitution(
+        makeContext({ outgoing: null, balanceCents: 4999 }),
+        incoming,
+      ).blockedBy,
+    ).toBe("insufficient-balance");
   });
 });

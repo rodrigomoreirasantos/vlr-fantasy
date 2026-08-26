@@ -8,9 +8,13 @@ import { RosterPanel } from "@/components/team/roster-panel";
 import { ScorerHighlight } from "@/components/team/scorer-highlight";
 import { TeamStats } from "@/components/team/team-stats";
 import { auth } from "@/lib/auth";
-import { ensureFantasyTeam, getMarketByRole, getTeamOverview } from "@/lib/team/queries";
+import {
+  ensureFantasyTeam,
+  getMarketByRole,
+  getTeamOverview,
+} from "@/lib/team/queries";
 import { highestScorer, lowestScorer } from "@/lib/team/score";
-import type { PlayerRole } from "@/lib/team/types";
+import { PLAYER_ROLES, type PlayerRole } from "@/lib/team/types";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -49,12 +53,14 @@ export default async function MyTeamPage() {
   }
 
   const { summary, roster } = overview;
-  const rolesEscaladas = Array.from(
-    new Set<PlayerRole>(
-      roster.flatMap((slot) => (slot.player ? [slot.player.role] : [])),
-    ),
+  const rolesEscaladas = new Set<PlayerRole>(
+    roster.flatMap((slot) => (slot.player ? [slot.player.role] : [])),
   );
-  const market = await getMarketByRole(rolesEscaladas);
+  // Uma vaga vazia não tem função exigida: o usuário escolhe entre todas.
+  const temVagaVazia = roster.some((slot) => !slot.player);
+  const market = await getMarketByRole(
+    temVagaVazia ? PLAYER_ROLES : Array.from(rolesEscaladas),
+  );
 
   const best = highestScorer(roster);
   const worst = lowestScorer(roster);

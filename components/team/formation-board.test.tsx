@@ -82,7 +82,9 @@ describe("FormationBoard", () => {
   it("com onSelect, o marcador de um jogador escalado vira botão", async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
-    render(<FormationBoard roster={[slot("TenZ", 18.2)]} onSelect={onSelect} />);
+    render(
+      <FormationBoard roster={[slot("TenZ", 18.2)]} onSelect={onSelect} />,
+    );
 
     const marker = screen.getByRole("button", {
       name: "Substituir TenZ no campo",
@@ -92,14 +94,68 @@ describe("FormationBoard", () => {
     expect(onSelect).toHaveBeenCalledWith(0);
   });
 
-  it("com onSelect, uma vaga vazia continua sem botão", () => {
+  it("com onSelect, uma vaga vazia também vira botão para adicionar jogador", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
     render(
       <FormationBoard
         roster={[{ id: null, player: null, captain: false }]}
-        onSelect={vi.fn()}
+        onSelect={onSelect}
       />,
     );
 
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    const marker = screen.getByRole("button", {
+      name: "Adicionar jogador na vaga 1 no campo",
+    });
+    await user.click(marker);
+
+    expect(onSelect).toHaveBeenCalledWith(0);
+  });
+
+  it("sem onSetCaptain, o marcador de quem não é capitão não mostra braçadeira", () => {
+    render(<FormationBoard roster={[slot("TenZ", 18.2)]} />);
+
+    expect(
+      screen.queryByRole("button", { name: /capitão/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("com onSetCaptain, a braçadeira aparece mesmo em quem não é capitão e chama onSetCaptain com o índice", async () => {
+    const user = userEvent.setup();
+    const onSetCaptain = vi.fn();
+    render(
+      <FormationBoard
+        roster={[slot("TenZ", 18.2)]}
+        onSetCaptain={onSetCaptain}
+      />,
+    );
+
+    const badge = screen.getByRole("button", {
+      name: "Tornar TenZ capitão no campo",
+    });
+    expect(badge).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(badge);
+    expect(onSetCaptain).toHaveBeenCalledWith(0);
+  });
+
+  it("com onSetCaptain e onSelect no mesmo marcador, a braçadeira e o clique de substituir não se confundem", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const onSetCaptain = vi.fn();
+    render(
+      <FormationBoard
+        roster={[slot("TenZ", 18.2)]}
+        onSelect={onSelect}
+        onSetCaptain={onSetCaptain}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Tornar TenZ capitão no campo" }),
+    );
+
+    expect(onSetCaptain).toHaveBeenCalledWith(0);
+    expect(onSelect).not.toHaveBeenCalled();
   });
 });

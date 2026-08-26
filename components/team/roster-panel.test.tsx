@@ -1,13 +1,29 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const executeMock = vi.fn();
-
-vi.mock("next-safe-action/hooks", () => ({
-  useAction: () => ({ execute: executeMock, isExecuting: false }),
+const {
+  executeSubstituteMock,
+  executeSetCaptainMock,
+  substitutePlayerToken,
+  setCaptainToken,
+} = vi.hoisted(() => ({
+  executeSubstituteMock: vi.fn(),
+  executeSetCaptainMock: vi.fn(),
+  substitutePlayerToken: Symbol("substitutePlayer"),
+  setCaptainToken: Symbol("setCaptain"),
 }));
-vi.mock("@/app/my-team/actions", () => ({ substitutePlayer: vi.fn() }));
+
+vi.mock("@/app/my-team/actions", () => ({
+  substitutePlayer: substitutePlayerToken,
+  setCaptain: setCaptainToken,
+}));
+vi.mock("next-safe-action/hooks", () => ({
+  useAction: (action: unknown) =>
+    action === setCaptainToken
+      ? { execute: executeSetCaptainMock, isExecuting: false }
+      : { execute: executeSubstituteMock, isExecuting: false },
+}));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { RosterPanel } from "@/components/team/roster-panel";
@@ -52,6 +68,11 @@ function emptyMarket(): Record<PlayerRole, Player[]> {
 }
 
 describe("RosterPanel", () => {
+  beforeEach(() => {
+    executeSubstituteMock.mockClear();
+    executeSetCaptainMock.mockClear();
+  });
+
   it("clicar na linha da lista abre o mercado para aquela vaga", async () => {
     const user = userEvent.setup();
     render(
@@ -90,7 +111,7 @@ describe("RosterPanel", () => {
     expect(screen.getByText(/Substituindo TenZ\./)).toBeInTheDocument();
   });
 
-  it("mercado fechado: nem a lista nem o campo ficam clicáveis", () => {
+  it("mercado fechado: nem a lista, nem o campo, nem a braçadeira ficam clicáveis", () => {
     render(
       <RosterPanel
         roster={makeRoster()}
@@ -103,6 +124,196 @@ describe("RosterPanel", () => {
 
     expect(
       screen.queryByRole("button", { name: /substituir/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /capitão/i }),
+    ).not.toBeInTheDocument();
+    // O selo de quem já é capitão continua visível (na lista e no campo),
+    // só não é mais um botão.
+    expect(screen.getAllByLabelText("Capitão")).toHaveLength(2);
+  });
+
+  it("clicar na braçadeira de outro jogador, na lista, torna-o capitão", async () => {
+    const user = userEvent.setup();
+    render(
+      <RosterPanel
+        roster={makeRoster()}
+        market={emptyMarket()}
+        balanceCents={10_000}
+        marketOpen
+        closesIn="36h 12m"
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Tornar TenZ capitão" }),
+    );
+
+    expect(executeSetCaptainMock).toHaveBeenCalledWith({ slotId: "slot-2" });
+  });
+
+  it("clicar na braçadeira de quem já é capitão não dispara a action de novo", async () => {
+    const user = userEvent.setup();
+    render(
+      <RosterPanel
+        roster={makeRoster()}
+        market={emptyMarket()}
+        balanceCents={10_000}
+        marketOpen
+        closesIn="36h 12m"
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Boaster é o capitão" }),
+    );
+
+    expect(executeSetCaptainMock).not.toHaveBeenCalled();
+  });
+
+  it("clicar na braçadeira do marcador no campo também torna o jogador capitão", async () => {
+    const user = userEvent.setup();
+    render(
+      <RosterPanel
+        roster={makeRoster()}
+        market={emptyMarket()}
+        balanceCents={10_000}
+        marketOpen
+        closesIn="36h 12m"
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Tornar TenZ capitão no campo" }),
+    );
+
+    expect(executeSetCaptainMock).toHaveBeenCalledWith({ slotId: "slot-2" });
+  });
+});
+
+describe("RosterPanel — vaga vazia", () => {
+  beforeEach(() => {
+    executeSubstituteMock.mockClear();
+    executeSetCaptainMock.mockClear();
+  });
+
+  it("mostra a faixa de progresso quando a escalação não está completa", () => {
+    render(
+      <RosterPanel
+        roster={makeRoster()}
+        market={emptyMarket()}
+        balanceCents={10_000}
+        marketOpen
+        closesIn="36h 12m"
+      />,
+    );
+
+    expect(
+      screen.getByText("Monte seu time · 2 de 5 jogadores escalados"),
+    ).toBeInTheDocument();
+  });
+
+  it("com a escalação completa, a faixa de progresso não aparece", () => {
+    const roster = makeRoster().map((slot) =>
+      slot.player ? slot : { ...slot, player: makePlayer({ id: slot.id! }) },
+    );
+
+    render(
+      <RosterPanel
+        roster={roster}
+        market={emptyMarket()}
+        balanceCents={10_000}
+        marketOpen
+        closesIn="36h 12m"
+      />,
+    );
+
+    expect(screen.queryByText(/jogadores escalados/)).not.toBeInTheDocument();
+  });
+
+  it("clicar no card + da lista abre o mercado em modo nova contratação", async () => {
+    const user = userEvent.setup();
+    render(
+      <RosterPanel
+        roster={makeRoster()}
+        market={emptyMarket()}
+        balanceCents={10_000}
+        marketOpen
+        closesIn="36h 12m"
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Adicionar jogador na vaga 3" }),
+    );
+
+    expect(screen.getByText("Mercado · Nova contratação")).toBeInTheDocument();
+    expect(
+      screen.getByText("Escolha um jogador para a vaga 3."),
+    ).toBeInTheDocument();
+  });
+
+  it("clicar no marcador vazio do campo abre o mesmo mercado, para a mesma vaga", async () => {
+    const user = userEvent.setup();
+    render(
+      <RosterPanel
+        roster={makeRoster()}
+        market={emptyMarket()}
+        balanceCents={10_000}
+        marketOpen
+        closesIn="36h 12m"
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Adicionar jogador na vaga 3 no campo",
+      }),
+    );
+
+    expect(screen.getByText("Mercado · Nova contratação")).toBeInTheDocument();
+  });
+
+  it("confirmar a contratação chama a action com outgoingPlayerId nulo", async () => {
+    const user = userEvent.setup();
+    const market = emptyMarket();
+    market.Duelista = [makePlayer({ id: "yay", nickname: "yay" })];
+
+    render(
+      <RosterPanel
+        roster={makeRoster()}
+        market={market}
+        balanceCents={10_000}
+        marketOpen
+        closesIn="36h 12m"
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Adicionar jogador na vaga 3" }),
+    );
+    await user.click(screen.getByRole("button", { name: /contratar yay/i }));
+
+    expect(executeSubstituteMock).toHaveBeenCalledWith({
+      slotId: "slot-3",
+      outgoingPlayerId: null,
+      incomingPlayerId: "yay",
+    });
+  });
+
+  it("mercado fechado: o card + fica inerte", () => {
+    render(
+      <RosterPanel
+        roster={makeRoster()}
+        market={emptyMarket()}
+        balanceCents={10_000}
+        marketOpen={false}
+        closesIn="Encerrado"
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: /adicionar jogador/i }),
     ).not.toBeInTheDocument();
   });
 });

@@ -1,3 +1,5 @@
+import { Plus } from "lucide-react";
+
 import { PlayerScore } from "@/components/team/player-score";
 import type { RosterSlot } from "@/lib/team/types";
 import { cn } from "@/lib/utils";
@@ -30,6 +32,7 @@ function Marker({
   index,
   onSelect,
   selected = false,
+  onSetCaptain,
 }: {
   slot: RosterSlot;
   position: Position;
@@ -37,20 +40,28 @@ function Marker({
   /** Presente só quando a vaga pode abrir o mercado (janela aberta). */
   onSelect?: (index: number) => void;
   selected?: boolean;
+  /** Presente só quando o usuário pode trocar o capitão (mercado aberto). */
+  onSetCaptain?: (index: number) => void;
 }) {
   const { player, captain } = slot;
 
   const circle = (
     <div
       className={cn(
-        "size-14 rounded-full",
+        "flex size-14 items-center justify-center rounded-full",
         player
           ? "ring-2 [background-image:repeating-linear-gradient(135deg,var(--accent)_0_4px,var(--muted)_4px_8px)]"
-          : "border border-dashed border-border",
+          : "border border-dashed border-border text-border transition-colors",
         player && (captain ? "ring-primary" : "ring-border"),
         player && selected && "ring-primary",
+        !player &&
+          onSelect &&
+          "group-hover:border-primary group-hover:text-primary",
+        !player && selected && "border-primary text-primary",
       )}
-    />
+    >
+      {!player && <Plus aria-hidden className="size-5" />}
+    </div>
   );
 
   return (
@@ -63,29 +74,56 @@ function Marker({
       className="absolute flex flex-col items-center gap-[5px]"
     >
       <div className="relative">
-        {player && onSelect ? (
+        {onSelect ? (
           <button
             type="button"
             onClick={() => onSelect(index)}
             aria-haspopup="dialog"
             aria-expanded={selected}
-            aria-label={`Substituir ${player.nickname} no campo`}
-            className="block cursor-pointer rounded-full transition-transform hover:scale-105"
+            aria-label={
+              player
+                ? `Substituir ${player.nickname} no campo`
+                : `Adicionar jogador na vaga ${index + 1} no campo`
+            }
+            className="group block cursor-pointer rounded-full transition-transform hover:scale-105"
           >
             {circle}
           </button>
         ) : (
           circle
         )}
-        {captain && (
-          <span
-            aria-label="Capitão"
-            title="Capitão"
-            className="absolute -top-1 -left-1 flex size-[18px] items-center justify-center rounded-full bg-primary text-[9px] font-extrabold text-primary-foreground"
-          >
-            C
-          </span>
-        )}
+        {player &&
+          (onSetCaptain ? (
+            <button
+              type="button"
+              onClick={() => onSetCaptain(index)}
+              aria-pressed={captain}
+              aria-label={
+                captain
+                  ? `${player.nickname} é o capitão no campo`
+                  : `Tornar ${player.nickname} capitão no campo`
+              }
+              title={captain ? "Capitão" : "Tornar capitão"}
+              className={cn(
+                "absolute -top-1 -left-1 flex size-[18px] cursor-pointer items-center justify-center rounded-full text-[9px] font-extrabold transition-colors",
+                captain
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-card text-muted-foreground ring-1 ring-border hover:text-foreground",
+              )}
+            >
+              C
+            </button>
+          ) : (
+            captain && (
+              <span
+                aria-label="Capitão"
+                title="Capitão"
+                className="absolute -top-1 -left-1 flex size-[18px] items-center justify-center rounded-full bg-primary text-[9px] font-extrabold text-primary-foreground"
+              >
+                C
+              </span>
+            )
+          ))}
       </div>
 
       {player ? (
@@ -107,6 +145,8 @@ export type FormationBoardProps = {
   /** Presente só quando a vaga pode abrir o mercado (janela aberta). */
   onSelect?: (index: number) => void;
   selectedIndex?: number | null;
+  /** Presente só quando o usuário pode trocar o capitão (mercado aberto). */
+  onSetCaptain?: (index: number) => void;
 };
 
 /** O time disposto em campo, como o usuário o montou. */
@@ -114,6 +154,7 @@ export function FormationBoard({
   roster,
   onSelect,
   selectedIndex = null,
+  onSetCaptain,
 }: FormationBoardProps) {
   return (
     <div className="relative w-full overflow-hidden bg-card pt-[78%] ring-1 ring-border">
@@ -125,6 +166,7 @@ export function FormationBoard({
           index={index}
           onSelect={onSelect}
           selected={index === selectedIndex}
+          onSetCaptain={onSetCaptain}
         />
       ))}
     </div>

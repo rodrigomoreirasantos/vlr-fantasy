@@ -3,27 +3,36 @@
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
-import { evaluateSubstitution, blockReasonMessage } from "@/lib/market/eligibility";
+import {
+  evaluateSubstitution,
+  blockReasonMessage,
+} from "@/lib/market/eligibility";
 import { isMarketOpen } from "@/lib/market/window";
 import { ActionError, authActionClient } from "@/lib/safe-action";
 import { toDomainPlayer } from "@/lib/team/mappers";
 import {
   applySubstitution,
   getActiveRound,
+  hasCaptain,
   loadPlayersByIds,
   loadRosteredPlayerIds,
   lockSlotForUpdate,
   lockTeamForUpdate,
+  setTeamCaptain,
 } from "@/lib/team/queries";
-import { substitutePlayerSchema } from "@/lib/validations/market";
+import {
+  setCaptainSchema,
+  substitutePlayerSchema,
+} from "@/lib/validations/market";
 
 /**
- * Substitui um jogador da escalação por outro do mercado, respeitando as
- * quatro regras de produto (janela de mercado, saldo, função e "quem sai
- * define a vaga"). Toda a leitura e escrita acontece dentro de uma única
- * `db.transaction`, com os dados relidos do banco — nunca confiados ao
- * cliente — e a mesma `evaluateSubstitution` que a UI usa para habilitar o
- * botão "Contratar" decide se a troca é aceita.
+ * Substitui um jogador da escalação por outro do mercado — ou preenche uma
+ * vaga vazia, quando `outgoingPlayerId` é `null` — respeitando as regras de
+ * produto (janela de mercado, saldo, função e "quem sai define a vaga").
+ * Toda a leitura e escrita acontece dentro de uma única `db.transaction`,
+ * com os dados relidos do banco — nunca confiados ao cliente — e a mesma
+ * `evaluateSubstitution` que a UI usa para habilitar o botão "Contratar"
+ * decide se a troca é aceita.
  */
 export const substitutePlayer = authActionClient
   .inputSchema(substitutePlayerSchema)
@@ -40,7 +49,10 @@ export const substitutePlayer = authActionClient
 
       const activeRound = await getActiveRound(tx);
       const marketOpen = activeRound
-        ? isMarketOpen({ opensAt: activeRound.marketOpensAt, closesAt: activeRound.marketClosesAt })
+        ? isMarketOpen({
+            opensAt: activeRound.marketOpensAt,
+            closesAt: activeRound.marketClosesAt,
+          })
         : false;
 
       const slot = await lockSlotForUpdate(tx, team.id, slotId);
@@ -50,10 +62,17 @@ export const substitutePlayer = authActionClient
         );
       }
 
-      const rows = await loadPlayersByIds(tx, [outgoingPlayerId, incomingPlayerId]);
-      const outgoing = rows.find((row) => row.id === outgoingPlayerId);
+      const rows = await loadPlayersByIds(
+        tx,
+        outgoingPlayerId
+          ? [outgoingPlayerId, incomingPlayerId]
+          : [incomingPlayerId],
+      );
+      const outgoing = outgoingPlayerId
+        ? rows.find((row) => row.id === outgoingPlayerId)
+        : null;
       const incoming = rows.find((row) => row.id === incomingPlayerId);
-      if (!outgoing || !incoming) {
+      if (!incoming || (outgoingPlayerId && !outgoing)) {
         throw new ActionError("Jogador não encontrado no catálogo.");
       }
 
@@ -63,14 +82,16 @@ export const substitutePlayer = authActionClient
         {
           marketOpen,
           balanceCents: team.balanceCents,
-          outgoing: toDomainPlayer(outgoing),
+          outgoing: outgoing ? toDomainPlayer(outgoing) : null,
           rosteredPlayerIds,
         },
         toDomainPlayer(incoming),
       );
 
       if (verdict.blockedBy) {
-        throw new ActionError(blockReasonMessage(verdict.blockedBy, outgoing.role));
+        throw new ActionError(
+          blockReasonMessage(verdict.blockedBy, outgoing?.role ?? null),
+        );
       }
       // `marketOpen` só é `true` quando há rodada ativa — garantido acima.
       if (!activeRound) {
@@ -83,10 +104,56 @@ export const substitutePlayer = authActionClient
         incomingPlayerId,
         outgoingPlayerId,
         roundId: activeRound.id,
-        outPriceCents: outgoing.priceCents,
+        outPriceCents: outgoing?.priceCents ?? 0,
         inPriceCents: incoming.priceCents,
         balanceAfterCents: verdict.balanceAfterCents,
       });
+
+      // Um time montado do zero não teria capitão até o usuário clicar no
+      // "C" manualmente — a primeira contratação já entra como capitã.
+      if (!outgoingPlayerId && !(await hasCaptain(tx, team.id))) {
+        await setTeamCaptain(tx, team.id, slotId);
+      }
+    });
+
+    revalidatePath("/my-team");
+    return { success: true as const };
+  });
+
+/**
+ * Move a braçadeira de capitão para outra vaga da escalação, respeitando a
+ * mesma regra de janela da substituição: só com o mercado aberto. Fora
+ * disso, o capitão fica travado com o resto do time.
+ */
+export const setCaptain = authActionClient
+  .inputSchema(setCaptainSchema)
+  .action(async ({ parsedInput, ctx }) => {
+    const { slotId } = parsedInput;
+
+    await db.transaction(async (tx) => {
+      const team = await lockTeamForUpdate(tx, ctx.userId);
+      if (!team) {
+        throw new ActionError("Não encontramos seu time. Recarregue a página.");
+      }
+
+      const activeRound = await getActiveRound(tx);
+      const marketOpen = activeRound
+        ? isMarketOpen({
+            opensAt: activeRound.marketOpensAt,
+            closesAt: activeRound.marketClosesAt,
+          })
+        : false;
+      if (!marketOpen) {
+        throw new ActionError("A janela de mercado está fechada.");
+      }
+
+      const slot = await lockSlotForUpdate(tx, team.id, slotId);
+      if (!slot || !slot.playerId) {
+        throw new ActionError("Essa vaga não tem jogador para ser capitão.");
+      }
+      if (slot.captain) return;
+
+      await setTeamCaptain(tx, team.id, slotId);
     });
 
     revalidatePath("/my-team");

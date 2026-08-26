@@ -95,6 +95,67 @@ describe("PlayerRow", () => {
       screen.getByRole("button", { name: /substituir tenz/i }),
     ).toHaveAttribute("aria-expanded", "true");
   });
+
+  it("sem onSetCaptain, quem não é capitão não mostra braçadeira nenhuma", () => {
+    render(
+      <ul>
+        <PlayerRow player={player} />
+      </ul>,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: /capitão/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("com onSetCaptain, a braçadeira aparece mesmo em quem não é capitão e chama onSetCaptain ao clicar", async () => {
+    const user = userEvent.setup();
+    const onSetCaptain = vi.fn();
+    render(
+      <ul>
+        <PlayerRow player={player} onSetCaptain={onSetCaptain} />
+      </ul>,
+    );
+
+    const badge = screen.getByRole("button", { name: "Tornar TenZ capitão" });
+    expect(badge).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(badge);
+    expect(onSetCaptain).toHaveBeenCalledOnce();
+  });
+
+  it("com onSetCaptain e captain, a braçadeira reflete que já é capitão", () => {
+    render(
+      <ul>
+        <PlayerRow player={player} captain onSetCaptain={() => {}} />
+      </ul>,
+    );
+
+    const badge = screen.getByRole("button", { name: "TenZ é o capitão" });
+    expect(badge).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("a braçadeira não conflita com o clique de substituir — são botões distintos", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const onSetCaptain = vi.fn();
+    render(
+      <ul>
+        <PlayerRow
+          player={player}
+          onSelect={onSelect}
+          onSetCaptain={onSetCaptain}
+        />
+      </ul>,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Tornar TenZ capitão" }),
+    );
+
+    expect(onSetCaptain).toHaveBeenCalledOnce();
+    expect(onSelect).not.toHaveBeenCalled();
+  });
 });
 
 describe("EmptyPlayerRow", () => {
@@ -105,7 +166,34 @@ describe("EmptyPlayerRow", () => {
       </ul>,
     );
 
-    expect(screen.getByText("3")).toBeInTheDocument();
-    expect(screen.getByText("Slot vazio")).toBeInTheDocument();
+    expect(screen.getByText("Adicionar jogador")).toBeInTheDocument();
+    expect(screen.getByText("Vaga 3")).toBeInTheDocument();
+  });
+
+  it("sem onSelect, não é um botão", () => {
+    render(
+      <ul>
+        <EmptyPlayerRow position={3} />
+      </ul>,
+    );
+
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("com onSelect, vira um botão que dispara a seleção da vaga", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+
+    render(
+      <ul>
+        <EmptyPlayerRow position={3} onSelect={onSelect} />
+      </ul>,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Adicionar jogador na vaga 3" }),
+    );
+
+    expect(onSelect).toHaveBeenCalledTimes(1);
   });
 });
