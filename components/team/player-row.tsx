@@ -126,11 +126,12 @@ export type PlayerIdentityProps = {
  * função sem ajudar nenhuma das duas decisões que a linha suporta
  * (substituir e vender). A função fica, porque é ela que organiza o mercado.
  *
- * Organização e função são texto puro, sem selo — um selo preenchido
- * (`bg-card`, #16181c) ficava indistinguível do fundo do card (`bg-secondary`,
- * #1c1f24): as duas superfícies são cinza-quase-preto quase idênticas no tema
- * dark, então o selo lia como uma mancha escura solta atrás do nome do time,
- * não como um rótulo.
+ * O selo da organização usa uma sobreposição clara (`bg-foreground/8`), não
+ * escura: um preenchimento escuro (`bg-card`, #16181c) ficava indistinguível
+ * do fundo do card (`bg-secondary`, #1c1f24) — duas superfícies
+ * cinza-quase-preto quase idênticas no tema dark —, então lia como uma
+ * mancha solta atrás do nome do time, não como um rótulo. Clarear em vez de
+ * escurecer garante contraste com qualquer superfície escura por trás.
  */
 export function PlayerIdentity({ player, trailing }: PlayerIdentityProps) {
   return (
@@ -139,14 +140,13 @@ export function PlayerIdentity({ player, trailing }: PlayerIdentityProps) {
         <p className="truncate text-sm font-bold uppercase">
           {player.nickname}
         </p>
-        <p className="mt-[3px] flex items-center gap-1.5 text-[10px] font-semibold tracking-wide uppercase">
-          <span className="min-w-0 truncate text-muted-foreground">
+        <p className="mt-[3px] flex items-center gap-1.5">
+          <span className="min-w-0 truncate rounded-sm bg-foreground/8 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
             {player.team}
           </span>
-          <span aria-hidden className="flex-none text-muted-foreground/50">
-            ·
+          <span className="flex-none text-[10px] font-semibold text-info uppercase">
+            {player.role}
           </span>
-          <span className="flex-none text-info">{player.role}</span>
         </p>
       </div>
 
