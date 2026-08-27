@@ -13,8 +13,8 @@ import {
 import { fantasyTeam } from "@/db/schema/fantasy-teams";
 import { player } from "@/db/schema/players";
 
-// Não há `role` na vaga: a função exigida vem do jogador que sai, não da
-// vaga — o roster de referência tem dois Duelistas.
+// Não há `role` na vaga: qualquer função pode ocupar qualquer vaga — o
+// usuário pode escalar cinco Duelistas se quiser (lib/market/eligibility.ts).
 export const rosterSlot = pgTable(
   "roster_slot",
   {

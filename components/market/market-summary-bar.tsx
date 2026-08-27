@@ -1,4 +1,5 @@
 import { PlayerPrice } from "@/components/team/player-price";
+import { formatCreditsDelta } from "@/lib/market/money";
 import type { Player } from "@/lib/team/types";
 import { cn } from "@/lib/utils";
 
@@ -31,7 +32,12 @@ export type MarketSummaryBarProps = {
   closesIn: string;
 };
 
-/** Saldo, quem sai da escalação (ou a vaga sendo preenchida) e a janela de mercado. */
+/**
+ * Saldo, quem sai da escalação (ou a vaga sendo preenchida) e a janela de
+ * mercado. Numa substituição, o crédito que a saída de `outgoing` gera
+ * aparece aqui, uma única vez — é o único lugar que mostra esse abatimento;
+ * os cards de candidato (`MarketPlayerRow`) mostram só o preço cheio.
+ */
 export function MarketSummaryBar({
   balanceCents,
   outgoing,
@@ -52,6 +58,11 @@ export function MarketSummaryBar({
         <p className="truncate text-sm font-bold uppercase">
           {outgoing ? outgoing.nickname : position}
         </p>
+        {outgoing && (
+          <p className="mt-0.5 text-[10px] font-semibold text-muted-foreground tabular-nums">
+            {formatCreditsDelta(outgoing.priceCents)}
+          </p>
+        )}
       </Stat>
 
       <Stat label="Mercado">

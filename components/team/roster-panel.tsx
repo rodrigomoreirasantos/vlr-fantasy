@@ -12,7 +12,11 @@ import { FormationBoard } from "@/components/team/formation-board";
 import { LineupProgress } from "@/components/team/lineup-progress";
 import { Panel } from "@/components/layout/panel";
 import { EmptyPlayerRow, PlayerRow } from "@/components/team/player-row";
-import { setCaptain, substitutePlayer } from "@/app/(app)/my-team/actions";
+import {
+  sellPlayer,
+  setCaptain,
+  substitutePlayer,
+} from "@/app/(app)/my-team/actions";
 import type { Player, PlayerRole, RosterSlot } from "@/lib/team/types";
 
 export type RosterPanelProps = {
@@ -73,6 +77,19 @@ export function RosterPanel({
     },
   });
 
+  const { execute: executeSell, isExecuting: isSelling } = useAction(
+    sellPlayer,
+    {
+      onSuccess: () => {
+        toast.success("Jogador vendido!");
+        setSelectedIndex(null);
+      },
+      onError: ({ error }) => {
+        toast.error(error.serverError ?? "Não foi possível vender o jogador.");
+      },
+    },
+  );
+
   function handleSelect(index: number) {
     if (!marketOpen || !roster[index]?.id) return;
     setSelectedIndex(index);
@@ -95,6 +112,19 @@ export function RosterPanel({
     const slot = roster[index];
     if (!slot?.id || slot.captain) return;
     executeSetCaptain({ slotId: slot.id });
+  }
+
+  function handleSell(playerToSell: Player) {
+    if (!selectedSlot?.id) return;
+    executeSell({ slotId: selectedSlot.id, outgoingPlayerId: playerToSell.id });
+  }
+
+  // Venda direto na linha do Resumo, sem passar pelo Sheet — mesma action,
+  // só que disparada pelo índice da vaga em vez de pela seleção corrente.
+  function handleSellAt(index: number) {
+    const slot = roster[index];
+    if (!slot?.id || !slot.player) return;
+    executeSell({ slotId: slot.id, outgoingPlayerId: slot.player.id });
   }
 
   return (
@@ -121,6 +151,11 @@ export function RosterPanel({
                   onSetCaptain={
                     marketOpen && slot.id
                       ? () => handleSetCaptain(index)
+                      : undefined
+                  }
+                  onSell={
+                    marketOpen && slot.id
+                      ? () => handleSellAt(index)
                       : undefined
                   }
                 />
@@ -160,7 +195,8 @@ export function RosterPanel({
         closesIn={closesIn}
         rosteredPlayerIds={rosteredPlayerIds}
         onConfirm={handleConfirm}
-        pending={isExecuting}
+        onSell={handleSell}
+        pending={isExecuting || isSelling}
       />
     </>
   );

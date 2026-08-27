@@ -97,6 +97,10 @@ export const getTeamOverview = cache(
  * escalado — esses candidatos aparecem bloqueados com motivo, e a regra já
  * existe em `evaluateSubstitution` (lib/market/eligibility.ts).
  *
+ * Ordenado do mais barato para o mais caro — a UI (`MarketSheet`) reordena
+ * de novo com `sortMarketCandidates` (lib/market/ordering.ts) para empurrar
+ * quem está bloqueado para o fim, mas já chega quase pronta do banco.
+ *
  * Resolve numa única query. Acima de alguns milhares de jogadores isso vira
  * leitura paginada.
  */
@@ -110,7 +114,7 @@ export async function getMarketByRole(
 
   const rows = await db.query.player.findMany({
     where: and(inArray(player.role, roles), eq(player.active, true)),
-    orderBy: (row, { desc, asc }) => [desc(row.score), asc(row.nickname)],
+    orderBy: (row, { asc }) => [asc(row.priceCents), asc(row.nickname)],
   });
 
   for (const row of rows) {
@@ -194,6 +198,46 @@ export async function applySubstitution(
     inPlayerId: args.incomingPlayerId,
     outPriceCents: args.outPriceCents,
     inPriceCents: args.inPriceCents,
+    balanceAfterCents: args.balanceAfterCents,
+  });
+}
+
+/**
+ * Vende `outgoingPlayerId`: a vaga esvazia e o preço cheio dele é creditado
+ * no saldo. Sem `incomingPlayerId` — quem quer contratar alguém no lugar usa
+ * `applySubstitution`. A vaga também perde a braçadeira aqui: não existe
+ * capitão numa vaga vazia, e deixá-la marcada travaria
+ * `roster_slot_single_captain_uidx` até alguém preencher a vaga de novo.
+ */
+export async function applySale(
+  tx: Querier,
+  args: {
+    teamId: string;
+    slotId: string;
+    outgoingPlayerId: string;
+    roundId: string;
+    outPriceCents: number;
+    balanceAfterCents: number;
+  },
+): Promise<void> {
+  await tx
+    .update(rosterSlot)
+    .set({ playerId: null, captain: false })
+    .where(eq(rosterSlot.id, args.slotId));
+
+  await tx
+    .update(fantasyTeam)
+    .set({ balanceCents: args.balanceAfterCents })
+    .where(eq(fantasyTeam.id, args.teamId));
+
+  await tx.insert(transfer).values({
+    fantasyTeamId: args.teamId,
+    roundId: args.roundId,
+    rosterSlotId: args.slotId,
+    outPlayerId: args.outgoingPlayerId,
+    inPlayerId: null,
+    outPriceCents: args.outPriceCents,
+    inPriceCents: 0,
     balanceAfterCents: args.balanceAfterCents,
   });
 }

@@ -15,6 +15,7 @@ const {
   loadPlayersByIdsMock,
   loadRosteredPlayerIdsMock,
   applySubstitutionMock,
+  applySaleMock,
   setTeamCaptainMock,
   hasCaptainMock,
 } = vi.hoisted(() => {
@@ -33,6 +34,7 @@ const {
     loadPlayersByIdsMock: vi.fn(),
     loadRosteredPlayerIdsMock: vi.fn(),
     applySubstitutionMock: vi.fn(),
+    applySaleMock: vi.fn(),
     setTeamCaptainMock: vi.fn(),
     hasCaptainMock: vi.fn(),
   };
@@ -51,11 +53,16 @@ vi.mock("@/lib/team/queries", () => ({
   loadPlayersByIds: loadPlayersByIdsMock,
   loadRosteredPlayerIds: loadRosteredPlayerIdsMock,
   applySubstitution: applySubstitutionMock,
+  applySale: applySaleMock,
   setTeamCaptain: setTeamCaptainMock,
   hasCaptain: hasCaptainMock,
 }));
 
-import { setCaptain, substitutePlayer } from "@/app/(app)/my-team/actions";
+import {
+  sellPlayer,
+  setCaptain,
+  substitutePlayer,
+} from "@/app/(app)/my-team/actions";
 
 const SLOT_ID = "11111111-1111-4111-8111-111111111111";
 const OUTGOING_ID = "22222222-2222-4222-8222-222222222222";
@@ -155,7 +162,7 @@ describe("substitutePlayer", () => {
     expect(applySubstitutionMock).not.toHaveBeenCalled();
   });
 
-  it("função diferente: bloqueia mencionando a função exigida", async () => {
+  it("função diferente: não bloqueia — qualquer função pode ocupar a vaga", async () => {
     loadPlayersByIdsMock.mockResolvedValue([
       OUTGOING_ROW,
       { ...INCOMING_ROW, role: "Sentinela" as const },
@@ -163,10 +170,8 @@ describe("substitutePlayer", () => {
 
     const result = await substitutePlayer(VALID_INPUT);
 
-    expect(result?.serverError).toBe(
-      "Só é possível substituir por outro Duelista.",
-    );
-    expect(applySubstitutionMock).not.toHaveBeenCalled();
+    expect(result?.data).toEqual({ success: true });
+    expect(applySubstitutionMock).toHaveBeenCalled();
   });
 
   it("saldo insuficiente: bloqueia com a mensagem correspondente", async () => {
@@ -325,6 +330,56 @@ describe("setCaptain", () => {
 
     expect(result?.data).toEqual({ success: true });
     expect(setTeamCaptainMock).toHaveBeenCalledWith(txStub, TEAM.id, SLOT_ID);
+    expect(revalidatePathMock).toHaveBeenCalledWith("/my-team");
+  });
+});
+
+describe("sellPlayer", () => {
+  const SELL_INPUT = { slotId: SLOT_ID, outgoingPlayerId: OUTGOING_ID };
+
+  it("sem sessão: recusa antes de abrir transação", async () => {
+    getSessionMock.mockResolvedValue(null);
+
+    const result = await sellPlayer(SELL_INPUT);
+
+    expect(result?.serverError).toBe("Sua sessão expirou. Entre novamente.");
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("mercado fechado: bloqueia com a mensagem correspondente", async () => {
+    getActiveRoundMock.mockResolvedValue(CLOSED_ROUND);
+
+    const result = await sellPlayer(SELL_INPUT);
+
+    expect(result?.serverError).toBe("A janela de mercado está fechada.");
+    expect(applySaleMock).not.toHaveBeenCalled();
+  });
+
+  it("vaga mudou (jogador de saída não bate): recusa", async () => {
+    lockSlotForUpdateMock.mockResolvedValue({ ...SLOT, playerId: INCOMING_ID });
+
+    const result = await sellPlayer(SELL_INPUT);
+
+    expect(result?.serverError).toBe(
+      "Essa vaga mudou enquanto você decidia. Recarregue a página.",
+    );
+    expect(applySaleMock).not.toHaveBeenCalled();
+  });
+
+  it("sucesso mesmo com saldo zerado: credita o preço cheio e revalida a página", async () => {
+    lockTeamForUpdateMock.mockResolvedValue({ ...TEAM, balanceCents: 0 });
+
+    const result = await sellPlayer(SELL_INPUT);
+
+    expect(result?.data).toEqual({ success: true });
+    expect(applySaleMock).toHaveBeenCalledWith(txStub, {
+      teamId: TEAM.id,
+      slotId: SLOT_ID,
+      outgoingPlayerId: OUTGOING_ID,
+      roundId: OPEN_ROUND.id,
+      outPriceCents: OUTGOING_ROW.priceCents,
+      balanceAfterCents: OUTGOING_ROW.priceCents,
+    });
     expect(revalidatePathMock).toHaveBeenCalledWith("/my-team");
   });
 });

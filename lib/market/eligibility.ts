@@ -1,20 +1,20 @@
-import type { Player, PlayerRole } from "@/lib/team/types";
+import type { Player } from "@/lib/team/types";
 
 export type BlockReason =
   | "market-closed"
   | "player-inactive"
   | "same-player"
   | "already-rostered"
-  | "role-mismatch"
   | "insufficient-balance";
 
 export type SubstitutionContext = {
   marketOpen: boolean;
   balanceCents: number;
   /**
-   * Quem deixa a vaga — define a função exigida e o crédito da venda.
-   * `null` numa vaga vazia: não há função exigida nem crédito, e o custo da
-   * contratação é o preço cheio do candidato.
+   * Quem deixa a vaga — define o crédito da venda que abate o custo da
+   * contratação. `null` numa vaga vazia: não há crédito, e o custo da
+   * contratação é o preço cheio do candidato. Qualquer função é aceita em
+   * qualquer vaga — o usuário pode escalar cinco Duelistas se quiser.
    */
   outgoing: Player | null;
   rosteredPlayerIds: readonly string[];
@@ -32,7 +32,6 @@ const REASON_LABELS: Record<BlockReason, string> = {
   "player-inactive": "Indisponível",
   "same-player": "Já é seu",
   "already-rostered": "Já escalado",
-  "role-mismatch": "Outra função",
   "insufficient-balance": "Sem saldo",
 };
 
@@ -44,12 +43,13 @@ const REASON_LABELS: Record<BlockReason, string> = {
  * Nunca reescrever esta regra em outro lugar.
  *
  * Precedência fixa (a primeira que casar vence) — assim o usuário nunca vê
- * "sem saldo" quando o problema real é a função:
+ * "sem saldo" quando o problema real é outro:
  * market-closed → player-inactive → same-player → already-rostered →
- * role-mismatch → insufficient-balance.
+ * insufficient-balance.
  *
- * `same-player` e `role-mismatch` só são alcançáveis com `ctx.outgoing` —
- * uma vaga vazia não tem função exigida, então qualquer função é aceita.
+ * `same-player` só é alcançável com `ctx.outgoing` — não há função exigida
+ * em nenhum dos dois modos: o usuário pode escalar qualquer combinação de
+ * funções, inclusive repetidas.
  */
 export function evaluateSubstitution(
   ctx: SubstitutionContext,
@@ -63,8 +63,6 @@ export function evaluateSubstitution(
     if (!incoming.active) return "player-inactive";
     if (ctx.outgoing && incoming.id === ctx.outgoing.id) return "same-player";
     if (ctx.rosteredPlayerIds.includes(incoming.id)) return "already-rostered";
-    if (ctx.outgoing && incoming.role !== ctx.outgoing.role)
-      return "role-mismatch";
     // Fronteira exata: gastar o saldo todo é permitido.
     if (netCostCents > ctx.balanceCents) return "insufficient-balance";
     return null;
@@ -80,14 +78,35 @@ export function canSubstitute(
   return evaluateSubstitution(ctx, incoming).blockedBy === null;
 }
 
+export type SaleVerdict = {
+  proceedsCents: number;
+  balanceAfterCents: number;
+  blockedBy: "market-closed" | null;
+};
+
+/**
+ * Vender `outgoing` sem contratar ninguém no lugar: a vaga fica vazia e o
+ * preço cheio do jogador é creditado no saldo. Único bloqueio possível é o
+ * mercado fechado — vender não tem função exigida nem checagem de saldo
+ * (é sempre crédito, nunca custo).
+ */
+export function evaluateSale(
+  ctx: { marketOpen: boolean; balanceCents: number },
+  outgoing: Player,
+): SaleVerdict {
+  const proceedsCents = outgoing.priceCents;
+  return {
+    proceedsCents,
+    balanceAfterCents: ctx.balanceCents + proceedsCents,
+    blockedBy: ctx.marketOpen ? null : "market-closed",
+  };
+}
+
 export function blockReasonLabel(reason: BlockReason): string {
   return REASON_LABELS[reason];
 }
 
-export function blockReasonMessage(
-  reason: BlockReason,
-  requiredRole: PlayerRole | null,
-): string {
+export function blockReasonMessage(reason: BlockReason): string {
   switch (reason) {
     case "market-closed":
       return "A janela de mercado está fechada.";
@@ -97,12 +116,6 @@ export function blockReasonMessage(
       return "Este jogador já ocupa essa vaga.";
     case "already-rostered":
       return "Este jogador já está no seu time.";
-    case "role-mismatch":
-      // Defensivo: só alcançável com uma vaga ocupada (`ctx.outgoing`
-      // não-nulo), que sempre carrega uma função.
-      return requiredRole
-        ? `Só é possível substituir por outro ${requiredRole}.`
-        : "Só é possível substituir por outro jogador da mesma função.";
     case "insufficient-balance":
       return "Saldo insuficiente para esta contratação.";
   }

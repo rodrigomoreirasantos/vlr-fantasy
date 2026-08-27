@@ -8,7 +8,7 @@ import { TeamStats } from "@/components/team/team-stats";
 import { auth } from "@/lib/auth";
 import { getMarketByRole, getTeamOverview } from "@/lib/team/queries";
 import { highestScorer, lowestScorer } from "@/lib/team/score";
-import { PLAYER_ROLES, type PlayerRole } from "@/lib/team/types";
+import { PLAYER_ROLES } from "@/lib/team/types";
 
 export const metadata: Metadata = {
   title: "Meu Time | VLR Fantasy",
@@ -29,14 +29,9 @@ export default async function MyTeamPage() {
   }
 
   const { summary, roster } = overview;
-  const rolesEscaladas = new Set<PlayerRole>(
-    roster.flatMap((slot) => (slot.player ? [slot.player.role] : [])),
-  );
-  // Uma vaga vazia não tem função exigida: o usuário escolhe entre todas.
-  const temVagaVazia = roster.some((slot) => !slot.player);
-  const market = await getMarketByRole(
-    temVagaVazia ? PLAYER_ROLES : Array.from(rolesEscaladas),
-  );
+  // Qualquer função pode ocupar qualquer vaga — o mercado sempre traz as
+  // quatro (lib/market/eligibility.ts).
+  const market = await getMarketByRole(PLAYER_ROLES);
 
   const best = highestScorer(roster);
   const worst = lowestScorer(roster);

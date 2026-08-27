@@ -26,6 +26,13 @@ export type PlayerScoreProps = {
   /** Superfície logo atrás do chip — define o tom do estado neutro. */
   surface?: keyof typeof neutralOnSurface;
   size?: keyof typeof sizeClasses;
+  /**
+   * Rótulo da unidade ao lado do número, ex. `"PTS"`. Sem ele o chip é só um
+   * número solto, que na lista do "Resumo" — ao lado do botão de vender —
+   * podia ser lido como preço ou como parte da ação. Omitido onde o espaço
+   * não permite e o contexto já diz o que é (os marcadores do campo).
+   */
+  unit?: string;
   className?: string;
 };
 
@@ -37,6 +44,7 @@ export function PlayerScore({
   score,
   surface = "secondary",
   size = "md",
+  unit,
   className,
 }: PlayerScoreProps) {
   const tone = scoreTone(score);
@@ -52,6 +60,12 @@ export function PlayerScore({
       )}
     >
       {formatScore(score)}
+      {unit && (
+        <>
+          {" "}
+          <span className="text-[0.7em] font-bold opacity-70">{unit}</span>
+        </>
+      )}
     </span>
   );
 }

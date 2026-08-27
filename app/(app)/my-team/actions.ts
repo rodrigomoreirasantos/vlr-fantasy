@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
 import {
+  evaluateSale,
   evaluateSubstitution,
   blockReasonMessage,
 } from "@/lib/market/eligibility";
@@ -11,6 +12,7 @@ import { isMarketOpen } from "@/lib/market/window";
 import { ActionError, authActionClient } from "@/lib/safe-action";
 import { toDomainPlayer } from "@/lib/team/mappers";
 import {
+  applySale,
   applySubstitution,
   getActiveRound,
   hasCaptain,
@@ -21,6 +23,7 @@ import {
   setTeamCaptain,
 } from "@/lib/team/queries";
 import {
+  sellPlayerSchema,
   setCaptainSchema,
   substitutePlayerSchema,
 } from "@/lib/validations/market";
@@ -89,9 +92,7 @@ export const substitutePlayer = authActionClient
       );
 
       if (verdict.blockedBy) {
-        throw new ActionError(
-          blockReasonMessage(verdict.blockedBy, outgoing?.role ?? null),
-        );
+        throw new ActionError(blockReasonMessage(verdict.blockedBy));
       }
       // `marketOpen` só é `true` quando há rodada ativa — garantido acima.
       if (!activeRound) {
@@ -114,6 +115,70 @@ export const substitutePlayer = authActionClient
       if (!outgoingPlayerId && !(await hasCaptain(tx, team.id))) {
         await setTeamCaptain(tx, team.id, slotId);
       }
+    });
+
+    revalidatePath("/my-team");
+    return { success: true as const };
+  });
+
+/**
+ * Vende um jogador escalado sem contratar ninguém no lugar: a vaga fica
+ * vazia e o preço cheio dele é creditado no saldo. Mesmo padrão de
+ * transação/lock de `substitutePlayer`, mas sem `incomingPlayerId` — quem
+ * decide se a venda vale é `evaluateSale`, a mesma função que a UI usa para
+ * habilitar o botão "Vender".
+ */
+export const sellPlayer = authActionClient
+  .inputSchema(sellPlayerSchema)
+  .action(async ({ parsedInput, ctx }) => {
+    const { slotId, outgoingPlayerId } = parsedInput;
+
+    await db.transaction(async (tx) => {
+      const team = await lockTeamForUpdate(tx, ctx.userId);
+      if (!team) {
+        throw new ActionError("Não encontramos seu time. Recarregue a página.");
+      }
+
+      const activeRound = await getActiveRound(tx);
+      const marketOpen = activeRound
+        ? isMarketOpen({
+            opensAt: activeRound.marketOpensAt,
+            closesAt: activeRound.marketClosesAt,
+          })
+        : false;
+
+      const slot = await lockSlotForUpdate(tx, team.id, slotId);
+      if (!slot || slot.playerId !== outgoingPlayerId) {
+        throw new ActionError(
+          "Essa vaga mudou enquanto você decidia. Recarregue a página.",
+        );
+      }
+
+      const [outgoing] = await loadPlayersByIds(tx, [outgoingPlayerId]);
+      if (!outgoing) {
+        throw new ActionError("Jogador não encontrado no catálogo.");
+      }
+
+      const verdict = evaluateSale(
+        { marketOpen, balanceCents: team.balanceCents },
+        toDomainPlayer(outgoing),
+      );
+      if (verdict.blockedBy) {
+        throw new ActionError(blockReasonMessage(verdict.blockedBy));
+      }
+      // `marketOpen` só é `true` quando há rodada ativa — garantido acima.
+      if (!activeRound) {
+        throw new ActionError("Não há rodada ativa no momento.");
+      }
+
+      await applySale(tx, {
+        teamId: team.id,
+        slotId,
+        outgoingPlayerId,
+        roundId: activeRound.id,
+        outPriceCents: outgoing.priceCents,
+        balanceAfterCents: verdict.balanceAfterCents,
+      });
     });
 
     revalidatePath("/my-team");

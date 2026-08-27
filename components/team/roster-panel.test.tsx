@@ -5,24 +5,32 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   executeSubstituteMock,
   executeSetCaptainMock,
+  executeSellMock,
   substitutePlayerToken,
   setCaptainToken,
+  sellPlayerToken,
 } = vi.hoisted(() => ({
   executeSubstituteMock: vi.fn(),
   executeSetCaptainMock: vi.fn(),
+  executeSellMock: vi.fn(),
   substitutePlayerToken: Symbol("substitutePlayer"),
   setCaptainToken: Symbol("setCaptain"),
+  sellPlayerToken: Symbol("sellPlayer"),
 }));
 
 vi.mock("@/app/(app)/my-team/actions", () => ({
   substitutePlayer: substitutePlayerToken,
   setCaptain: setCaptainToken,
+  sellPlayer: sellPlayerToken,
 }));
 vi.mock("next-safe-action/hooks", () => ({
-  useAction: (action: unknown) =>
-    action === setCaptainToken
-      ? { execute: executeSetCaptainMock, isExecuting: false }
-      : { execute: executeSubstituteMock, isExecuting: false },
+  useAction: (action: unknown) => {
+    if (action === setCaptainToken)
+      return { execute: executeSetCaptainMock, isExecuting: false };
+    if (action === sellPlayerToken)
+      return { execute: executeSellMock, isExecuting: false };
+    return { execute: executeSubstituteMock, isExecuting: false };
+  },
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
@@ -71,6 +79,7 @@ describe("RosterPanel", () => {
   beforeEach(() => {
     executeSubstituteMock.mockClear();
     executeSetCaptainMock.mockClear();
+    executeSellMock.mockClear();
   });
 
   it("clicar na linha da lista abre o mercado para aquela vaga", async () => {
@@ -87,7 +96,7 @@ describe("RosterPanel", () => {
 
     await user.click(screen.getByRole("button", { name: /substituir tenz$/i }));
 
-    expect(screen.getByText("Mercado · Duelista")).toBeInTheDocument();
+    expect(screen.getByText("Mercado · Substituir TenZ")).toBeInTheDocument();
     expect(screen.getByText(/Substituindo TenZ\./)).toBeInTheDocument();
   });
 
@@ -107,7 +116,7 @@ describe("RosterPanel", () => {
       screen.getByRole("button", { name: "Substituir TenZ no campo" }),
     );
 
-    expect(screen.getByText("Mercado · Duelista")).toBeInTheDocument();
+    expect(screen.getByText("Mercado · Substituir TenZ")).toBeInTheDocument();
     expect(screen.getByText(/Substituindo TenZ\./)).toBeInTheDocument();
   });
 
@@ -127,6 +136,9 @@ describe("RosterPanel", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /capitão/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /vender/i }),
     ).not.toBeInTheDocument();
     // O selo de quem já é capitão continua visível (na lista e no campo),
     // só não é mais um botão.
@@ -189,12 +201,72 @@ describe("RosterPanel", () => {
 
     expect(executeSetCaptainMock).toHaveBeenCalledWith({ slotId: "slot-2" });
   });
+
+  it("clicar em Vender no Sheet chama a action de venda para a vaga selecionada", async () => {
+    const user = userEvent.setup();
+    render(
+      <RosterPanel
+        roster={makeRoster()}
+        market={emptyMarket()}
+        balanceCents={10_000}
+        marketOpen
+        closesIn="36h 12m"
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /substituir tenz$/i }));
+    await user.click(screen.getByRole("button", { name: /vender tenz/i }));
+
+    expect(executeSellMock).toHaveBeenCalledWith({
+      slotId: "slot-2",
+      outgoingPlayerId: "tenz",
+    });
+  });
+
+  it("clicar em Vender na linha do Resumo vende direto, sem abrir o mercado", async () => {
+    const user = userEvent.setup();
+    render(
+      <RosterPanel
+        roster={makeRoster()}
+        market={emptyMarket()}
+        balanceCents={10_000}
+        marketOpen
+        closesIn="36h 12m"
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Vender TenZ" }));
+
+    expect(executeSellMock).toHaveBeenCalledWith({
+      slotId: "slot-2",
+      outgoingPlayerId: "tenz",
+    });
+    // Vender na linha não abre o Sheet.
+    expect(screen.queryByText(/Mercado ·/)).not.toBeInTheDocument();
+  });
+
+  it("mercado fechado: o botão Vender da linha não aparece", () => {
+    render(
+      <RosterPanel
+        roster={makeRoster()}
+        market={emptyMarket()}
+        balanceCents={10_000}
+        marketOpen={false}
+        closesIn="Encerrado"
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Vender TenZ" }),
+    ).not.toBeInTheDocument();
+  });
 });
 
 describe("RosterPanel — vaga vazia", () => {
   beforeEach(() => {
     executeSubstituteMock.mockClear();
     executeSetCaptainMock.mockClear();
+    executeSellMock.mockClear();
   });
 
   it("mostra a faixa de progresso quando a escalação não está completa", () => {

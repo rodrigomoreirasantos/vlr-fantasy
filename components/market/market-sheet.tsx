@@ -6,6 +6,7 @@ import { TriangleAlert } from "lucide-react";
 import { MarketPlayerRow } from "@/components/market/market-player-row";
 import { MarketSummaryBar } from "@/components/market/market-summary-bar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Sheet,
@@ -14,17 +15,21 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  evaluateSubstitution,
+  evaluateSale,
   type SubstitutionContext,
 } from "@/lib/market/eligibility";
+import { formatCredits, formatCreditsDelta } from "@/lib/market/money";
+import { sortMarketCandidates } from "@/lib/market/ordering";
 import { PLAYER_ROLES, type Player, type PlayerRole } from "@/lib/team/types";
 import { cn } from "@/lib/utils";
 
 /**
  * Qual vaga o mercado está preenchendo. `outgoing` é `null` para uma vaga
- * vazia — não há função exigida nem crédito de venda, então o mercado lista
- * as quatro funções agrupadas em vez de uma lista única.
+ * vazia — não há crédito de venda a abater do custo da contratação. Qualquer
+ * função é aceita nos dois casos: o usuário pode escalar cinco Duelistas se
+ * quiser, então o mercado sempre lista as quatro funções, por abas.
  */
 export type MarketSelection = {
   position: number;
@@ -42,35 +47,18 @@ export type MarketSheetProps = {
   closesIn: string;
   rosteredPlayerIds: readonly string[];
   onConfirm: (candidate: Player) => void;
+  /** Ausente numa vaga vazia — não há ninguém para vender. */
+  onSell?: (outgoing: Player) => void;
   pending?: boolean;
 };
 
-type CandidateGroup = {
-  role: PlayerRole;
-  /** Só aparece quando há mais de uma função na lista (vaga vazia). */
-  showHeader: boolean;
-  candidates: Player[];
-};
-
-// Quem pode ser contratado aparece primeiro; quem está bloqueado (sem saldo,
-// etc.) vai para o fim do grupo. `sort` é estável, então a ordem por
-// pontuação de `getMarketByRole` é preservada dentro de cada função.
-function sortByEligibility(
-  candidates: Player[],
-  ctx: SubstitutionContext,
-): Player[] {
-  return [...candidates].sort((a, b) => {
-    const aBlocked = evaluateSubstitution(ctx, a).blockedBy !== null;
-    const bBlocked = evaluateSubstitution(ctx, b).blockedBy !== null;
-    return Number(aBlocked) - Number(bBlocked);
-  });
-}
-
 /**
  * Painel do mercado, aberto ao selecionar uma vaga da escalação — ocupada
- * (substituição, só a mesma função) ou vazia (nova contratação, todas as
- * funções). A filtragem, o preço e o bloqueio de cada linha vêm de
- * `evaluateSubstitution` (lib/market/eligibility.ts), nunca reescritos aqui.
+ * (substituição) ou vazia (nova contratação). As quatro funções aparecem
+ * sempre como abas, nos dois modos. A filtragem, o preço e o bloqueio de
+ * cada linha vêm de `evaluateSubstitution` (lib/market/eligibility.ts),
+ * nunca reescritos aqui; a ordem (mais barato → mais caro, bloqueados por
+ * último) vem de `sortMarketCandidates` (lib/market/ordering.ts).
  */
 export function MarketSheet({
   open,
@@ -82,6 +70,7 @@ export function MarketSheet({
   closesIn,
   rosteredPlayerIds,
   onConfirm,
+  onSell,
   pending = false,
 }: MarketSheetProps) {
   const outgoing = selection?.outgoing ?? null;
@@ -91,38 +80,47 @@ export function MarketSheet({
     return { marketOpen, balanceCents, outgoing, rosteredPlayerIds };
   }, [selection, outgoing, marketOpen, balanceCents, rosteredPlayerIds]);
 
-  const groups = useMemo(() => {
-    if (!selection || !ctx) return [];
-    if (outgoing) {
-      return [
-        {
-          role: outgoing.role,
-          showHeader: false,
-          candidates: sortByEligibility(market[outgoing.role] ?? [], ctx),
-        },
-      ] satisfies CandidateGroup[];
-    }
-    return PLAYER_ROLES.map((role) => ({
-      role,
-      showHeader: true,
-      candidates: sortByEligibility(market[role] ?? [], ctx),
-    })).filter((group) => group.candidates.length > 0);
-  }, [selection, ctx, outgoing, market]);
+  const saleVerdict = useMemo(() => {
+    if (!outgoing) return null;
+    return evaluateSale({ marketOpen, balanceCents }, outgoing);
+  }, [outgoing, marketOpen, balanceCents]);
 
-  const hasCandidates = groups.some((group) => group.candidates.length > 0);
+  const candidatesByRole = useMemo(() => {
+    if (!ctx) return null;
+    return Object.fromEntries(
+      PLAYER_ROLES.map((role) => [
+        role,
+        sortMarketCandidates(market[role] ?? [], ctx),
+      ]),
+    ) as Record<PlayerRole, Player[]>;
+  }, [ctx, market]);
+
+  // Aba inicial: a função de quem sai, numa substituição — mesmo que ela não
+  // tenha candidatos, é a mais relevante para o usuário ver primeiro. Numa
+  // vaga vazia, a primeira função que tiver algum candidato.
+  const initialRole = useMemo((): PlayerRole => {
+    if (outgoing) return outgoing.role;
+    return (
+      PLAYER_ROLES.find((role) => (candidatesByRole?.[role].length ?? 0) > 0) ??
+      PLAYER_ROLES[0]
+    );
+  }, [outgoing, candidatesByRole]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="flex w-full flex-col gap-0 data-[side=right]:w-full data-[side=right]:sm:max-w-lg">
-        {selection && ctx && (
+        {selection && ctx && candidatesByRole && (
           <>
             <SheetHeader>
               <SheetTitle>
-                Mercado · {outgoing ? outgoing.role : "Nova contratação"}
+                Mercado ·{" "}
+                {outgoing
+                  ? `Substituir ${outgoing.nickname}`
+                  : "Nova contratação"}
               </SheetTitle>
               <SheetDescription>
                 {outgoing
-                  ? `Substituindo ${outgoing.nickname}. Só aparecem jogadores da mesma função.`
+                  ? `Substituindo ${outgoing.nickname}. Escolha qualquer função.`
                   : `Escolha um jogador para a vaga ${selection.position}.`}
               </SheetDescription>
             </SheetHeader>
@@ -136,6 +134,33 @@ export function MarketSheet({
                 closesIn={closesIn}
               />
 
+              {outgoing && saleVerdict && (
+                <div className="clip-corner flex flex-col gap-2 bg-secondary p-3 ring-1 ring-border [--clip:10px]">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                      Vender {outgoing.nickname}
+                    </p>
+                    <p className="mt-1 truncate text-lg font-extrabold text-primary tabular-nums">
+                      Você recebe{" "}
+                      {formatCreditsDelta(saleVerdict.proceedsCents)}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    className="w-full"
+                    aria-disabled={saleVerdict.blockedBy !== null || pending}
+                    aria-label={`Vender ${outgoing.nickname} por ${formatCredits(outgoing.priceCents)}`}
+                    onClick={() => {
+                      if (!saleVerdict.blockedBy && !pending)
+                        onSell?.(outgoing);
+                    }}
+                  >
+                    Vender jogador
+                  </Button>
+                </div>
+              )}
+
               {!marketOpen && (
                 <Alert variant="destructive">
                   <TriangleAlert aria-hidden />
@@ -148,48 +173,65 @@ export function MarketSheet({
               )}
 
               {/*
-                min-h-0 é o que faz o flex-1 valer: sem ele, um flex item sem
-                overflow próprio assume min-height:auto e cresce para caber
-                todo o conteúdo (o `<ul>` inteiro), em vez de ser limitado
-                pelo espaço disponível no Sheet — daí a lista cortar sem
-                barra de rolagem.
+                `key` força o Tabs a remontar (e reavaliar `defaultValue`)
+                sempre que a vaga selecionada muda — trocar de vaga sem
+                fechar o Sheet não deve manter a aba da vaga anterior.
               */}
-              <ScrollArea className="-mx-1 min-h-0 flex-1 px-1">
-                {!hasCandidates ? (
-                  <p className="py-6 text-center text-xs text-muted-foreground">
-                    {outgoing
-                      ? `Nenhum ${outgoing.role} disponível no mercado.`
-                      : "Nenhum jogador disponível no mercado."}
-                  </p>
-                ) : (
-                  <div
-                    className={cn(
-                      "flex flex-col gap-4",
-                      pending && "pointer-events-none opacity-70",
-                    )}
-                  >
-                    {groups.map((group) => (
-                      <div key={group.role} className="flex flex-col gap-2">
-                        {group.showHeader && (
-                          <h3 className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-                            {group.role}
-                          </h3>
+              <Tabs
+                key={`${selection.position}-${outgoing?.id ?? "empty"}`}
+                defaultValue={initialRole}
+                className="flex min-h-0 flex-1 flex-col gap-3"
+              >
+                <TabsList className="w-full">
+                  {PLAYER_ROLES.map((role) => (
+                    <TabsTrigger
+                      key={role}
+                      value={role}
+                      disabled={candidatesByRole[role].length === 0}
+                    >
+                      {role}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+
+                {PLAYER_ROLES.map((role) => {
+                  const candidates = candidatesByRole[role];
+                  return (
+                    <TabsContent key={role} value={role} className="min-h-0">
+                      {/*
+                        min-h-0 é o que faz o flex-1 valer: sem ele, um flex
+                        item sem overflow próprio assume min-height:auto e
+                        cresce para caber todo o conteúdo (o `<ul>` inteiro),
+                        em vez de ser limitado pelo espaço disponível no
+                        Sheet — daí a lista cortar sem barra de rolagem.
+                      */}
+                      <ScrollArea className="-mx-1 h-full px-1">
+                        {candidates.length === 0 ? (
+                          <p className="py-6 text-center text-xs text-muted-foreground">
+                            Nenhum {role} disponível no mercado.
+                          </p>
+                        ) : (
+                          <ul
+                            className={cn(
+                              "flex flex-col gap-2",
+                              pending && "pointer-events-none opacity-70",
+                            )}
+                          >
+                            {candidates.map((candidate) => (
+                              <MarketPlayerRow
+                                key={candidate.id}
+                                ctx={ctx}
+                                candidate={candidate}
+                                onConfirm={onConfirm}
+                              />
+                            ))}
+                          </ul>
                         )}
-                        <ul className="flex flex-col gap-2">
-                          {group.candidates.map((candidate) => (
-                            <MarketPlayerRow
-                              key={candidate.id}
-                              ctx={ctx}
-                              candidate={candidate}
-                              onConfirm={onConfirm}
-                            />
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
+                      </ScrollArea>
+                    </TabsContent>
+                  );
+                })}
+              </Tabs>
             </div>
           </>
         )}

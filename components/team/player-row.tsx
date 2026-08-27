@@ -1,6 +1,7 @@
-import { Plus } from "lucide-react";
+import { HandCoins, Plus } from "lucide-react";
 
 import { PlayerScore } from "@/components/team/player-score";
+import { Button } from "@/components/ui/button";
 import type { Player } from "@/lib/team/types";
 import { cn } from "@/lib/utils";
 
@@ -107,14 +108,25 @@ export function PlayerPortraitBadge({
 
 export type PlayerIdentityProps = {
   player: Player;
+  /**
+   * Conteúdo à direita do nome — por padrão, a pontuação da rodada. O
+   * mercado troca por `PlayerPrice` (o preço atual), porque a pontuação de
+   * um candidato não é a informação relevante ali. Ver
+   * `components/market/market-player-row.tsx`.
+   */
+  trailing?: React.ReactNode;
 };
 
 /**
- * Nome, organização, agente/função e pontuação de um jogador — sem o
- * retrato (ver `PlayerPortraitBadge`). Compartilhado entre "Meu Time" e o
- * mercado de transferências.
+ * Nome, organização, função e pontuação de um jogador — sem o retrato (ver
+ * `PlayerPortraitBadge`). Compartilhado entre "Meu Time" e o mercado de
+ * transferências.
+ *
+ * O agente não aparece: numa linha estreita ele disputava espaço com a
+ * função sem ajudar nenhuma das duas decisões que a linha suporta
+ * (substituir e vender). A função fica, porque é ela que organiza o mercado.
  */
-export function PlayerIdentity({ player }: PlayerIdentityProps) {
+export function PlayerIdentity({ player, trailing }: PlayerIdentityProps) {
   return (
     <>
       <div className="min-w-0 flex-1">
@@ -126,16 +138,19 @@ export function PlayerIdentity({ player }: PlayerIdentityProps) {
             {player.team}
           </span>
           <span className="text-[10px] font-semibold text-info uppercase">
-            {player.agent} · {player.role}
+            {player.role}
           </span>
         </p>
       </div>
 
-      <PlayerScore
-        score={player.score}
-        surface="secondary"
-        className="clip-corner flex-none [--clip:6px]"
-      />
+      {trailing ?? (
+        <PlayerScore
+          score={player.score}
+          surface="secondary"
+          unit="PTS"
+          className="clip-corner flex-none [--clip:6px]"
+        />
+      )}
     </>
   );
 }
@@ -148,14 +163,21 @@ export type PlayerRowProps = {
   selected?: boolean;
   /** Presente só quando o usuário pode trocar o capitão (mercado aberto). */
   onSetCaptain?: () => void;
+  /**
+   * Presente só quando o usuário pode vender esse jogador (mercado aberto).
+   * Vende direto, sem abrir o mercado — ação de primeira classe, não mais
+   * escondida atrás do painel de substituição.
+   */
+  onSell?: () => void;
 };
 
 /**
  * Linha compacta de jogador: retrato, identidade e pontuação. Compartilhada
  * entre "Meu Time" e o mercado de transferências. Sem `onSelect` é uma linha
  * inerte; com `onSelect` vira um botão que abre o mercado para essa vaga. A
- * braçadeira de capitão (`onSetCaptain`) é um botão à parte, ao lado — não
- * dentro — do de substituir.
+ * braçadeira de capitão (`onSetCaptain`) e o botão de vender (`onSell`) são
+ * botões irmãos, fora do de substituir — nunca aninhados, porque um
+ * `<button>` dentro de outro `<button>` é HTML inválido.
  */
 export function PlayerRow({
   player,
@@ -163,6 +185,7 @@ export function PlayerRow({
   onSelect,
   selected = false,
   onSetCaptain,
+  onSell,
 }: PlayerRowProps) {
   const identity = <PlayerIdentity player={player} />;
 
@@ -173,11 +196,12 @@ export function PlayerRow({
         // O hover mora aqui, não no botão de "Substituir": ele só cobre a
         // metade direita da linha (a braçadeira de capitão fica fora dele,
         // como um botão irmão), mas o card inteiro deve acender no hover.
-        // `has-[>button:hover]` casa só com esse botão — filho direto do
-        // `<li>` — e não com o botão da braçadeira, que fica um nível mais
-        // fundo dentro do retrato.
+        // `data-slot="substitute"` escopa o seletor só a esse botão — com o
+        // de "Vender" também como filho direto do `<li>`, um `has-[>button:hover]`
+        // genérico acenderia o card ao passar o mouse sobre "Vender" também,
+        // o que não faz sentido (vender não abre o mercado).
         onSelect &&
-          "has-[>button:hover]:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_6%)]",
+          "has-[>[data-slot=substitute]:hover]:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_6%)]",
         captain ? "ring-primary/40" : "ring-border",
         selected && "ring-primary",
       )}
@@ -191,6 +215,7 @@ export function PlayerRow({
       {onSelect ? (
         <button
           type="button"
+          data-slot="substitute"
           onClick={onSelect}
           aria-haspopup="dialog"
           aria-expanded={selected}
@@ -201,6 +226,25 @@ export function PlayerRow({
         </button>
       ) : (
         <div className="flex flex-1 items-center gap-2.5">{identity}</div>
+      )}
+
+      {onSell && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          // Neutro em repouso, destrutivo só no hover/foco. Preenchido de
+          // vermelho ele empatava com o chip de pontuação ruim, que usa
+          // `--primary` (#ff4655) — quase o mesmo tom de `--destructive`
+          // (#e0303f) —, e o usuário não distinguia o dado da ação. A borda
+          // do `outline` mantém o botão achável; a cor entra na intenção.
+          className="flex-none text-muted-foreground hover:border-destructive/40 hover:bg-destructive/15 hover:text-destructive focus-visible:border-destructive/40 focus-visible:text-destructive"
+          aria-label={`Vender ${player.nickname}`}
+          onClick={onSell}
+        >
+          <HandCoins aria-hidden />
+          Vender
+        </Button>
       )}
     </li>
   );

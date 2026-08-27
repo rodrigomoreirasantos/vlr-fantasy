@@ -14,3 +14,10 @@ export const setCaptainSchema = z.object({
 });
 
 export type SetCaptainInput = z.infer<typeof setCaptainSchema>;
+
+export const sellPlayerSchema = z.object({
+  slotId: z.uuid("Vaga inválida."),
+  outgoingPlayerId: z.uuid("Jogador de saída inválido."),
+});
+
+export type SellPlayerInput = z.infer<typeof sellPlayerSchema>;

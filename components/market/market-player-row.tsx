@@ -13,7 +13,7 @@ import {
   evaluateSubstitution,
   type SubstitutionContext,
 } from "@/lib/market/eligibility";
-import { formatCredits, formatCreditsDelta } from "@/lib/market/money";
+import { formatCredits } from "@/lib/market/money";
 import type { Player } from "@/lib/team/types";
 import { cn } from "@/lib/utils";
 
@@ -24,15 +24,17 @@ export type MarketPlayerRowProps = {
 };
 
 /**
- * Um card do mercado: identidade do candidato numa linha, preço/veredito e
- * o botão "Contratar" na linha de baixo. O veredito vem de
- * `evaluateSubstitution` — a mesma função que a Server Action usa dentro da
- * transação. Quem não pode ser contratado aparece mesmo assim, com o motivo
- * visível e o botão travado (nunca escondido).
+ * Um card do mercado: identidade do candidato com o preço no lugar da
+ * pontuação numa linha, motivo de bloqueio (se houver) e o botão
+ * "Contratar" na linha de baixo. O veredito vem de `evaluateSubstitution` —
+ * a mesma função que a Server Action usa dentro da transação. Quem não pode
+ * ser contratado aparece mesmo assim, com o motivo visível e o botão travado
+ * (nunca escondido).
  *
- * Empilhado em duas linhas (não um único `flex` horizontal) de propósito:
- * identidade, preço, veredito e botão juntos numa linha só não cabiam na
- * largura do Sheet sem cortar texto.
+ * Mostra só o preço cheio do candidato — não o custo líquido nem o saldo
+ * projetado após a troca. Numa substituição, o crédito de quem sai (que
+ * abate esse preço) aparece uma única vez, no `MarketSummaryBar` do topo do
+ * Sheet, em vez de repetido em cada card.
  */
 export function MarketPlayerRow({
   ctx,
@@ -52,27 +54,28 @@ export function MarketPlayerRow({
     >
       <div className="flex items-center gap-2.5">
         <PlayerPortraitBadge player={candidate} />
-        <PlayerIdentity player={candidate} />
+        <PlayerIdentity
+          player={candidate}
+          trailing={
+            <PlayerPrice
+              priceCents={candidate.priceCents}
+              className="text-base"
+            />
+          }
+        />
       </div>
 
-      <div className="flex items-center justify-between gap-3 border-t border-border pt-2.5">
-        <div className="min-w-0">
-          <PlayerPrice
-            priceCents={candidate.priceCents}
-            className="text-base"
-          />
-
-          {blocked ? (
-            <Badge variant="outline" className="mt-1 text-[10px]">
-              {blockReasonLabel(verdict.blockedBy!)}
-            </Badge>
-          ) : (
-            <p className="mt-1 truncate text-[10px] font-semibold text-muted-foreground tabular-nums">
-              {formatCreditsDelta(verdict.netCostCents)} · saldo{" "}
-              {formatCredits(verdict.balanceAfterCents)}
-            </p>
-          )}
-        </div>
+      <div
+        className={cn(
+          "flex items-center gap-3 border-t border-border pt-2.5",
+          blocked ? "justify-between" : "justify-end",
+        )}
+      >
+        {blocked && (
+          <Badge variant="outline" className="text-[10px]">
+            {blockReasonLabel(verdict.blockedBy!)}
+          </Badge>
+        )}
 
         <Button
           size="sm"
@@ -90,7 +93,7 @@ export function MarketPlayerRow({
 
       {blocked && (
         <p id={reasonId} className="text-[10px] text-muted-foreground">
-          {blockReasonMessage(verdict.blockedBy!, ctx.outgoing?.role ?? null)}
+          {blockReasonMessage(verdict.blockedBy!)}
         </p>
       )}
     </li>

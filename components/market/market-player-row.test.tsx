@@ -81,8 +81,8 @@ describe("MarketPlayerRow", () => {
     expect(onConfirm).not.toHaveBeenCalled();
   });
 
-  it("função errada: aparece bloqueado com o motivo correspondente", () => {
-    const candidate = makePlayer({ role: "Sentinela" });
+  it("candidato de outra função: não é bloqueado — não há mais restrição de função", () => {
+    const candidate = makePlayer({ id: "chronicle", role: "Sentinela" });
 
     render(
       <ul>
@@ -95,7 +95,25 @@ describe("MarketPlayerRow", () => {
     );
 
     expect(
-      screen.getByText("Só é possível substituir por outro Duelista."),
+      screen.getByRole("button", { name: /contratar tenz/i }),
+    ).not.toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("já escalado: aparece bloqueado com o motivo correspondente", () => {
+    const candidate = makePlayer();
+
+    render(
+      <ul>
+        <MarketPlayerRow
+          ctx={makeContext({ rosteredPlayerIds: ["derke", "tenz"] })}
+          candidate={candidate}
+          onConfirm={vi.fn()}
+        />
+      </ul>,
+    );
+
+    expect(
+      screen.getByText("Este jogador já está no seu time."),
     ).toBeInTheDocument();
   });
 
@@ -113,5 +131,22 @@ describe("MarketPlayerRow", () => {
     );
 
     expect(screen.getByText("148.2")).toBeInTheDocument();
+  });
+
+  it("não mostra a pontuação da rodada nem custo líquido/saldo projetado", () => {
+    const candidate = makePlayer({ priceCents: 3000, score: 22.4 });
+
+    render(
+      <ul>
+        <MarketPlayerRow
+          ctx={makeContext()}
+          candidate={candidate}
+          onConfirm={vi.fn()}
+        />
+      </ul>,
+    );
+
+    expect(screen.queryByText("22.4")).not.toBeInTheDocument();
+    expect(screen.queryByText(/saldo/i)).not.toBeInTheDocument();
   });
 });

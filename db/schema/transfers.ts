@@ -1,4 +1,12 @@
-import { index, integer, pgTable, timestamp, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import {
+  check,
+  index,
+  integer,
+  pgTable,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 import { fantasyTeam } from "@/db/schema/fantasy-teams";
 import { player } from "@/db/schema/players";
@@ -26,11 +34,14 @@ export const transfer = pgTable(
     outPlayerId: uuid("out_player_id").references(() => player.id, {
       onDelete: "restrict",
     }),
-    inPlayerId: uuid("in_player_id")
-      .notNull()
-      .references(() => player.id, { onDelete: "restrict" }),
+    // `null` numa venda pura: a vaga esvazia e ninguém entra no lugar —
+    // espelho de `outPlayerId`, que já é `null` numa contratação em vaga
+    // vazia.
+    inPlayerId: uuid("in_player_id").references(() => player.id, {
+      onDelete: "restrict",
+    }),
     outPriceCents: integer("out_price_cents").notNull().default(0),
-    inPriceCents: integer("in_price_cents").notNull(),
+    inPriceCents: integer("in_price_cents").notNull().default(0),
     balanceAfterCents: integer("balance_after_cents").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -39,5 +50,11 @@ export const transfer = pgTable(
   (table) => [
     index("transfer_team_round_idx").on(table.fantasyTeamId, table.roundId),
     index("transfer_team_created_idx").on(table.fantasyTeamId, table.createdAt),
+    // Nunca uma linha sem jogador nenhum — só compra (in), só venda (out)
+    // ou substituição (os dois).
+    check(
+      "transfer_has_player",
+      sql`${table.inPlayerId} IS NOT NULL OR ${table.outPlayerId} IS NOT NULL`,
+    ),
   ],
 );

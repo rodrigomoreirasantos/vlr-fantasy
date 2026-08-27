@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   blockReasonMessage,
   canSubstitute,
+  evaluateSale,
   evaluateSubstitution,
   type SubstitutionContext,
 } from "@/lib/market/eligibility";
@@ -35,22 +36,11 @@ function makeContext(
 }
 
 describe("evaluateSubstitution — precedência", () => {
-  it("mercado fechado vence função errada", () => {
+  it("mercado fechado vence qualquer outra checagem", () => {
     const ctx = makeContext({ marketOpen: false });
     const incoming = makePlayer({ id: "chronicle", role: "Sentinela" });
 
     expect(evaluateSubstitution(ctx, incoming).blockedBy).toBe("market-closed");
-  });
-
-  it("função errada vence saldo insuficiente", () => {
-    const ctx = makeContext({ balanceCents: 0 });
-    const incoming = makePlayer({
-      id: "chronicle",
-      role: "Sentinela",
-      priceCents: 1_000_000,
-    });
-
-    expect(evaluateSubstitution(ctx, incoming).blockedBy).toBe("role-mismatch");
   });
 
   it("mesmo jogador vence já escalado", () => {
@@ -123,21 +113,25 @@ describe("canSubstitute", () => {
 
     expect(canSubstitute(ctx, incoming)).toBe(true);
     expect(
-      canSubstitute(ctx, makePlayer({ id: "tenz", role: "Sentinela" })),
-    ).toBe(false);
+      canSubstitute(ctx, makePlayer({ id: "derke", priceCents: 3000 })),
+    ).toBe(false); // já escalado — é quem sai da própria vaga
+  });
+
+  it("libera qualquer função, incluindo repetida", () => {
+    const ctx = makeContext();
+    const incoming = makePlayer({ id: "chronicle", role: "Sentinela" });
+
+    expect(canSubstitute(ctx, incoming)).toBe(true);
   });
 });
 
 describe("blockReasonMessage", () => {
-  it("menciona a função exigida no motivo de função errada", () => {
-    expect(blockReasonMessage("role-mismatch", "Controlador")).toBe(
-      "Só é possível substituir por outro Controlador.",
+  it("descreve cada motivo de bloqueio em português", () => {
+    expect(blockReasonMessage("market-closed")).toBe(
+      "A janela de mercado está fechada.",
     );
-  });
-
-  it("usa uma mensagem genérica quando não há função exigida", () => {
-    expect(blockReasonMessage("role-mismatch", null)).toBe(
-      "Só é possível substituir por outro jogador da mesma função.",
+    expect(blockReasonMessage("already-rostered")).toBe(
+      "Este jogador já está no seu time.",
     );
   });
 });
@@ -153,7 +147,7 @@ describe("evaluateSubstitution — vaga vazia (outgoing null)", () => {
     expect(verdict.blockedBy).toBeNull();
   });
 
-  it("libera qualquer função, sem role-mismatch", () => {
+  it("libera qualquer função — vaga vazia não exige nenhuma", () => {
     const ctx = makeContext({ outgoing: null, rosteredPlayerIds: [] });
     const incoming = makePlayer({ id: "chronicle", role: "Sentinela" });
 
@@ -185,5 +179,31 @@ describe("evaluateSubstitution — vaga vazia (outgoing null)", () => {
         incoming,
       ).blockedBy,
     ).toBe("insufficient-balance");
+  });
+});
+
+describe("evaluateSale", () => {
+  it("credita o preço cheio de quem sai, mesmo com saldo zerado", () => {
+    const outgoing = makePlayer({ id: "derke", priceCents: 4000 });
+
+    const verdict = evaluateSale(
+      { marketOpen: true, balanceCents: 0 },
+      outgoing,
+    );
+
+    expect(verdict.proceedsCents).toBe(4000);
+    expect(verdict.balanceAfterCents).toBe(4000);
+    expect(verdict.blockedBy).toBeNull();
+  });
+
+  it("mercado fechado é o único bloqueio possível", () => {
+    const outgoing = makePlayer({ id: "derke", priceCents: 4000 });
+
+    const verdict = evaluateSale(
+      { marketOpen: false, balanceCents: 10_000 },
+      outgoing,
+    );
+
+    expect(verdict.blockedBy).toBe("market-closed");
   });
 });

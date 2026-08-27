@@ -17,7 +17,7 @@ const player: Player = {
 };
 
 describe("PlayerRow", () => {
-  it("mostra apelido, organização, agente e função do jogador", () => {
+  it("mostra apelido, organização e função do jogador — sem o agente", () => {
     render(
       <ul>
         <PlayerRow player={player} />
@@ -26,10 +26,11 @@ describe("PlayerRow", () => {
 
     expect(screen.getByText("TenZ")).toBeInTheDocument();
     expect(screen.getByText("SENTINELS")).toBeInTheDocument();
-    expect(screen.getByText("Jett · Duelista")).toBeInTheDocument();
+    expect(screen.getByText("Duelista")).toBeInTheDocument();
+    expect(screen.queryByText(/Jett/)).not.toBeInTheDocument();
   });
 
-  it("exibe a pontuação sempre com uma casa decimal", () => {
+  it("exibe a pontuação com uma casa decimal e a unidade, para não se confundir com preço", () => {
     render(
       <ul>
         <PlayerRow player={{ ...player, score: 9 }} />
@@ -37,6 +38,7 @@ describe("PlayerRow", () => {
     );
 
     expect(screen.getByText("9.0")).toBeInTheDocument();
+    expect(screen.getByText("PTS")).toBeInTheDocument();
   });
 
   it("marca o capitão de forma acessível", () => {
@@ -154,6 +156,34 @@ describe("PlayerRow", () => {
     );
 
     expect(onSetCaptain).toHaveBeenCalledOnce();
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("sem onSell, não mostra o botão de vender", () => {
+    render(
+      <ul>
+        <PlayerRow player={player} />
+      </ul>,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: /vender/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("com onSell, o botão Vender aparece e chama onSell ao clicar, sem disparar onSelect", async () => {
+    const user = userEvent.setup();
+    const onSell = vi.fn();
+    const onSelect = vi.fn();
+    render(
+      <ul>
+        <PlayerRow player={player} onSelect={onSelect} onSell={onSell} />
+      </ul>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Vender TenZ" }));
+
+    expect(onSell).toHaveBeenCalledOnce();
     expect(onSelect).not.toHaveBeenCalled();
   });
 });
