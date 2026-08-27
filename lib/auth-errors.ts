@@ -4,8 +4,7 @@ type ErrorCode = keyof typeof authClient.$ERROR_CODES;
 
 const errorMessages: Partial<Record<ErrorCode, string>> = {
   USER_ALREADY_EXISTS: "Já existe uma conta com este e-mail.",
-  USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL:
-    "Já existe uma conta com este e-mail.",
+  USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: "Já existe uma conta com este e-mail.",
   INVALID_EMAIL_OR_PASSWORD: "E-mail ou senha incorretos.",
   INVALID_EMAIL: "E-mail inválido.",
   USER_NOT_FOUND: "Não encontramos uma conta com este e-mail.",
@@ -17,6 +16,11 @@ const errorMessages: Partial<Record<ErrorCode, string>> = {
   SOCIAL_ACCOUNT_ALREADY_LINKED:
     "Esta conta já está vinculada a outro usuário.",
   FAILED_TO_CREATE_USER: "Não foi possível criar a conta. Tente novamente.",
+  USERNAME_IS_ALREADY_TAKEN: "Este login já está em uso.",
+  INVALID_USERNAME:
+    "Login inválido. Use apenas letras, números, ponto e underline.",
+  USERNAME_TOO_SHORT: "O login deve ter pelo menos 3 caracteres.",
+  USERNAME_TOO_LONG: "O login deve ter no máximo 20 caracteres.",
 };
 
 const genericErrorMessage = "Algo deu errado. Tente novamente em instantes.";

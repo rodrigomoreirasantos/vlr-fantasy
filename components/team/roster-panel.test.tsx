@@ -14,7 +14,7 @@ const {
   setCaptainToken: Symbol("setCaptain"),
 }));
 
-vi.mock("@/app/my-team/actions", () => ({
+vi.mock("@/app/(app)/my-team/actions", () => ({
   substitutePlayer: substitutePlayerToken,
   setCaptain: setCaptainToken,
 }));

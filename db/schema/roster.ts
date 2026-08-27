@@ -54,9 +54,6 @@ export const rosterSlot = pgTable(
       .on(table.fantasyTeamId)
       .where(sql`${table.captain}`),
     index("roster_slot_player_idx").on(table.playerId),
-    check(
-      "roster_slot_position_range",
-      sql`${table.position} BETWEEN 1 AND 5`,
-    ),
+    check("roster_slot_position_range", sql`${table.position} BETWEEN 1 AND 5`),
   ],
 );

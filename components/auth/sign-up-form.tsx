@@ -23,7 +23,13 @@ export function SignUpForm() {
 
   const form = useForm<SignUpInput>({
     resolver: zodResolver(signUpSchema),
-    defaultValues: { name: "", email: "", password: "", confirmPassword: "" },
+    defaultValues: {
+      name: "",
+      username: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+    },
   });
 
   const onSubmit = async (values: SignUpInput) => {
@@ -31,6 +37,7 @@ export function SignUpForm() {
 
     const { error } = await signUp.email({
       name: values.name,
+      username: values.username,
       email: values.email,
       password: values.password,
     });
@@ -70,6 +77,23 @@ export function SignUpForm() {
                 {...field}
                 id={field.name}
                 autoComplete="name"
+                aria-invalid={fieldState.invalid}
+              />
+              {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+            </Field>
+          )}
+        />
+
+        <Controller
+          name="username"
+          control={form.control}
+          render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid}>
+              <FieldLabel htmlFor={field.name}>Login</FieldLabel>
+              <Input
+                {...field}
+                id={field.name}
+                autoComplete="username"
                 aria-invalid={fieldState.invalid}
               />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}

@@ -32,7 +32,9 @@ export function toDomainPlayer(row: PlayerRow): Player {
  * (`PlayerRow`, `FormationBoard`) precisa saber que o dado agora vem do
  * banco.
  */
-export function toRosterSlots(rows: readonly RosterSlotWithPlayerRow[]): RosterSlot[] {
+export function toRosterSlots(
+  rows: readonly RosterSlotWithPlayerRow[],
+): RosterSlot[] {
   const byPosition = new Map(rows.map((row) => [row.position, row]));
 
   return Array.from({ length: 5 }, (_, index) => {

@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm";
 
 import { user } from "@/db/schema/auth";
+import { championship, championshipMember } from "@/db/schema/championships";
 import { fantasyTeam } from "@/db/schema/fantasy-teams";
 import { player } from "@/db/schema/players";
 import { round } from "@/db/schema/rounds";
@@ -65,3 +66,34 @@ export const transferRelations = relations(transfer, ({ one }) => ({
     relationName: "incomingPlayer",
   }),
 }));
+
+export const championshipRelations = relations(
+  championship,
+  ({ one, many }) => ({
+    owner: one(user, {
+      fields: [championship.ownerId],
+      references: [user.id],
+    }),
+    members: many(championshipMember),
+  }),
+);
+
+export const championshipMemberRelations = relations(
+  championshipMember,
+  ({ one }) => ({
+    championship: one(championship, {
+      fields: [championshipMember.championshipId],
+      references: [championship.id],
+    }),
+    user: one(user, {
+      fields: [championshipMember.userId],
+      references: [user.id],
+      relationName: "championshipMemberUser",
+    }),
+    invitedBy: one(user, {
+      fields: [championshipMember.invitedById],
+      references: [user.id],
+      relationName: "championshipMemberInvitedBy",
+    }),
+  }),
+);

@@ -10,9 +10,9 @@ import {
 } from "@/components/market/market-sheet";
 import { FormationBoard } from "@/components/team/formation-board";
 import { LineupProgress } from "@/components/team/lineup-progress";
-import { Panel } from "@/components/team/panel";
+import { Panel } from "@/components/layout/panel";
 import { EmptyPlayerRow, PlayerRow } from "@/components/team/player-row";
-import { setCaptain, substitutePlayer } from "@/app/my-team/actions";
+import { setCaptain, substitutePlayer } from "@/app/(app)/my-team/actions";
 import type { Player, PlayerRole, RosterSlot } from "@/lib/team/types";
 
 export type RosterPanelProps = {

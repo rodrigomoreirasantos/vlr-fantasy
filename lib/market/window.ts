@@ -1,8 +1,8 @@
 import dayjs from "dayjs";
 import "dayjs/locale/pt-br";
 
-// Único ponto do projeto que importa dayjs diretamente — nenhum componente
-// deve formatar data na mão, conforme a regra de datas do CLAUDE.md.
+// Nenhum componente formata data na mão — sempre via dayjs, aqui ou em
+// `lib/championship/format.ts`, conforme a regra de datas do CLAUDE.md.
 dayjs.locale("pt-br");
 
 export type MarketWindow = { opensAt: Date; closesAt: Date };

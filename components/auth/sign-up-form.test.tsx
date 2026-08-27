@@ -33,10 +33,26 @@ describe("SignUpForm", () => {
     expect(
       await screen.findByText("Deve ter pelo menos 2 caracteres."),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText("Deve ter pelo menos 3 caracteres."),
+    ).toBeInTheDocument();
     expect(screen.getByText("E-mail inválido.")).toBeInTheDocument();
     expect(
       screen.getAllByText("Deve ter pelo menos 8 caracteres.").length,
     ).toBeGreaterThan(0);
+    expect(signUpEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("mostra erro quando o login tem caracteres inválidos", async () => {
+    const user = userEvent.setup();
+    render(<SignUpForm />);
+
+    await user.type(screen.getByLabelText("Login"), "rodrigo santos!");
+    await user.click(screen.getByRole("button", { name: /criar conta/i }));
+
+    expect(
+      await screen.findByText("Use apenas letras, números, ponto e underline."),
+    ).toBeInTheDocument();
     expect(signUpEmailMock).not.toHaveBeenCalled();
   });
 
@@ -45,6 +61,7 @@ describe("SignUpForm", () => {
     render(<SignUpForm />);
 
     await user.type(screen.getByLabelText("Nome"), "João da Silva");
+    await user.type(screen.getByLabelText("Login"), "joaosilva");
     await user.type(screen.getByLabelText("E-mail"), "joao@example.com");
     await user.type(screen.getByLabelText("Senha"), "senha1234");
     await user.type(
@@ -65,6 +82,7 @@ describe("SignUpForm", () => {
     render(<SignUpForm />);
 
     await user.type(screen.getByLabelText("Nome"), "João da Silva");
+    await user.type(screen.getByLabelText("Login"), "joaosilva");
     await user.type(screen.getByLabelText("E-mail"), "joao@example.com");
     await user.type(screen.getByLabelText("Senha"), "senha1234");
     await user.type(screen.getByLabelText("Confirmar senha"), "senha1234");
@@ -73,6 +91,7 @@ describe("SignUpForm", () => {
     await waitFor(() =>
       expect(signUpEmailMock).toHaveBeenCalledWith({
         name: "João da Silva",
+        username: "joaosilva",
         email: "joao@example.com",
         password: "senha1234",
       }),
@@ -89,6 +108,7 @@ describe("SignUpForm", () => {
     render(<SignUpForm />);
 
     await user.type(screen.getByLabelText("Nome"), "João da Silva");
+    await user.type(screen.getByLabelText("Login"), "joaosilva");
     await user.type(screen.getByLabelText("E-mail"), "joao@example.com");
     await user.type(screen.getByLabelText("Senha"), "senha1234");
     await user.type(screen.getByLabelText("Confirmar senha"), "senha1234");

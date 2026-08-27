@@ -29,16 +29,16 @@ reescrita nos dois lados.
 
 ### Decisões tomadas
 
-| Tema | Decisão |
-| --- | --- |
-| Design | Seguir a linguagem visual já implementada em `/my-team` (o link do Claude Design retorna 403 para mim) |
-| Dados | Banco real com Drizzle, substituindo o placeholder |
-| Fluxo | `Sheet` sobreposto, aberto ao clicar num jogador do time — sem sair de `/my-team` |
-| Poder de compra | `saldo + preço de quem sai` (venda pelo preço cheio financia a compra) |
-| Janela | Tabela `round` com `market_opens_at` / `market_closes_at`; countdown com dayjs |
-| Preço | Coluna persistida no catálogo (`player.price_cents`) |
-| Capitão | A braçadeira pertence à **vaga**: quem entra herda o "C" |
-| Vaga vazia | Fora de escopo — `EmptyPlayerRow` segue não interativo |
+| Tema            | Decisão                                                                                                |
+| --------------- | ------------------------------------------------------------------------------------------------------ |
+| Design          | Seguir a linguagem visual já implementada em `/my-team` (o link do Claude Design retorna 403 para mim) |
+| Dados           | Banco real com Drizzle, substituindo o placeholder                                                     |
+| Fluxo           | `Sheet` sobreposto, aberto ao clicar num jogador do time — sem sair de `/my-team`                      |
+| Poder de compra | `saldo + preço de quem sai` (venda pelo preço cheio financia a compra)                                 |
+| Janela          | Tabela `round` com `market_opens_at` / `market_closes_at`; countdown com dayjs                         |
+| Preço           | Coluna persistida no catálogo (`player.price_cents`)                                                   |
+| Capitão         | A braçadeira pertence à **vaga**: quem entra herda o "C"                                               |
+| Vaga vazia      | Fora de escopo — `EmptyPlayerRow` segue não interativo                                                 |
 
 ---
 
@@ -68,11 +68,11 @@ Um arquivo por domínio em `db/schema/`, reexportados por `db/schema/index.ts` (
 
 ### Tipos numéricos — a decisão mais importante
 
-| Grandeza | Tipo | Coluna | Porquê |
-| --- | --- | --- | --- |
-| Dinheiro | `integer` em **centavos** | `price_cents`, `balance_cents` | Aritmética exata em SQL, permite `CHECK (balance_cents >= 0)`, sem drift de float no caminho crítico da transação |
-| Pontuação | `numeric(6,1, { mode: "number" })` | `score` | Mantém `Player.score: number`; sem `mode` o Drizzle devolveria `string` |
-| Datas | `timestamp({ withTimezone: true, mode: "date" })` | janela de mercado | Instante absoluto; dayjs entra só na fronteira de apresentação |
+| Grandeza  | Tipo                                              | Coluna                         | Porquê                                                                                                            |
+| --------- | ------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| Dinheiro  | `integer` em **centavos**                         | `price_cents`, `balance_cents` | Aritmética exata em SQL, permite `CHECK (balance_cents >= 0)`, sem drift de float no caminho crítico da transação |
+| Pontuação | `numeric(6,1, { mode: "number" })`                | `score`                        | Mantém `Player.score: number`; sem `mode` o Drizzle devolveria `string`                                           |
+| Datas     | `timestamp({ withTimezone: true, mode: "date" })` | janela de mercado              | Instante absoluto; dayjs entra só na fronteira de apresentação                                                    |
 
 Regra a documentar em comentário: **`score` nunca entra em conta de dinheiro**. O sufixo
 `Cents` marca tudo que é moeda.
@@ -84,7 +84,10 @@ import type { PlayerRole } from "@/lib/team/types";
 
 // Import unidirecional: o schema conhece o tipo de domínio, nunca o contrário.
 export const PLAYER_ROLES = [
-  "Duelista", "Iniciador", "Controlador", "Sentinela",
+  "Duelista",
+  "Iniciador",
+  "Controlador",
+  "Sentinela",
 ] as const satisfies readonly PlayerRole[];
 
 export const playerRole = pgEnum("player_role", PLAYER_ROLES);
@@ -131,6 +134,7 @@ timestamps.
 false · timestamps.
 
 Índices:
+
 - `roster_slot_team_position_uidx` on `(fantasy_team_id, position)` — cinco vagas fixas.
 - `roster_slot_team_player_uidx` on `(fantasy_team_id, player_id)` — o mesmo jogador não se repete
   no time. `NULLS DISTINCT` (padrão do Postgres) deixa várias vagas vazias conviverem. **É a rede
@@ -168,7 +172,7 @@ Sem Drizzle e sem React, como manda o CLAUDE.md. É o que os testes mais baratos
 
 ```ts
 export const CENTS_PER_CREDIT = 100;
-export function creditsToCents(credits: number): number;   // Math.round
+export function creditsToCents(credits: number): number; // Math.round
 export function centsToCredits(cents: number): number;
 /** Moeda sempre com uma casa: 14820 → "148.2". */
 export function formatCredits(cents: number): string;
@@ -183,8 +187,12 @@ export function formatCreditsDelta(cents: number): string;
 
 ```ts
 export type BlockReason =
-  | "market-closed" | "player-inactive" | "same-player"
-  | "already-rostered" | "role-mismatch" | "insufficient-balance";
+  | "market-closed"
+  | "player-inactive"
+  | "same-player"
+  | "already-rostered"
+  | "role-mismatch"
+  | "insufficient-balance";
 
 export type SubstitutionContext = {
   marketOpen: boolean;
@@ -195,29 +203,38 @@ export type SubstitutionContext = {
 };
 
 export type Verdict = {
-  netCostCents: number;        // incoming.priceCents - outgoing.priceCents (pode ser negativo)
+  netCostCents: number; // incoming.priceCents - outgoing.priceCents (pode ser negativo)
   balanceAfterCents: number;
   blockedBy: BlockReason | null;
 };
 
-export function evaluateSubstitution(ctx: SubstitutionContext, incoming: Player): Verdict;
-export function canSubstitute(ctx: SubstitutionContext, incoming: Player): boolean;
-export function blockReasonMessage(reason: BlockReason, requiredRole: PlayerRole): string;
-export function blockReasonLabel(reason: BlockReason): string;  // rótulo curto do Badge
+export function evaluateSubstitution(
+  ctx: SubstitutionContext,
+  incoming: Player,
+): Verdict;
+export function canSubstitute(
+  ctx: SubstitutionContext,
+  incoming: Player,
+): boolean;
+export function blockReasonMessage(
+  reason: BlockReason,
+  requiredRole: PlayerRole,
+): string;
+export function blockReasonLabel(reason: BlockReason): string; // rótulo curto do Badge
 ```
 
 **Precedência fixa** (a primeira que casar vence): `market-closed` → `player-inactive` →
 `same-player` → `already-rostered` → `role-mismatch` → `insufficient-balance`. Assim o usuário
 nunca vê "sem saldo" quando o problema real é a função.
 
-| Reason | Label | Mensagem |
-| --- | --- | --- |
-| `market-closed` | Mercado fechado | "A janela de mercado está fechada." |
-| `player-inactive` | Indisponível | "Este jogador não está disponível nesta rodada." |
-| `same-player` | Já é seu | "Este jogador já ocupa essa vaga." |
-| `already-rostered` | Já escalado | "Este jogador já está no seu time." |
-| `role-mismatch` | Outra função | `Só é possível substituir por outro ${requiredRole}.` |
-| `insufficient-balance` | Sem saldo | "Saldo insuficiente para esta contratação." |
+| Reason                 | Label           | Mensagem                                              |
+| ---------------------- | --------------- | ----------------------------------------------------- |
+| `market-closed`        | Mercado fechado | "A janela de mercado está fechada."                   |
+| `player-inactive`      | Indisponível    | "Este jogador não está disponível nesta rodada."      |
+| `same-player`          | Já é seu        | "Este jogador já ocupa essa vaga."                    |
+| `already-rostered`     | Já escalado     | "Este jogador já está no seu time."                   |
+| `role-mismatch`        | Outra função    | `Só é possível substituir por outro ${requiredRole}.` |
+| `insufficient-balance` | Sem saldo       | "Saldo insuficiente para esta contratação."           |
 
 Fronteira exata: `netCostCents <= balanceCents` é **permitido** (gastar tudo é válido). Caso de
 teste obrigatório.
@@ -225,9 +242,12 @@ teste obrigatório.
 ### `lib/market/window.ts`
 
 ```ts
-export function isMarketOpen(w: { opensAt: Date; closesAt: Date }, now?: Date): boolean;
-export function formatTimeLeft(closesAt: Date, now?: Date): string;  // "36h 12m" | "12m" | "Encerrado"
-export function formatClosesAt(closesAt: Date): string;              // "Fecha sáb, 14/03 às 18:00"
+export function isMarketOpen(
+  w: { opensAt: Date; closesAt: Date },
+  now?: Date,
+): boolean;
+export function formatTimeLeft(closesAt: Date, now?: Date): string; // "36h 12m" | "12m" | "Encerrado"
+export function formatClosesAt(closesAt: Date): string; // "Fecha sáb, 14/03 às 18:00"
 ```
 
 `now` injetável → testes determinísticos sem fake timers. **Todo `dayjs` do projeto vive aqui**;
@@ -301,7 +321,7 @@ idempotente (`onConflictDoNothing`) chamada da página serve de fallback.
 ### `lib/safe-action.ts`
 
 ```ts
-export class ActionError extends Error {}          // mensagem segura para o usuário final
+export class ActionError extends Error {} // mensagem segura para o usuário final
 
 export const actionClient = createSafeActionClient({
   handleServerError(e) {
@@ -409,12 +429,12 @@ O `SubstitutionContext` é montado uma vez com `useMemo`; cada linha chama `eval
 
 ### Os quatro estados, de forma acessível
 
-| Estado | Tratamento |
-| --- | --- |
-| **Comprável** | `<Button size="sm">` habilitado, `aria-label={`Contratar ${nickname} por ${formatCredits(price)}`}`; ao lado, custo líquido (`formatCreditsDelta`) e saldo resultante |
-| **Sem saldo** | `opacity-60`, `<Badge>Sem saldo</Badge>`, motivo em **texto visível** abaixo do preço, e botão com `aria-disabled="true"` + `onClick` guardado — **não** `disabled`. Botão `disabled` sai da ordem de foco e o motivo nunca é anunciado; com `aria-disabled` + `aria-describedby` apontando para o texto, o leitor de tela ouve o porquê |
-| **Função errada** | Não deveria ocorrer (a lista já vem filtrada no servidor), mas a regra é rede de segurança: badge "Outra função" e a mensagem correspondente |
-| **Mercado fechado** | `<Alert>` no topo do Sheet, todas as linhas bloqueadas, e no `RosterPanel` as linhas **não recebem `onSelect`** (voltam a ser `<li>` inertes) com subtítulo "Mercado fechado — substituições reabrem em…". Zero botão-fantasma |
+| Estado              | Tratamento                                                                                                                                                                                                                                                                                                                               |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Comprável**       | `<Button size="sm">` habilitado, `aria-label={`Contratar ${nickname} por ${formatCredits(price)}`}`; ao lado, custo líquido (`formatCreditsDelta`) e saldo resultante                                                                                                                                                                    |
+| **Sem saldo**       | `opacity-60`, `<Badge>Sem saldo</Badge>`, motivo em **texto visível** abaixo do preço, e botão com `aria-disabled="true"` + `onClick` guardado — **não** `disabled`. Botão `disabled` sai da ordem de foco e o motivo nunca é anunciado; com `aria-disabled` + `aria-describedby` apontando para o texto, o leitor de tela ouve o porquê |
+| **Função errada**   | Não deveria ocorrer (a lista já vem filtrada no servidor), mas a regra é rede de segurança: badge "Outra função" e a mensagem correspondente                                                                                                                                                                                             |
+| **Mercado fechado** | `<Alert>` no topo do Sheet, todas as linhas bloqueadas, e no `RosterPanel` as linhas **não recebem `onSelect`** (voltam a ser `<li>` inertes) com subtítulo "Mercado fechado — substituições reabrem em…". Zero botão-fantasma                                                                                                           |
 
 Sem candidatos: estado vazio no tom de `ScorerHighlight` ("Nenhum {role} disponível no mercado.").
 Resultado: `toast.success`/`toast.error` do sonner (o `<Toaster>` já está em `app/layout.tsx`);
@@ -431,17 +451,17 @@ Só tokens de `app/globals.css` — `bg-card`, `bg-secondary`, `text-muted-foreg
 
 ## 7. Testes
 
-| Arquivo | Cobre |
-| --- | --- |
-| `lib/market/money.test.ts` | `formatCredits` sempre 1 casa; ida e volta centavos↔créditos; `formatCreditsDelta` com sinal |
-| `lib/market/eligibility.test.ts` | Precedência dos `BlockReason` (fechado vence função, função vence saldo); **fronteira exata de saldo** (`netCost === balance` libera, `+1` bloqueia); crédito da venda reduz o custo líquido; troca por mais barato sobra saldo; `already-rostered`; `same-player` |
-| `lib/market/window.test.ts` | `isMarketOpen` nas bordas com `now` injetado; `formatTimeLeft` → "36h 12m", "12m", "Encerrado" |
-| `components/team/player-row.test.tsx` | **Casos existentes intocados** + sem `onSelect` não há `role="button"`; com `onSelect` o clique dispara e `aria-expanded` reflete `selected` |
-| `components/team/formation-board.test.tsx` | Existentes + marcador vira botão "Substituir TenZ no campo" só com `onSelect` |
-| `components/market/market-player-row.test.tsx` | Comprável → clique chama `onConfirm`; **caro → aparece, com motivo legível, `aria-disabled` e clique que NÃO chama `onConfirm`**; preço com 1 casa |
-| `components/market/market-sheet.test.tsx` | Só lista a mesma função; título/descrição corretos; estado vazio; mercado fechado → alerta e nada acionável |
-| `components/team/roster-panel.test.tsx` | Clicar na linha e no marcador abrem o mesmo Sheet, com o jogador certo; mercado fechado → linhas não são botões |
-| `app/my-team/actions.test.ts` | Sem sessão; mercado fechado; vaga de outro usuário; função diferente; saldo insuficiente; sucesso → `applySubstitution` recebe `balanceAfterCents` correto e `revalidatePath("/my-team")` é chamado |
+| Arquivo                                        | Cobre                                                                                                                                                                                                                                                              |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `lib/market/money.test.ts`                     | `formatCredits` sempre 1 casa; ida e volta centavos↔créditos; `formatCreditsDelta` com sinal                                                                                                                                                                       |
+| `lib/market/eligibility.test.ts`               | Precedência dos `BlockReason` (fechado vence função, função vence saldo); **fronteira exata de saldo** (`netCost === balance` libera, `+1` bloqueia); crédito da venda reduz o custo líquido; troca por mais barato sobra saldo; `already-rostered`; `same-player` |
+| `lib/market/window.test.ts`                    | `isMarketOpen` nas bordas com `now` injetado; `formatTimeLeft` → "36h 12m", "12m", "Encerrado"                                                                                                                                                                     |
+| `components/team/player-row.test.tsx`          | **Casos existentes intocados** + sem `onSelect` não há `role="button"`; com `onSelect` o clique dispara e `aria-expanded` reflete `selected`                                                                                                                       |
+| `components/team/formation-board.test.tsx`     | Existentes + marcador vira botão "Substituir TenZ no campo" só com `onSelect`                                                                                                                                                                                      |
+| `components/market/market-player-row.test.tsx` | Comprável → clique chama `onConfirm`; **caro → aparece, com motivo legível, `aria-disabled` e clique que NÃO chama `onConfirm`**; preço com 1 casa                                                                                                                 |
+| `components/market/market-sheet.test.tsx`      | Só lista a mesma função; título/descrição corretos; estado vazio; mercado fechado → alerta e nada acionável                                                                                                                                                        |
+| `components/team/roster-panel.test.tsx`        | Clicar na linha e no marcador abrem o mesmo Sheet, com o jogador certo; mercado fechado → linhas não são botões                                                                                                                                                    |
+| `app/my-team/actions.test.ts`                  | Sem sessão; mercado fechado; vaga de outro usuário; função diferente; saldo insuficiente; sucesso → `applySubstitution` recebe `balanceAfterCents` correto e `revalidatePath("/my-team")` é chamado                                                                |
 
 ### Mock do `db` — o padrão
 
@@ -453,14 +473,18 @@ módulo**, e do `@/db` só a `transaction`.
 // vi.hoisted: as fábricas precisam existir antes dos vi.mock içados.
 const { transactionMock, txStub } = vi.hoisted(() => {
   const txStub = Symbol("tx");
-  const transactionMock = vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => cb(txStub));
+  const transactionMock = vi.fn(async (cb: (tx: unknown) => Promise<unknown>) =>
+    cb(txStub),
+  );
   return { transactionMock, txStub };
 });
 vi.mock("@/db", () => ({ db: { transaction: transactionMock } }));
-vi.mock("@/lib/auth", () => ({ auth: { api: { getSession: getSessionMock } } }));
+vi.mock("@/lib/auth", () => ({
+  auth: { api: { getSession: getSessionMock } },
+}));
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
-vi.mock("@/lib/team/queries", () => ({ lockTeamForUpdate: vi.fn(), /* … */ }));
+vi.mock("@/lib/team/queries", () => ({ lockTeamForUpdate: vi.fn() /* … */ }));
 ```
 
 Cada teste arranja os retornos com `vi.mocked(...)`, chama a action e afirma sobre

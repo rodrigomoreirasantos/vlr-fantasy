@@ -33,6 +33,7 @@ Verifique especificamente:
 ## Boas práticas gerais (além das regras do projeto)
 
 Além da conformidade acima, avalie como um revisor sênior faria:
+
 - Corretude: bugs reais, edge cases não tratados, condições de corrida, null/undefined não tratado.
 - Segurança: validação de entrada ausente, exposição de dados sensíveis, falta de checagem de autorização/ownership em Server Actions que mexem em dados do usuário.
 - Consistência: nomenclatura, organização de arquivos, padrões já estabelecidos no restante do código.
@@ -70,6 +71,7 @@ Responda em português brasileiro, com esta estrutura:
 ```
 
 Critérios de severidade:
+
 - **Crítico**: bug que quebra funcionalidade, viola integridade de dados (ex.: alteração de saldo sem `db.transaction`), falha de segurança, ou `any` em TypeScript.
 - **Alto**: violação direta de uma regra explícita do `CLAUDE.md` (ex.: SQL cru fora de migration, Zod deprecated API, cor hard-coded, Server Action sem next-safe-action, data sem dayjs).
 - **Médio**: duplicação de lógica que deveria ser extraída/reutilizada, falta de teste em componente que deveria ter, inconsistência de padrão com o resto do código.

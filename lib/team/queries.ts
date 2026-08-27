@@ -1,4 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
+import { cache } from "react";
 
 import { db } from "@/db";
 import { fantasyTeam, player, round, rosterSlot, transfer } from "@/db/schema";
@@ -38,13 +39,11 @@ export async function getActiveRound(q: Querier = db) {
 }
 
 /**
- * Visão completa do time do usuário: resumo (saldo, mercado, pontos) e as
- * cinco vagas da escalação. `null` quando o usuário ainda não tem time —
- * cabe à página chamar `ensureFantasyTeam` e tentar de novo.
+ * Leitura crua da visão do time: resumo (saldo, mercado, pontos) e as cinco
+ * vagas da escalação. `null` quando o usuário ainda não tem time — quem trata
+ * esse caso é `getTeamOverview`, logo abaixo.
  */
-export async function getTeamOverview(
-  userId: string,
-): Promise<TeamOverview | null> {
+async function loadTeamOverview(userId: string): Promise<TeamOverview | null> {
   const team = await db.query.fantasyTeam.findFirst({
     where: eq(fantasyTeam.userId, userId),
     with: {
@@ -69,6 +68,29 @@ export async function getTeamOverview(
     roster,
   };
 }
+
+/**
+ * Visão completa do time do usuário, memoizada por request (`cache()` do
+ * React): o layout logado (`app/(app)/layout.tsx`) e a página `/my-team`
+ * pedem o mesmo dado no mesmo request e compartilham uma única consulta.
+ *
+ * O fallback de `ensureFantasyTeam` mora **dentro** da função memoizada de
+ * propósito. Se ele ficasse no chamador, a primeira leitura memoizaria o
+ * `null` e a releitura depois de criar o time devolveria esse `null` cacheado
+ * — o motivo pelo qual as duas telas duplicavam a consulta antes.
+ */
+export const getTeamOverview = cache(
+  async (userId: string, userName: string): Promise<TeamOverview | null> => {
+    const overview = await loadTeamOverview(userId);
+    if (overview) return overview;
+
+    // Contas criadas antes de o mercado existir não passaram pelo hook de
+    // criação do time (databaseHooks.user.create.after em lib/auth.ts).
+    // `ensureFantasyTeam` é idempotente, então serve de fallback aqui.
+    await ensureFantasyTeam(userId, userName);
+    return loadTeamOverview(userId);
+  },
+);
 
 /**
  * Catálogo do mercado, agrupado por função. Não exclui quem já está

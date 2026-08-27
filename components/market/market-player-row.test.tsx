@@ -20,7 +20,9 @@ function makePlayer(overrides: Partial<Player> = {}): Player {
   };
 }
 
-function makeContext(overrides: Partial<SubstitutionContext> = {}): SubstitutionContext {
+function makeContext(
+  overrides: Partial<SubstitutionContext> = {},
+): SubstitutionContext {
   return {
     marketOpen: true,
     balanceCents: 10_000,
@@ -38,7 +40,11 @@ describe("MarketPlayerRow", () => {
 
     render(
       <ul>
-        <MarketPlayerRow ctx={makeContext()} candidate={candidate} onConfirm={onConfirm} />
+        <MarketPlayerRow
+          ctx={makeContext()}
+          candidate={candidate}
+          onConfirm={onConfirm}
+        />
       </ul>,
     );
 
@@ -80,7 +86,11 @@ describe("MarketPlayerRow", () => {
 
     render(
       <ul>
-        <MarketPlayerRow ctx={makeContext()} candidate={candidate} onConfirm={vi.fn()} />
+        <MarketPlayerRow
+          ctx={makeContext()}
+          candidate={candidate}
+          onConfirm={vi.fn()}
+        />
       </ul>,
     );
 
@@ -94,7 +104,11 @@ describe("MarketPlayerRow", () => {
 
     render(
       <ul>
-        <MarketPlayerRow ctx={makeContext()} candidate={candidate} onConfirm={vi.fn()} />
+        <MarketPlayerRow
+          ctx={makeContext()}
+          candidate={candidate}
+          onConfirm={vi.fn()}
+        />
       </ul>,
     );
 

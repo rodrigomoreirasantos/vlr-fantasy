@@ -137,12 +137,8 @@
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -229,12 +225,8 @@
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -244,9 +236,7 @@
         "session_token_unique": {
           "name": "session_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token"
-          ]
+          "columns": ["token"]
         }
       },
       "policies": {},
@@ -310,9 +300,7 @@
         "user_email_unique": {
           "name": "user_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -710,12 +698,8 @@
           "name": "fantasy_team_user_id_user_id_fk",
           "tableFrom": "fantasy_team",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -862,12 +846,8 @@
           "name": "roster_slot_fantasy_team_id_fantasy_team_id_fk",
           "tableFrom": "roster_slot",
           "tableTo": "fantasy_team",
-          "columnsFrom": [
-            "fantasy_team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["fantasy_team_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -875,12 +855,8 @@
           "name": "roster_slot_player_id_player_id_fk",
           "tableFrom": "roster_slot",
           "tableTo": "player",
-          "columnsFrom": [
-            "player_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["player_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -1013,12 +989,8 @@
           "name": "transfer_fantasy_team_id_fantasy_team_id_fk",
           "tableFrom": "transfer",
           "tableTo": "fantasy_team",
-          "columnsFrom": [
-            "fantasy_team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["fantasy_team_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1026,12 +998,8 @@
           "name": "transfer_round_id_round_id_fk",
           "tableFrom": "transfer",
           "tableTo": "round",
-          "columnsFrom": [
-            "round_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["round_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -1039,12 +1007,8 @@
           "name": "transfer_roster_slot_id_roster_slot_id_fk",
           "tableFrom": "transfer",
           "tableTo": "roster_slot",
-          "columnsFrom": [
-            "roster_slot_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["roster_slot_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1052,12 +1016,8 @@
           "name": "transfer_out_player_id_player_id_fk",
           "tableFrom": "transfer",
           "tableTo": "player",
-          "columnsFrom": [
-            "out_player_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["out_player_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -1065,12 +1025,8 @@
           "name": "transfer_in_player_id_player_id_fk",
           "tableFrom": "transfer",
           "tableTo": "player",
-          "columnsFrom": [
-            "in_player_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["in_player_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -1086,21 +1042,12 @@
     "public.player_role": {
       "name": "player_role",
       "schema": "public",
-      "values": [
-        "Duelista",
-        "Iniciador",
-        "Controlador",
-        "Sentinela"
-      ]
+      "values": ["Duelista", "Iniciador", "Controlador", "Sentinela"]
     },
     "public.round_status": {
       "name": "round_status",
       "schema": "public",
-      "values": [
-        "upcoming",
-        "active",
-        "finished"
-      ]
+      "values": ["upcoming", "active", "finished"]
     }
   },
   "schemas": {},

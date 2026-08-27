@@ -38,9 +38,6 @@ export const transfer = pgTable(
   },
   (table) => [
     index("transfer_team_round_idx").on(table.fantasyTeamId, table.roundId),
-    index("transfer_team_created_idx").on(
-      table.fantasyTeamId,
-      table.createdAt,
-    ),
+    index("transfer_team_created_idx").on(table.fantasyTeamId, table.createdAt),
   ],
 );

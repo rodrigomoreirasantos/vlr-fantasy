@@ -55,7 +55,7 @@ vi.mock("@/lib/team/queries", () => ({
   hasCaptain: hasCaptainMock,
 }));
 
-import { setCaptain, substitutePlayer } from "@/app/my-team/actions";
+import { setCaptain, substitutePlayer } from "@/app/(app)/my-team/actions";
 
 const SLOT_ID = "11111111-1111-4111-8111-111111111111";
 const OUTGOING_ID = "22222222-2222-4222-8222-222222222222";

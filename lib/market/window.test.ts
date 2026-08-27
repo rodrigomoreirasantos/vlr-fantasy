@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { formatClosesAt, formatTimeLeft, isMarketOpen } from "@/lib/market/window";
+import {
+  formatClosesAt,
+  formatTimeLeft,
+  isMarketOpen,
+} from "@/lib/market/window";
 
 const opensAt = new Date("2026-03-10T00:00:00Z");
 const closesAt = new Date("2026-03-14T18:00:00Z");

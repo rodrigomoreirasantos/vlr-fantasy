@@ -8,11 +8,11 @@ services:
       POSTGRES_PASSWORD: vlr_fantasy
       POSTGRES_DB: vlr_fantasy
     ports:
-      - '5432:5432'
+      - "5432:5432"
     volumes:
       - vlr_fantasy_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U vlr_fantasy -d vlr_fantasy']
+      test: ["CMD-SHELL", "pg_isready -U vlr_fantasy -d vlr_fantasy"]
       interval: 5s
       timeout: 5s
       retries: 5

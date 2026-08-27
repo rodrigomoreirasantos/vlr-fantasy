@@ -29,9 +29,7 @@ export function ScorerHighlight({
         <div className="flex items-center gap-3">
           <div className="clip-corner size-13 flex-none [--clip:6px] [background-image:repeating-linear-gradient(135deg,var(--accent)_0_4px,var(--muted)_4px_8px)]" />
           <div className="min-w-0 flex-1">
-            <p className="text-[15px] font-bold uppercase">
-              {player.nickname}
-            </p>
+            <p className="text-[15px] font-bold uppercase">{player.nickname}</p>
             <p className="mt-px text-[11px] font-semibold text-muted-foreground">
               {player.role}
             </p>
