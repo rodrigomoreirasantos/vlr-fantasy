@@ -14,6 +14,23 @@ export const PLAYER_ROLES = [
 
 export type PlayerRole = (typeof PLAYER_ROLES)[number];
 
+/**
+ * Estados possíveis de disponibilidade de um jogador na rodada corrente.
+ * Lista fechada — são estados do jogo, não um catálogo que cresce — por
+ * isso vira `pgEnum` em `db/schema/players.ts`, que importa daqui (mesmo
+ * import unidirecional que `PLAYER_ROLES` já usa). Independente de `active`:
+ * `active` é quem sai do catálogo do mercado, `availability` é quem joga.
+ */
+export const PLAYER_AVAILABILITIES = [
+  "available",
+  "bench",
+  "injured",
+  "eliminated",
+  "doubtful",
+] as const;
+
+export type PlayerAvailability = (typeof PLAYER_AVAILABILITIES)[number];
+
 export type Player = {
   id: string;
   nickname: string;
@@ -32,6 +49,10 @@ export type Player = {
    * troca mesmo se, por alguma corrida, um inativo chegar até ela.
    */
   active: boolean;
+  /** Disponibilidade para a próxima rodada — alimenta os alertas da Home. */
+  availability: PlayerAvailability;
+  /** Detalhe opcional em pt-BR, ex. "Fora por lesão no pulso". */
+  availabilityNote: string | null;
 };
 
 /**

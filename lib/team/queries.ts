@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { fantasyTeam, player, round, rosterSlot, transfer } from "@/db/schema";
 import { isUniqueViolation } from "@/lib/db/errors";
 import type { Crest } from "@/lib/crest/types";
+import { teamPoints } from "@/lib/scoring/team";
 import {
   deriveTeamName,
   nextTeamNameCandidate,
@@ -62,10 +63,9 @@ async function loadTeamOverview(userId: string): Promise<TeamOverview | null> {
 
   const activeRound = await getActiveRound();
   const roster = toRosterSlots(team.slots);
-  const points = roster.reduce(
-    (total, slot) => total + (slot.player?.score ?? 0),
-    0,
-  );
+  // A braçadeira dobra a pontuação de quem a usa — única fonte da regra
+  // (lib/scoring/team.ts), a mesma que a classificação usa.
+  const points = teamPoints(roster);
 
   return {
     teamId: team.id,

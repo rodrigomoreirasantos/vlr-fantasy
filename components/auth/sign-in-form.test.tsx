@@ -51,7 +51,7 @@ describe("SignInForm", () => {
         password: "senha1234",
       }),
     );
-    expect(pushMock).toHaveBeenCalledWith("/my-team");
+    expect(pushMock).toHaveBeenCalledWith("/home");
   });
 
   it("mostra 'E-mail ou senha incorretos.' quando as credenciais são inválidas", async () => {

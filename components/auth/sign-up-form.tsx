@@ -38,7 +38,7 @@ export function SignUpForm() {
   const { execute, isExecuting } = useAction(signUpWithTeam, {
     onExecute: () => setServerError(null),
     onSuccess: () => {
-      router.push("/my-team");
+      router.push("/home");
       router.refresh();
     },
     onError: ({ error }) =>

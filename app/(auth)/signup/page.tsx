@@ -16,7 +16,7 @@ export default async function SignUpPage() {
   const session = await auth.api.getSession({ headers: await headers() });
 
   if (session) {
-    redirect("/my-team");
+    redirect("/home");
   }
 
   return (

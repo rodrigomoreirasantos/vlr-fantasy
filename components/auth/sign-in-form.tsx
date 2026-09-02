@@ -39,7 +39,7 @@ export function SignInForm() {
       return;
     }
 
-    router.push("/my-team");
+    router.push("/home");
     router.refresh();
   };
 

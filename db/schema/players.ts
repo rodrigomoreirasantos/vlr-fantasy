@@ -13,12 +13,18 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-import { PLAYER_ROLES } from "@/lib/team/types";
+import { PLAYER_AVAILABILITIES, PLAYER_ROLES } from "@/lib/team/types";
 
 // Import unidirecional: o schema conhece o tipo de domínio, nunca o
 // contrário. `PLAYER_ROLES` vive em `lib/team/types.ts` — única fonte da
 // lista de funções, reaproveitada pela UI para agrupar o mercado.
 export const playerRole = pgEnum("player_role", PLAYER_ROLES);
+
+/** Estados do jogo (lista fechada) — não confundir com `active`, que é o catálogo do mercado. */
+export const playerAvailability = pgEnum(
+  "player_availability",
+  PLAYER_AVAILABILITIES,
+);
 
 export const player = pgTable(
   "player",
@@ -39,6 +45,12 @@ export const player = pgTable(
       .notNull()
       .default(0),
     active: boolean("active").notNull().default(true),
+    /** Disponibilidade para a próxima rodada — alimenta os alertas da Home. */
+    availability: playerAvailability("availability")
+      .notNull()
+      .default("available"),
+    /** Detalhe opcional em pt-BR, ex. "Fora por lesão no pulso". */
+    availabilityNote: text("availability_note"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

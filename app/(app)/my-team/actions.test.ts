@@ -95,6 +95,8 @@ const OUTGOING_ROW = {
   priceCents: 4000,
   score: 15.8,
   active: true,
+  availability: "available" as const,
+  availabilityNote: null,
 };
 const INCOMING_ROW = {
   id: INCOMING_ID,
@@ -105,6 +107,8 @@ const INCOMING_ROW = {
   priceCents: 3000,
   score: 18.2,
   active: true,
+  availability: "available" as const,
+  availabilityNote: null,
 };
 
 const VALID_INPUT = {

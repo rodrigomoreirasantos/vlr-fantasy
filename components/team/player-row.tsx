@@ -107,12 +107,20 @@ export function PlayerPortraitBadge({
 }
 
 export type PlayerIdentityProps = {
-  player: Player;
+  /**
+   * Só o que a identidade precisa — não o `Player` inteiro. É o que permite
+   * a Home (`components/home/price-mover-list.tsx`) reaproveitar este
+   * componente para valorizações/desvalorizações, que vêm de
+   * `round_player_score` (sem preço atual nem disponibilidade). `score` só
+   * importa quando `trailing` não é passado — ver abaixo.
+   */
+  player: Pick<Player, "nickname" | "team" | "role" | "score">;
   /**
    * Conteúdo à direita do nome — por padrão, a pontuação da rodada. O
-   * mercado troca por `PlayerPrice` (o preço atual), porque a pontuação de
-   * um candidato não é a informação relevante ali. Ver
-   * `components/market/market-player-row.tsx`.
+   * mercado troca por `PlayerPrice` (o preço atual), e a Home por
+   * `formatCreditsDelta` (a variação de preço), porque nenhuma das duas é a
+   * pontuação de `player.score`. Ver `components/market/market-player-row.tsx`
+   * e `components/home/price-mover-list.tsx`.
    */
   trailing?: React.ReactNode;
 };

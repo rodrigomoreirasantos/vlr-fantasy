@@ -121,7 +121,7 @@ describe("SignUpForm", () => {
         confirmPassword: "senha1234",
       }),
     );
-    expect(pushMock).toHaveBeenCalledWith("/my-team");
+    expect(pushMock).toHaveBeenCalledWith("/home");
   });
 
   it("mostra a mensagem do servidor quando o nome do time já existe", async () => {

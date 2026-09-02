@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
 type Section = { label: string; icon: LucideIcon; href?: string };
 
 const SECTIONS: Section[] = [
-  { label: "Início", icon: Home },
+  { label: "Início", icon: Home, href: "/home" },
   { label: "Perfil", icon: User, href: "/profile" },
   { label: "Escalação", icon: Crosshair, href: "/my-team" },
   { label: "Ranking", icon: Trophy, href: "/ranking" },

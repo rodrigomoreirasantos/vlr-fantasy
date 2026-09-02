@@ -24,6 +24,8 @@ export function toDomainPlayer(row: PlayerRow): Player {
     score: row.score,
     priceCents: row.priceCents,
     active: row.active,
+    availability: row.availability,
+    availabilityNote: row.availabilityNote,
   };
 }
 

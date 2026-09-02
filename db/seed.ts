@@ -1,12 +1,21 @@
 import "dotenv/config";
 
-import { eq, isNull } from "drizzle-orm";
+import dayjs from "dayjs";
+import { count, eq, isNull } from "drizzle-orm";
 
 import { db, pool } from "@/db";
-import { fantasyTeam, player, round, rosterSlot, user } from "@/db/schema";
+import { closeActiveRound } from "@/db/close-round";
+import {
+  fantasyTeam,
+  match,
+  player,
+  round,
+  rosterSlot,
+  user,
+} from "@/db/schema";
 import { assignUniqueUsername } from "@/lib/auth/username";
 import { ensureFantasyTeam } from "@/lib/team/queries";
-import type { PlayerRole } from "@/lib/team/types";
+import type { PlayerAvailability, PlayerRole } from "@/lib/team/types";
 
 /**
  * Catálogo de demonstração: 6 jogadores por função, com pelo menos um preço
@@ -14,6 +23,13 @@ import type { PlayerRole } from "@/lib/team/types";
  * é o que faz o estado "sem saldo" do mercado aparecer de verdade na tela.
  * Os cinco primeiros reproduzem o roster do antigo `lib/team/placeholder.ts`,
  * para a tela continuar reconhecível.
+ *
+ * A maioria fica `available` (o default da coluna, por isso omitido). Um
+ * punhado ganha disponibilidade variada — dois de banco, dois lesionados e
+ * dois eliminados, estes últimos quatro com nota em pt-BR — para os alertas
+ * da Home (`lib/home/summary.ts`) aparecerem de verdade num ambiente de
+ * desenvolvimento novo. `TenZ` e `Sacy` estão no `REFERENCE_ROSTER` abaixo,
+ * então o alerta já aparece na escalação de qualquer conta nova.
  */
 const PLAYERS: {
   nickname: string;
@@ -22,6 +38,8 @@ const PLAYERS: {
   role: PlayerRole;
   priceCents: number;
   score: number;
+  availability?: PlayerAvailability;
+  availabilityNote?: string;
 }[] = [
   // Duelistas
   {
@@ -31,6 +49,8 @@ const PLAYERS: {
     role: "Duelista",
     priceCents: 18000,
     score: 18.2,
+    availability: "injured",
+    availabilityNote: "Fora por lesão no pulso",
   },
   {
     nickname: "Derke",
@@ -81,6 +101,8 @@ const PLAYERS: {
     role: "Iniciador",
     priceCents: 12000,
     score: 9.4,
+    availability: "bench",
+    availabilityNote: "Preparando a estreia do substituto",
   },
   {
     nickname: "Mazino",
@@ -163,6 +185,8 @@ const PLAYERS: {
     role: "Controlador",
     priceCents: 11000,
     score: 8.0,
+    availability: "injured",
+    availabilityNote: "Fora por lesão no ombro",
   },
   {
     nickname: "ANGE1",
@@ -171,6 +195,8 @@ const PLAYERS: {
     role: "Controlador",
     priceCents: 42000,
     score: 21.3,
+    availability: "eliminated",
+    availabilityNote: "Eliminado nas quartas de final",
   },
 
   // Sentinelas
@@ -189,6 +215,7 @@ const PLAYERS: {
     role: "Sentinela",
     priceCents: 7000,
     score: 5.0,
+    availability: "bench",
   },
   {
     nickname: "foxy9",
@@ -205,6 +232,8 @@ const PLAYERS: {
     role: "Sentinela",
     priceCents: 12500,
     score: 9.9,
+    availability: "eliminated",
+    availabilityNote: "Eliminado nas quartas de final",
   },
   {
     nickname: "Kanpeki",
@@ -243,24 +272,182 @@ async function seedPlayers() {
   );
 }
 
-async function seedActiveRound() {
-  const now = new Date();
-  const opensAt = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  const closesAt = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+/**
+ * Três rodadas: a 1 nasce `active` só para `closeRoundOnce` (abaixo) ter o
+ * que fechar — o ambiente de desenvolvimento já nasce com uma rodada fechada
+ * de verdade, com snapshots gerados pelo mesmo código de produção. As
+ * janelas de mercado da 2 (que vira `active` no fechamento) e da 3 ficam
+ * coerentes com o "agora": a 2 aberta, a 3 no futuro.
+ */
+async function seedRounds() {
+  const now = dayjs();
 
   await db
     .insert(round)
-    .values({
-      number: 1,
-      name: "Rodada 1",
-      marketOpensAt: opensAt,
-      marketClosesAt: closesAt,
-      totalMatches: 10,
-      scoredMatches: 9,
-      status: "active",
-    })
+    .values([
+      {
+        number: 1,
+        name: "Rodada 1",
+        marketOpensAt: now.subtract(6, "day").toDate(),
+        marketClosesAt: now.subtract(3, "day").toDate(),
+        totalMatches: 10,
+        scoredMatches: 10,
+        status: "active",
+      },
+      {
+        number: 2,
+        name: "Rodada 2",
+        marketOpensAt: now.subtract(1, "day").toDate(),
+        marketClosesAt: now.add(2, "day").toDate(),
+        totalMatches: 10,
+        scoredMatches: 3,
+        status: "upcoming",
+      },
+      {
+        number: 3,
+        name: "Rodada 3",
+        marketOpensAt: now.add(2, "day").toDate(),
+        marketClosesAt: now.add(5, "day").toDate(),
+        totalMatches: 10,
+        scoredMatches: 0,
+        status: "upcoming",
+      },
+    ])
     .onConflictDoNothing({ target: round.number });
-  console.log("✓ Rodada 1 ativa, com mercado aberto.");
+  console.log("✓ Rodadas 1 (ativa), 2 e 3 (upcoming) semeadas.");
+}
+
+/**
+ * Dez confrontos entre organizações que já aparecem em `PLAYERS` — o
+ * suficiente para todo jogador do `REFERENCE_ROSTER` ter uma partida na
+ * Rodada 2, e para o estado "sem partida" (`lib/home/summary.ts`) ficar
+ * disponível para demonstrar com qualquer outra organização.
+ */
+const MATCH_PAIRINGS: { teamA: string; teamB: string; event: string }[] = [
+  { teamA: "SENTINELS", teamB: "FNATIC", event: "VCT Americas" },
+  { teamA: "Team Liquid", teamB: "LEVIATÁN", event: "VCT Americas" },
+  { teamA: "NRG", teamB: "LOUD", event: "VCT Americas" },
+  { teamA: "DRX", teamB: "100 Thieves", event: "VCT Pacific" },
+  { teamA: "Evil Geniuses", teamB: "Cloud9", event: "VCT Americas" },
+  { teamA: "Team Heretics", teamB: "Gen.G", event: "VCT EMEA" },
+  { teamA: "FNATIC", teamB: "NRG", event: "VCT Americas" },
+  { teamA: "SENTINELS", teamB: "DRX", event: "VCT Pacific" },
+  { teamA: "LOUD", teamB: "Evil Geniuses", event: "VCT Americas" },
+  { teamA: "Cloud9", teamB: "Team Heretics", event: "VCT EMEA" },
+];
+
+/** Um horário por partida, espaçado uniformemente dentro da janela da rodada. */
+function scheduleWithinWindow(
+  opensAt: Date,
+  closesAt: Date,
+  index: number,
+  total: number,
+): Date {
+  const start = dayjs(opensAt);
+  const end = dayjs(closesAt);
+  const stepMinutes = end.diff(start, "minute") / (total + 1);
+  return start.add(stepMinutes * (index + 1), "minute").toDate();
+}
+
+/**
+ * Calendário de cada rodada — idempotente por checagem manual (`match` não
+ * tem chave natural para `onConflictDoNothing`): se a rodada já tem
+ * partidas, pula. A Rodada 1 nasce toda `finished` com placar (é o passado);
+ * a 2 mistura `finished`/`live`/`upcoming` (`scoredMatches: 3` bate com as
+ * três primeiras já encerradas); a 3 é só `upcoming`, sem placar.
+ */
+async function seedMatches() {
+  const rounds = await db.query.round.findMany({
+    orderBy: (row, { asc }) => [asc(row.number)],
+  });
+
+  for (const [roundIndex, currentRound] of rounds.entries()) {
+    const existing = await db.query.match.findFirst({
+      where: eq(match.roundId, currentRound.id),
+    });
+    if (existing) continue;
+
+    const rows = MATCH_PAIRINGS.map((pairing, index) => {
+      const scheduledAt = scheduleWithinWindow(
+        currentRound.marketOpensAt,
+        currentRound.marketClosesAt,
+        index,
+        MATCH_PAIRINGS.length,
+      );
+      // Rodada 1 (passada): tudo encerrado. Rodada 2 (em curso): as 3
+      // primeiras encerradas, a 4ª ao vivo, o resto por vir. Rodada 3
+      // (futura): tudo por vir.
+      const finished = roundIndex === 0 || (roundIndex === 1 && index < 3);
+      const live = roundIndex === 1 && index === 3;
+      const status = finished ? "finished" : live ? "live" : "upcoming";
+
+      return {
+        roundId: currentRound.id,
+        teamA: pairing.teamA,
+        teamB: pairing.teamB,
+        event: pairing.event,
+        scheduledAt,
+        status: status as "upcoming" | "live" | "finished",
+        scoreA: finished ? 13 : null,
+        scoreB: finished ? 8 : null,
+      };
+    });
+
+    await db.insert(match).values(rows);
+    console.log(
+      `✓ ${rows.length} partidas semeadas para "${currentRound.name}".`,
+    );
+  }
+}
+
+/**
+ * Fecha a Rodada 1 uma única vez — só quando o catálogo ainda não tem
+ * nenhuma rodada `finished` — chamando o mesmo `closeActiveRound` do script
+ * `pnpm db:round:close`. É o que dá à Home snapshots reais para exibir
+ * (`round_player_score`, `round_roster`, `round_team_result`) sem inventar
+ * números à mão aqui.
+ */
+async function closeRoundOnce(): Promise<boolean> {
+  const [{ value: finishedRounds }] = await db
+    .select({ value: count() })
+    .from(round)
+    .where(eq(round.status, "finished"));
+  if (finishedRounds > 0) {
+    console.log("✓ Já existe rodada finalizada — nada para fechar.");
+    return false;
+  }
+
+  const result = await db.transaction((tx) => closeActiveRound(tx));
+  if (!result) {
+    console.log("✓ Nenhuma rodada ativa para fechar.");
+    return false;
+  }
+  console.log(
+    `✓ Rodada 1 fechada com snapshots reais. Rodada ativa agora: ${result.nextRoundId}.`,
+  );
+  return true;
+}
+
+/**
+ * `closeActiveRound` zera `player.score` — o comportamento correto na virada,
+ * já que a pontuação é sempre "da rodada corrente". Só que, rodando dentro do
+ * seed, isso deixaria o ambiente de desenvolvimento inteiro com 0 ponto em
+ * toda tela (header, `/my-team`, `/ranking`, destaques) e sem como recuperar:
+ * `seedPlayers` usa `onConflictDoNothing`, então re-rodar o seed não
+ * restauraria nada. Reaplica as pontuações de `PLAYERS` na rodada agora
+ * ativa. Só é chamada quando o fechamento realmente aconteceu — nunca
+ * sobrescreve pontuação de um banco já em uso.
+ */
+async function restoreCatalogScores() {
+  for (const seedPlayer of PLAYERS) {
+    await db
+      .update(player)
+      .set({ score: seedPlayer.score })
+      .where(eq(player.nickname, seedPlayer.nickname));
+  }
+  console.log(
+    `✓ Pontuações da rodada corrente reaplicadas em ${PLAYERS.length} jogadores.`,
+  );
 }
 
 /**
@@ -336,9 +523,17 @@ async function backfillUsernames() {
 
 async function main() {
   await seedPlayers();
-  await seedActiveRound();
+  await seedRounds();
+  await seedMatches();
   await backfillUsernames();
   await seedExistingUsersTeams();
+  // Por último: fecha a Rodada 1 com o time de referência (e qualquer outro
+  // já semeado) na escalação, para os snapshots saírem preenchidos. O
+  // fechamento zera os scores, então a rodada agora ativa recebe as
+  // pontuações de volta.
+  if (await closeRoundOnce()) {
+    await restoreCatalogScores();
+  }
   console.log("Seed concluído.");
 }
 

@@ -27,3 +27,27 @@ export function formatTimeLeft(closesAt: Date, now: Date = new Date()): string {
 export function formatClosesAt(closesAt: Date): string {
   return `Fecha ${dayjs(closesAt).format("ddd, DD/MM [às] HH:mm")}`;
 }
+
+/**
+ * A frase completa do estado do mercado de uma rodada — os **três** estados,
+ * não só o de fechamento: antes de abrir, aberto, e já encerrado. Existe
+ * porque `formatTimeLeft` sozinho devolve "Encerrado", e concatenar isso a um
+ * prefixo fixo produzia "Mercado fecha em Encerrado"; pior, com a janela
+ * ainda no futuro a Home anunciava um fechamento enquanto `/my-team` mostrava
+ * o mercado fechado.
+ *
+ * `now` injetável: o servidor renderiza a frase no primeiro paint e o cliente
+ * recalcula a mesma função a cada tick (`components/home/market-countdown.tsx`).
+ */
+export function formatMarketCountdown(
+  w: MarketWindow,
+  now: Date = new Date(),
+): string {
+  if (dayjs(now).isBefore(w.opensAt)) {
+    return `Mercado abre em ${formatTimeLeft(w.opensAt, now)}`;
+  }
+  if (isMarketOpen(w, now)) {
+    return `Mercado fecha em ${formatTimeLeft(w.closesAt, now)}`;
+  }
+  return "Mercado fechado";
+}

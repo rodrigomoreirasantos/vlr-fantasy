@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   formatClosesAt,
+  formatMarketCountdown,
   formatTimeLeft,
   isMarketOpen,
 } from "@/lib/market/window";
@@ -59,5 +60,28 @@ describe("formatClosesAt", () => {
   it("formata em português, com dia da semana abreviado", () => {
     // 2026-03-14 é um sábado.
     expect(formatClosesAt(closesAt)).toBe("Fecha sáb, 14/03 às 18:00");
+  });
+});
+
+describe("formatMarketCountdown", () => {
+  it("antes de abrir: conta para a abertura, não para o fechamento", () => {
+    const now = new Date("2026-03-09T22:00:00Z"); // 2h antes da abertura
+    expect(formatMarketCountdown({ opensAt, closesAt }, now)).toBe(
+      "Mercado abre em 2h 0m",
+    );
+  });
+
+  it("aberto: conta para o fechamento", () => {
+    const now = new Date("2026-03-13T05:48:00Z"); // 36h12m antes do fechamento
+    expect(formatMarketCountdown({ opensAt, closesAt }, now)).toBe(
+      "Mercado fecha em 36h 12m",
+    );
+  });
+
+  it("encerrado: nunca vira 'fecha em Encerrado'", () => {
+    const now = new Date("2026-03-15T00:00:00Z");
+    expect(formatMarketCountdown({ opensAt, closesAt }, now)).toBe(
+      "Mercado fechado",
+    );
   });
 });

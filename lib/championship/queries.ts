@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray, sum } from "drizzle-orm";
+import { and, asc, count, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -6,6 +6,7 @@ import {
   championshipMember,
   fantasyTeam,
   player,
+  roundTeamResult,
   rosterSlot,
   user,
 } from "@/db/schema";
@@ -16,6 +17,7 @@ import type {
   PendingMember,
   StandingRow,
 } from "@/lib/championship/types";
+import { CAPTAIN_MULTIPLIER } from "@/lib/scoring/team";
 import type { Querier } from "@/lib/team/queries";
 
 /**
@@ -112,7 +114,11 @@ export async function getStandingRowsByChampionship(
       crestBg: fantasyTeam.crestBg,
       crestFg: fantasyTeam.crestFg,
       crestBorder: fantasyTeam.crestBorder,
-      points: sum(player.score),
+      // A braçadeira dobra a pontuação de quem a usa — mesma regra de
+      // `teamPoints` (lib/scoring/team.ts), interpolada aqui porque o `sum`
+      // roda no banco, sobre as 5 vagas de cada membro de uma vez.
+      points: sql<string | null>`sum(case when ${rosterSlot.captain}
+        then ${player.score} * ${CAPTAIN_MULTIPLIER} else ${player.score} end)`,
     })
     .from(championshipMember)
     .innerJoin(user, eq(user.id, championshipMember.userId))
@@ -153,6 +159,78 @@ export async function getStandingRowsByChampionship(
         border: row.crestBorder ?? "",
       }),
       points: Number(row.points ?? 0),
+    };
+    byChampionship.get(row.championshipId)?.push(standing);
+  }
+
+  return byChampionship;
+}
+
+/**
+ * Irmã de `getStandingRowsByChampionship`: mesma forma (`StandingRow`), mas
+ * lendo a pontuação **congelada** de uma rodada (`round_team_result`) em vez
+ * do elenco ao vivo — é exatamente o cenário que
+ * `lib/championship/standings.ts:6-8` já antecipava ("se a base de pontuação
+ * mudar no futuro, só a query muda"). `rankStandings` funciona sobre o
+ * resultado sem nenhuma alteração. Sem `groupBy`: `round_team_result` já tem
+ * uma linha por time por rodada, então não há agregação a fazer aqui — só o
+ * `leftJoin`, para um membro sem time (ou sem resultado naquela rodada,
+ * porque criou o time depois dela) aparecer com 0 pontos, nunca sumir.
+ */
+export async function getStandingRowsForRoundByChampionship(
+  championshipIds: readonly string[],
+  roundId: string,
+): Promise<Map<string, StandingRow[]>> {
+  const byChampionship = new Map<string, StandingRow[]>(
+    championshipIds.map((id) => [id, []]),
+  );
+  if (championshipIds.length === 0) return byChampionship;
+
+  const rows = await db
+    .select({
+      championshipId: championshipMember.championshipId,
+      userId: user.id,
+      userName: user.name,
+      username: user.username,
+      teamName: fantasyTeam.name,
+      crestShape: fantasyTeam.crestShape,
+      crestSymbol: fantasyTeam.crestSymbol,
+      crestBg: fantasyTeam.crestBg,
+      crestFg: fantasyTeam.crestFg,
+      crestBorder: fantasyTeam.crestBorder,
+      points: roundTeamResult.points,
+    })
+    .from(championshipMember)
+    .innerJoin(user, eq(user.id, championshipMember.userId))
+    .leftJoin(fantasyTeam, eq(fantasyTeam.userId, user.id))
+    .leftJoin(
+      roundTeamResult,
+      and(
+        eq(roundTeamResult.fantasyTeamId, fantasyTeam.id),
+        eq(roundTeamResult.roundId, roundId),
+      ),
+    )
+    .where(
+      and(
+        inArray(championshipMember.championshipId, championshipIds),
+        eq(championshipMember.status, "accepted"),
+      ),
+    );
+
+  for (const row of rows) {
+    const standing: StandingRow = {
+      userId: row.userId,
+      userName: row.userName,
+      username: row.username,
+      teamName: row.teamName ?? "Sem time",
+      crest: parseCrest({
+        shape: row.crestShape ?? "",
+        symbol: row.crestSymbol ?? "",
+        background: row.crestBg ?? "",
+        foreground: row.crestFg ?? "",
+        border: row.crestBorder ?? "",
+      }),
+      points: row.points ?? 0,
     };
     byChampionship.get(row.championshipId)?.push(standing);
   }

@@ -118,6 +118,8 @@ export const substitutePlayer = authActionClient
     });
 
     revalidatePath("/my-team");
+    // A Home mostra a escalação (alertas dos seus 5) e o patrimônio.
+    revalidatePath("/home");
     return { success: true as const };
   });
 
@@ -182,6 +184,8 @@ export const sellPlayer = authActionClient
     });
 
     revalidatePath("/my-team");
+    // A Home mostra a escalação (alertas dos seus 5) e o patrimônio.
+    revalidatePath("/home");
     return { success: true as const };
   });
 
@@ -222,5 +226,7 @@ export const setCaptain = authActionClient
     });
 
     revalidatePath("/my-team");
+    // A Home mostra a escalação (alertas dos seus 5) e o patrimônio.
+    revalidatePath("/home");
     return { success: true as const };
   });

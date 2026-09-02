@@ -19,6 +19,8 @@ function makePlayer(overrides: Partial<Player> = {}): Player {
     score: 18.2,
     priceCents: 5000,
     active: true,
+    availability: "available",
+    availabilityNote: null,
     ...overrides,
   };
 }

@@ -101,5 +101,7 @@ export const respondToInvite = authActionClient
     });
 
     revalidatePath("/ranking");
+    // Convites pendentes aparecem no topo da Home também.
+    revalidatePath("/home");
     return { success: true as const };
   });

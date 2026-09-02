@@ -14,6 +14,8 @@ const player: Player = {
   score: 18.2,
   priceCents: 5000,
   active: true,
+  availability: "available",
+  availabilityNote: null,
 };
 
 describe("PlayerRow", () => {

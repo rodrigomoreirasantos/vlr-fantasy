@@ -10,7 +10,7 @@ export function GoogleButton() {
 
   const handleClick = async () => {
     setIsLoading(true);
-    await signIn.social({ provider: "google", callbackURL: "/my-team" });
+    await signIn.social({ provider: "google", callbackURL: "/home" });
     setIsLoading(false);
   };
 

@@ -4,8 +4,14 @@ import { user } from "@/db/schema/auth";
 import { championship, championshipMember } from "@/db/schema/championships";
 import { fantasyTeam } from "@/db/schema/fantasy-teams";
 import { friendship } from "@/db/schema/friendships";
+import { match } from "@/db/schema/matches";
 import { player } from "@/db/schema/players";
 import { round } from "@/db/schema/rounds";
+import {
+  roundPlayerScore,
+  roundRoster,
+  roundTeamResult,
+} from "@/db/schema/round-results";
 import { rosterSlot } from "@/db/schema/roster";
 import { transfer } from "@/db/schema/transfers";
 
@@ -41,6 +47,59 @@ export const playerRelations = relations(player, ({ many }) => ({
 
 export const roundRelations = relations(round, ({ many }) => ({
   transfers: many(transfer),
+  matches: many(match),
+  playerScores: many(roundPlayerScore),
+  teamResults: many(roundTeamResult),
+}));
+
+export const matchRelations = relations(match, ({ one }) => ({
+  round: one(round, {
+    fields: [match.roundId],
+    references: [round.id],
+  }),
+}));
+
+export const roundPlayerScoreRelations = relations(
+  roundPlayerScore,
+  ({ one }) => ({
+    round: one(round, {
+      fields: [roundPlayerScore.roundId],
+      references: [round.id],
+    }),
+    player: one(player, {
+      fields: [roundPlayerScore.playerId],
+      references: [player.id],
+    }),
+  }),
+);
+
+export const roundTeamResultRelations = relations(
+  roundTeamResult,
+  ({ one }) => ({
+    round: one(round, {
+      fields: [roundTeamResult.roundId],
+      references: [round.id],
+    }),
+    fantasyTeam: one(fantasyTeam, {
+      fields: [roundTeamResult.fantasyTeamId],
+      references: [fantasyTeam.id],
+    }),
+  }),
+);
+
+export const roundRosterRelations = relations(roundRoster, ({ one }) => ({
+  round: one(round, {
+    fields: [roundRoster.roundId],
+    references: [round.id],
+  }),
+  fantasyTeam: one(fantasyTeam, {
+    fields: [roundRoster.fantasyTeamId],
+    references: [fantasyTeam.id],
+  }),
+  player: one(player, {
+    fields: [roundRoster.playerId],
+    references: [player.id],
+  }),
 }));
 
 export const transferRelations = relations(transfer, ({ one }) => ({

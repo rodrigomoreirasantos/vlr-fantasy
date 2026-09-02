@@ -66,14 +66,28 @@ describe("AppHeader", () => {
     );
   });
 
+  it("marca 'Início' como página atual quando a rota é /home", () => {
+    usePathnameMock.mockReturnValue("/home");
+    renderHeader();
+
+    expect(screen.getByRole("link", { name: /início/i })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("link", { name: /início/i })).toHaveAttribute(
+      "href",
+      "/home",
+    );
+  });
+
   it("itens sem rota não são links", () => {
     usePathnameMock.mockReturnValue("/my-team");
     renderHeader();
 
     expect(
-      screen.queryByRole("link", { name: /início/i }),
+      screen.queryByRole("link", { name: /menu/i }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText("Início")).toBeInTheDocument();
+    expect(screen.getByText("Menu")).toBeInTheDocument();
   });
 
   it("mostra o nome do time, o brasão, os pontos e a saudação", () => {

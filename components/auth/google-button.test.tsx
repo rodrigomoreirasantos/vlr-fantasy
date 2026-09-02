@@ -28,7 +28,7 @@ describe("GoogleButton", () => {
     await waitFor(() =>
       expect(signInSocialMock).toHaveBeenCalledWith({
         provider: "google",
-        callbackURL: "/my-team",
+        callbackURL: "/home",
       }),
     );
   });

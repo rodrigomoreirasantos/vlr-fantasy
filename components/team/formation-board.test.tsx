@@ -18,6 +18,8 @@ function slot(nickname: string, score: number, captain = false): RosterSlot {
       score,
       priceCents: 5000,
       active: true,
+      availability: "available",
+      availabilityNote: null,
     },
   };
 }

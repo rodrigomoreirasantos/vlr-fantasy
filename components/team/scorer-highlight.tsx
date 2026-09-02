@@ -6,7 +6,13 @@ import { cn } from "@/lib/utils";
 
 export type ScorerHighlightProps = {
   title: string;
-  player: Player | null;
+  /**
+   * Só o que o cartão precisa — não o `Player` inteiro. É o que permite a
+   * Home (`components/home/round-highlights.tsx`) reaproveitar este
+   * componente para o maior pontuador do jogo inteiro, que vem de
+   * `round_player_score` (sem preço, sem disponibilidade).
+   */
+  player: Pick<Player, "nickname" | "role" | "score"> | null;
   /** `true` para o maior pontuador, `false` para o menor. */
   positive: boolean;
 };
