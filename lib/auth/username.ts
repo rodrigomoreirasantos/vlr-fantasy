@@ -2,14 +2,17 @@ import { and, eq, isNull } from "drizzle-orm";
 
 import { db } from "@/db";
 import { user } from "@/db/schema";
+import { isUniqueViolation } from "@/lib/db/errors";
+
+// Re-exportado: `isUniqueViolation` não tem nada de específico de auth — mora
+// em `lib/db/errors.ts` — mas continua acessível daqui para não quebrar quem
+// já importava deste módulo.
+export { isUniqueViolation };
 
 /** Login mínimo válido quando a semente (nome/e-mail) não sobra nada aproveitável. */
 const FALLBACK_SEED = "jogador";
 const MIN_LENGTH = 3;
 const MAX_LENGTH = 20;
-
-/** `unique_violation` do Postgres — ver https://postgresql.org/docs/current/errcodes-appendix.html */
-const UNIQUE_VIOLATION = "23505";
 
 /**
  * Quantas vezes `assignUniqueUsername` refaz a tentativa quando outro
@@ -62,14 +65,6 @@ export async function usernameExists(username: string): Promise<boolean> {
     where: eq(user.username, username),
   });
   return row !== undefined;
-}
-
-/** O erro veio da constraint `user_username_unique` (ou outra `UNIQUE`)? */
-export function isUniqueViolation(error: unknown): boolean {
-  if (typeof error !== "object" || error === null || !("code" in error)) {
-    return false;
-  }
-  return (error as { code: unknown }).code === UNIQUE_VIOLATION;
 }
 
 /**

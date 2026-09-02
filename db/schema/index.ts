@@ -5,4 +5,5 @@ export * from "./fantasy-teams";
 export * from "./roster";
 export * from "./transfers";
 export * from "./championships";
+export * from "./friendships";
 export * from "./relations";

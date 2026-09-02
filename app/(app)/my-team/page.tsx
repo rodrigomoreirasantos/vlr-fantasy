@@ -22,8 +22,12 @@ export default async function MyTeamPage() {
   }
 
   // Memoizada por request: o layout logado já pediu esta mesma visão, então
-  // aqui não há segunda consulta ao banco.
-  const overview = await getTeamOverview(session.user.id, session.user.name);
+  // aqui não há segunda consulta ao banco. O segundo argumento precisa bater
+  // com o do layout para a memoização (`cache()`) reaproveitar a chamada.
+  const overview = await getTeamOverview(
+    session.user.id,
+    session.user.username ?? session.user.name,
+  );
   if (!overview) {
     throw new Error("Não foi possível carregar o seu time.");
   }

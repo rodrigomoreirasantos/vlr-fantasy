@@ -95,6 +95,18 @@
   --sidebar-accent-foreground: #f2f3f4;
   --sidebar-border: rgb(255 255 255 / 8%);
   --sidebar-ring: #ff4655;
+
+  /* Paleta do brasão do time (`lib/crest/catalog.ts` → CREST_COLOR_VARS).
+     Cada cor serve como fundo, símbolo *e* borda, então todas precisam ter
+     contraste tanto contra o `--background` quanto entre si. */
+  --crest-red: #ff4655;
+  --crest-cyan: #4de3ee;
+  --crest-green: #3ddc84;
+  --crest-amber: #ffb020;
+  --crest-violet: #9d7bff;
+  --crest-blue: #4a90ff;
+  --crest-white: #f2f3f4;
+  --crest-graphite: #5a616d;
 }
 
 @layer base {

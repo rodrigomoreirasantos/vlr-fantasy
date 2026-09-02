@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { StandingsTable } from "@/components/championship/standings-table";
+import { DEFAULT_CREST } from "@/lib/crest/crest";
 import type { RankedStanding } from "@/lib/championship/types";
 
 function row(overrides: Partial<RankedStanding>): RankedStanding {
@@ -10,6 +11,7 @@ function row(overrides: Partial<RankedStanding>): RankedStanding {
     userName: "Rodrigo",
     username: "rodrigo",
     teamName: "Rodrigo FC",
+    crest: DEFAULT_CREST,
     points: 0,
     position: 1,
     isCurrentUser: false,

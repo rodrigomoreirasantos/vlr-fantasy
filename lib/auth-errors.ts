@@ -1,4 +1,7 @@
-import { authClient } from "@/lib/auth-client";
+// `import type`: só o tipo é usado (`typeof authClient`). Um import de valor
+// arrastaria `better-auth/react` para o bundle do servidor — este módulo também
+// traduz erros dentro de Server Actions (app/(auth)/signup/actions.ts).
+import type { authClient } from "@/lib/auth-client";
 
 type ErrorCode = keyof typeof authClient.$ERROR_CODES;
 
@@ -21,6 +24,10 @@ const errorMessages: Partial<Record<ErrorCode, string>> = {
     "Login inválido. Use apenas letras, números, ponto e underline.",
   USERNAME_TOO_SHORT: "O login deve ter pelo menos 3 caracteres.",
   USERNAME_TOO_LONG: "O login deve ter no máximo 20 caracteres.",
+  INVALID_PASSWORD: "Senha atual incorreta.",
+  // `changePassword` roda sob `sensitiveSessionMiddleware` do better-auth:
+  // uma sessão mais velha que `session.freshAge` é rejeitada com este código.
+  SESSION_EXPIRED: "Por segurança, entre novamente antes de trocar a senha.",
 };
 
 const genericErrorMessage = "Algo deu errado. Tente novamente em instantes.";

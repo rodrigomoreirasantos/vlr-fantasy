@@ -9,12 +9,11 @@ const {
   getSessionMock,
   revalidatePathMock,
   insertChampionshipWithOwnerMock,
-  getChampionshipMock,
   findUserByUsernameMock,
-  upsertPendingMemberMock,
-  findMembershipMock,
+  inviteUserToChampionshipMock,
   lockMembershipForUpdateMock,
   updateMembershipStatusMock,
+  ensureFriendshipMock,
 } = vi.hoisted(() => {
   const txStub = Symbol("tx");
   const transactionMock = vi.fn(async (cb: (tx: unknown) => Promise<unknown>) =>
@@ -26,12 +25,11 @@ const {
     getSessionMock: vi.fn(),
     revalidatePathMock: vi.fn(),
     insertChampionshipWithOwnerMock: vi.fn(),
-    getChampionshipMock: vi.fn(),
     findUserByUsernameMock: vi.fn(),
-    upsertPendingMemberMock: vi.fn(),
-    findMembershipMock: vi.fn(),
+    inviteUserToChampionshipMock: vi.fn(),
     lockMembershipForUpdateMock: vi.fn(),
     updateMembershipStatusMock: vi.fn(),
+    ensureFriendshipMock: vi.fn(),
   };
 });
 
@@ -43,12 +41,13 @@ vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 vi.mock("@/lib/championship/queries", () => ({
   insertChampionshipWithOwner: insertChampionshipWithOwnerMock,
-  getChampionship: getChampionshipMock,
   findUserByUsername: findUserByUsernameMock,
-  upsertPendingMember: upsertPendingMemberMock,
-  findMembership: findMembershipMock,
+  inviteUserToChampionship: inviteUserToChampionshipMock,
   lockMembershipForUpdate: lockMembershipForUpdateMock,
   updateMembershipStatus: updateMembershipStatusMock,
+}));
+vi.mock("@/lib/friendship/queries", () => ({
+  ensureFriendship: ensureFriendshipMock,
 }));
 
 import {
@@ -97,35 +96,7 @@ describe("createChampionship", () => {
 describe("inviteMember", () => {
   const INPUT = { championshipId: CHAMPIONSHIP_ID, username: "@alvo" };
 
-  it("não-dono: recusa antes de convidar", async () => {
-    getChampionshipMock.mockResolvedValue({
-      id: CHAMPIONSHIP_ID,
-      ownerId: "outro-usuario",
-    });
-
-    const result = await inviteMember(INPUT);
-
-    expect(result?.serverError).toBe(
-      "Só quem criou o campeonato pode convidar.",
-    );
-    expect(upsertPendingMemberMock).not.toHaveBeenCalled();
-  });
-
-  it("campeonato inexistente: recusa", async () => {
-    getChampionshipMock.mockResolvedValue(null);
-
-    const result = await inviteMember(INPUT);
-
-    expect(result?.serverError).toBe(
-      "Só quem criou o campeonato pode convidar.",
-    );
-  });
-
-  it("login inexistente: recusa com o login normalizado na mensagem", async () => {
-    getChampionshipMock.mockResolvedValue({
-      id: CHAMPIONSHIP_ID,
-      ownerId: OWNER_ID,
-    });
+  it("login inexistente: recusa com o login normalizado na mensagem, sem chamar inviteUserToChampionship", async () => {
     findUserByUsernameMock.mockResolvedValue(null);
 
     const result = await inviteMember(INPUT);
@@ -134,65 +105,70 @@ describe("inviteMember", () => {
     expect(result?.serverError).toBe(
       "Não encontramos ninguém com o login @alvo.",
     );
-    expect(upsertPendingMemberMock).not.toHaveBeenCalled();
+    expect(inviteUserToChampionshipMock).not.toHaveBeenCalled();
   });
 
-  it("autoconvite: recusa", async () => {
-    getChampionshipMock.mockResolvedValue({
-      id: CHAMPIONSHIP_ID,
-      ownerId: OWNER_ID,
+  it("não-dono: traduz o motivo de bloqueio para a mensagem pt-BR", async () => {
+    findUserByUsernameMock.mockResolvedValue({ id: TARGET_USER_ID });
+    inviteUserToChampionshipMock.mockResolvedValue({
+      ok: false,
+      reason: "not_owner",
     });
-    findUserByUsernameMock.mockResolvedValue({ id: OWNER_ID });
+
+    const result = await inviteMember(INPUT);
+
+    expect(inviteUserToChampionshipMock).toHaveBeenCalledWith(txStub, {
+      championshipId: CHAMPIONSHIP_ID,
+      ownerId: OWNER_ID,
+      targetUserId: TARGET_USER_ID,
+    });
+    expect(result?.serverError).toBe(
+      "Só quem criou o campeonato pode convidar.",
+    );
+  });
+
+  it("autoconvite: traduz o motivo de bloqueio para a mensagem pt-BR", async () => {
+    findUserByUsernameMock.mockResolvedValue({ id: TARGET_USER_ID });
+    inviteUserToChampionshipMock.mockResolvedValue({
+      ok: false,
+      reason: "self",
+    });
 
     const result = await inviteMember(INPUT);
 
     expect(result?.serverError).toBe("Você já está neste campeonato.");
-    expect(upsertPendingMemberMock).not.toHaveBeenCalled();
   });
 
-  it("convite repetido (pending): recusa com a mensagem de já convidado", async () => {
-    getChampionshipMock.mockResolvedValue({
-      id: CHAMPIONSHIP_ID,
-      ownerId: OWNER_ID,
-    });
+  it("convite repetido: traduz o motivo de bloqueio para a mensagem pt-BR", async () => {
     findUserByUsernameMock.mockResolvedValue({ id: TARGET_USER_ID });
-    upsertPendingMemberMock.mockResolvedValue(null);
-    findMembershipMock.mockResolvedValue({ status: "pending" });
+    inviteUserToChampionshipMock.mockResolvedValue({
+      ok: false,
+      reason: "already_invited",
+    });
 
     const result = await inviteMember(INPUT);
 
     expect(result?.serverError).toBe("Esse jogador já foi convidado.");
   });
 
-  it("já é membro (accepted): recusa com a mensagem de já está no campeonato", async () => {
-    getChampionshipMock.mockResolvedValue({
-      id: CHAMPIONSHIP_ID,
-      ownerId: OWNER_ID,
-    });
+  it("já é membro: traduz o motivo de bloqueio para a mensagem pt-BR", async () => {
     findUserByUsernameMock.mockResolvedValue({ id: TARGET_USER_ID });
-    upsertPendingMemberMock.mockResolvedValue(null);
-    findMembershipMock.mockResolvedValue({ status: "accepted" });
+    inviteUserToChampionshipMock.mockResolvedValue({
+      ok: false,
+      reason: "already_member",
+    });
 
     const result = await inviteMember(INPUT);
 
     expect(result?.serverError).toBe("Esse jogador já está no campeonato.");
   });
 
-  it("sucesso: convida (ou reativa um convite recusado) e revalida a página", async () => {
-    getChampionshipMock.mockResolvedValue({
-      id: CHAMPIONSHIP_ID,
-      ownerId: OWNER_ID,
-    });
+  it("sucesso: convida e revalida a página", async () => {
     findUserByUsernameMock.mockResolvedValue({ id: TARGET_USER_ID });
-    upsertPendingMemberMock.mockResolvedValue({ id: MEMBER_ID });
+    inviteUserToChampionshipMock.mockResolvedValue({ ok: true });
 
     const result = await inviteMember(INPUT);
 
-    expect(upsertPendingMemberMock).toHaveBeenCalledWith(txStub, {
-      championshipId: CHAMPIONSHIP_ID,
-      userId: TARGET_USER_ID,
-      invitedById: OWNER_ID,
-    });
     expect(result?.data).toEqual({ success: true });
     expect(revalidatePathMock).toHaveBeenCalledWith("/ranking");
   });
@@ -238,6 +214,7 @@ describe("respondToInvite", () => {
       id: MEMBER_ID,
       userId: OWNER_ID,
       status: "pending",
+      invitedById: null,
     });
 
     const result = await respondToInvite({ memberId: MEMBER_ID, accept: true });
@@ -255,6 +232,7 @@ describe("respondToInvite", () => {
       id: MEMBER_ID,
       userId: OWNER_ID,
       status: "pending",
+      invitedById: null,
     });
 
     await respondToInvite({ memberId: MEMBER_ID, accept: false });
@@ -263,5 +241,49 @@ describe("respondToInvite", () => {
       memberId: MEMBER_ID,
       status: "declined",
     });
+  });
+
+  it("aceitar convite com convidante: cria a auto-amizade com o par canônico", async () => {
+    lockMembershipForUpdateMock.mockResolvedValue({
+      id: MEMBER_ID,
+      userId: OWNER_ID,
+      status: "pending",
+      invitedById: TARGET_USER_ID,
+    });
+
+    await respondToInvite({ memberId: MEMBER_ID, accept: true });
+
+    expect(ensureFriendshipMock).toHaveBeenCalledWith(
+      txStub,
+      OWNER_ID < TARGET_USER_ID
+        ? { userAId: OWNER_ID, userBId: TARGET_USER_ID }
+        : { userAId: TARGET_USER_ID, userBId: OWNER_ID },
+    );
+  });
+
+  it("recusar convite com convidante: não cria amizade", async () => {
+    lockMembershipForUpdateMock.mockResolvedValue({
+      id: MEMBER_ID,
+      userId: OWNER_ID,
+      status: "pending",
+      invitedById: TARGET_USER_ID,
+    });
+
+    await respondToInvite({ memberId: MEMBER_ID, accept: false });
+
+    expect(ensureFriendshipMock).not.toHaveBeenCalled();
+  });
+
+  it("aceitar convite sem convidante (invitedById nulo): não chama ensureFriendship", async () => {
+    lockMembershipForUpdateMock.mockResolvedValue({
+      id: MEMBER_ID,
+      userId: OWNER_ID,
+      status: "pending",
+      invitedById: null,
+    });
+
+    await respondToInvite({ memberId: MEMBER_ID, accept: true });
+
+    expect(ensureFriendshipMock).not.toHaveBeenCalled();
   });
 });

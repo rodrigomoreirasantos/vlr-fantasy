@@ -13,13 +13,26 @@ vi.mock("@/lib/auth-client", () => ({
 }));
 
 import { AppHeader } from "@/components/layout/app-header";
+import { DEFAULT_CREST } from "@/lib/crest/crest";
+
+function renderHeader(
+  overrides: Partial<React.ComponentProps<typeof AppHeader>> = {},
+) {
+  return render(
+    <AppHeader
+      teamName="Rodrigo FC"
+      crest={DEFAULT_CREST}
+      points={78.5}
+      userName="Rodrigo"
+      {...overrides}
+    />,
+  );
+}
 
 describe("AppHeader", () => {
   it("marca 'Ranking' como página atual quando a rota é /ranking", () => {
     usePathnameMock.mockReturnValue("/ranking");
-    render(
-      <AppHeader teamName="Rodrigo FC" points={78.5} userName="Rodrigo" />,
-    );
+    renderHeader();
 
     expect(screen.getByRole("link", { name: /ranking/i })).toHaveAttribute(
       "aria-current",
@@ -32,9 +45,7 @@ describe("AppHeader", () => {
 
   it("marca 'Escalação' como página atual quando a rota é /my-team", () => {
     usePathnameMock.mockReturnValue("/my-team");
-    render(
-      <AppHeader teamName="Rodrigo FC" points={78.5} userName="Rodrigo" />,
-    );
+    renderHeader();
 
     expect(screen.getByRole("link", { name: /escalação/i })).toHaveAttribute(
       "aria-current",
@@ -45,28 +56,34 @@ describe("AppHeader", () => {
     );
   });
 
+  it("marca 'Perfil' como página atual quando a rota é /profile", () => {
+    usePathnameMock.mockReturnValue("/profile");
+    renderHeader();
+
+    expect(screen.getByRole("link", { name: /perfil/i })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
   it("itens sem rota não são links", () => {
     usePathnameMock.mockReturnValue("/my-team");
-    render(
-      <AppHeader teamName="Rodrigo FC" points={78.5} userName="Rodrigo" />,
-    );
+    renderHeader();
 
     expect(
       screen.queryByRole("link", { name: /início/i }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: /perfil/i }),
-    ).not.toBeInTheDocument();
     expect(screen.getByText("Início")).toBeInTheDocument();
   });
 
-  it("mostra o nome do time, os pontos e a saudação", () => {
+  it("mostra o nome do time, o brasão, os pontos e a saudação", () => {
     usePathnameMock.mockReturnValue("/my-team");
-    render(
-      <AppHeader teamName="Rodrigo FC" points={78.5} userName="Rodrigo" />,
-    );
+    renderHeader();
 
     expect(screen.getByText("Rodrigo FC")).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "Brasão de Rodrigo FC" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("78.5")).toBeInTheDocument();
     expect(screen.getByText("Rodrigo")).toBeInTheDocument();
   });

@@ -3,6 +3,7 @@ import { relations } from "drizzle-orm";
 import { user } from "@/db/schema/auth";
 import { championship, championshipMember } from "@/db/schema/championships";
 import { fantasyTeam } from "@/db/schema/fantasy-teams";
+import { friendship } from "@/db/schema/friendships";
 import { player } from "@/db/schema/players";
 import { round } from "@/db/schema/rounds";
 import { rosterSlot } from "@/db/schema/roster";
@@ -97,3 +98,21 @@ export const championshipMemberRelations = relations(
     }),
   }),
 );
+
+export const friendshipRelations = relations(friendship, ({ one }) => ({
+  userA: one(user, {
+    fields: [friendship.userAId],
+    references: [user.id],
+    relationName: "friendshipUserA",
+  }),
+  userB: one(user, {
+    fields: [friendship.userBId],
+    references: [user.id],
+    relationName: "friendshipUserB",
+  }),
+  requester: one(user, {
+    fields: [friendship.requesterId],
+    references: [user.id],
+    relationName: "friendshipRequester",
+  }),
+}));

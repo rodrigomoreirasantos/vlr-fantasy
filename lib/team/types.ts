@@ -1,3 +1,5 @@
+import type { Crest } from "@/lib/crest/types";
+
 /**
  * As quatro funções de Valorant. Fonte única desta lista — `db/schema/players.ts`
  * importa daqui para o `pgEnum`, e a UI itera sobre ela ao agrupar o mercado
@@ -47,6 +49,7 @@ export type RosterSlot = {
 
 export type TeamSummary = {
   name: string;
+  crest: Crest;
   /** Pontuação total do time na rodada. */
   points: number;
   /** Saldo em moeda virtual disponível para o mercado, em centavos de crédito. */

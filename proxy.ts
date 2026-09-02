@@ -2,10 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 
 // Toda rota logada (route group `app/(app)/`) precisa estar aqui.
-const PROTECTED_PREFIXES = ["/my-team", "/ranking"];
+const PROTECTED_PREFIXES = ["/my-team", "/ranking", "/profile"];
 
 // Checagem otimista de UX via cookie — a checagem real de sessão acontece
 // nos server components (`auth.api.getSession`).
+//
+// O caminho inverso (mandar quem já está logado de `/login` e `/signup` para
+// `/my-team`) **não** mora aqui de propósito: `getSessionCookie` só olha se o
+// cookie existe, não se a sessão ainda vale. Um cookie órfão (sessão expirada,
+// banco recriado em dev) prendia o usuário fora do cadastro — `/signup` caía em
+// `/my-team`, que na checagem real não achava sessão e devolvia para `/login`,
+// que o proxy jogava de volta em `/my-team`. As duas páginas já fazem o
+// redirect com `auth.api.getSession`, que é a checagem verdadeira.
 export function proxy(request: NextRequest) {
   const sessionCookie = getSessionCookie(request);
   const { pathname } = request.nextUrl;
@@ -17,13 +25,9 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (sessionCookie && ["/login", "/signup"].includes(pathname)) {
-    return NextResponse.redirect(new URL("/my-team", request.url));
-  }
-
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/my-team/:path*", "/ranking/:path*", "/login", "/signup"],
+  matcher: ["/my-team/:path*", "/ranking/:path*", "/profile/:path*"],
 };

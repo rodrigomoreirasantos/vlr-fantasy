@@ -40,14 +40,16 @@ export const auth = betterAuth({
           // porque só com a linha já inserida dá para tratar a corrida entre
           // dois cadastros que derivam o mesmo candidato — `assignUniqueUsername`
           // captura a violação de unicidade e tenta o próximo login.
-          await assignUniqueUsername(
+          const assignedUsername = await assignUniqueUsername(
             user.id,
             user.email?.split("@")[0] || user.name,
           );
 
           // Todo usuário novo já nasce com um fantasy_team e as cinco vagas
           // vazias da escalação — ver `ensureFantasyTeam` (lib/team/queries.ts).
-          await ensureFantasyTeam(user.id, user.name);
+          // O nome nasce do `@login` (já único) — não do nome de exibição,
+          // que pode se repetir entre usuários.
+          await ensureFantasyTeam(user.id, assignedUsername ?? user.name);
         },
       },
     },

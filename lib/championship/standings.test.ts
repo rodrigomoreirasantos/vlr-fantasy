@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { DEFAULT_CREST } from "@/lib/crest/crest";
 import { rankStandings } from "@/lib/championship/standings";
 import type { StandingRow } from "@/lib/championship/types";
 
@@ -10,6 +11,7 @@ function row(
     userName: overrides.userId,
     username: overrides.userId,
     teamName: `${overrides.userId} FC`,
+    crest: DEFAULT_CREST,
     points: 0,
     ...overrides,
   };

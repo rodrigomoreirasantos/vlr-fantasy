@@ -1,3 +1,4 @@
+import { TeamCrest } from "@/components/crest/team-crest";
 import {
   Table,
   TableBody,
@@ -36,8 +37,15 @@ export function StandingsTable({ standings }: StandingsTableProps) {
               {row.position}
             </TableCell>
             <TableCell>
-              <span className={cn(row.isCurrentUser && "font-semibold")}>
-                {row.teamName}
+              <span className="flex items-center gap-2">
+                <TeamCrest
+                  crest={row.crest}
+                  size="sm"
+                  title={`Brasão de ${row.teamName}`}
+                />
+                <span className={cn(row.isCurrentUser && "font-semibold")}>
+                  {row.teamName}
+                </span>
               </span>
             </TableCell>
             <TableCell className="text-muted-foreground">

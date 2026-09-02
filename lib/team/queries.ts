@@ -1,8 +1,15 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { cache } from "react";
 
 import { db } from "@/db";
 import { fantasyTeam, player, round, rosterSlot, transfer } from "@/db/schema";
+import { isUniqueViolation } from "@/lib/db/errors";
+import type { Crest } from "@/lib/crest/types";
+import {
+  deriveTeamName,
+  nextTeamNameCandidate,
+  teamNameKey,
+} from "@/lib/team/team-name";
 import {
   toDomainPlayer,
   toRosterSlots,
@@ -23,16 +30,14 @@ export type Querier = Database | Transaction;
 /** As cinco vagas fixas de toda escalação. */
 const ROSTER_SIZE = 5;
 
+/** Tentativas de nome em caso de colisão — ver `ensureFantasyTeam`. */
+const MAX_TEAM_NAME_ATTEMPTS = 5;
+
 export type TeamOverview = {
   teamId: string;
   summary: TeamSummary;
   roster: RosterSlot[];
 };
-
-/** Nome do time derivado do nome do usuário, usado na criação (hook de auth e fallback). */
-export function deriveTeamName(userName: string): string {
-  return `${userName} FC`;
-}
 
 export async function getActiveRound(q: Querier = db) {
   return q.query.round.findFirst({ where: eq(round.status, "active") });
@@ -290,37 +295,119 @@ export async function hasCaptain(
  * chamada tanto por `databaseHooks.user.create.after` (lib/auth.ts), na
  * criação da conta, quanto como fallback em `/my-team` para quem já existia
  * antes de o mercado existir.
+ *
+ * `seed` é o `@login` do usuário (já único) sempre que disponível — o nome
+ * de exibição pode se repetir entre contas. Mesmo assim, o nome derivado
+ * pode colidir com um time renomeado por outro usuário: `onConflictDoNothing`
+ * só cobre o conflito de `userId` (já ter time), então uma colisão de nome
+ * ainda lança a violação de `fantasy_team_name_uidx` — capturada abaixo, com
+ * retentativa numerada (`nextTeamNameCandidate`), no mesmo espírito de
+ * `assignUsernameWithRetry` (lib/auth/username.ts).
  */
 export async function ensureFantasyTeam(
   userId: string,
-  userName: string,
+  seed: string,
 ): Promise<void> {
-  await db.transaction(async (tx) => {
-    const [inserted] = await tx
-      .insert(fantasyTeam)
-      .values({ userId, name: deriveTeamName(userName) })
-      .onConflictDoNothing({ target: fantasyTeam.userId })
-      .returning({ id: fantasyTeam.id });
+  const baseName = deriveTeamName(seed);
 
-    const teamId =
-      inserted?.id ??
-      (
-        await tx.query.fantasyTeam.findFirst({
-          where: eq(fantasyTeam.userId, userId),
-        })
-      )?.id;
-    if (!teamId) return;
+  for (let attempt = 1; attempt <= MAX_TEAM_NAME_ATTEMPTS; attempt++) {
+    const name =
+      attempt === 1 ? baseName : nextTeamNameCandidate(baseName, attempt);
 
-    await tx
-      .insert(rosterSlot)
-      .values(
-        Array.from({ length: ROSTER_SIZE }, (_, index) => ({
-          fantasyTeamId: teamId,
-          position: index + 1,
-        })),
-      )
-      .onConflictDoNothing({
-        target: [rosterSlot.fantasyTeamId, rosterSlot.position],
+    try {
+      await db.transaction(async (tx) => {
+        const [inserted] = await tx
+          .insert(fantasyTeam)
+          .values({ userId, name })
+          .onConflictDoNothing({ target: fantasyTeam.userId })
+          .returning({ id: fantasyTeam.id });
+
+        const teamId =
+          inserted?.id ??
+          (
+            await tx.query.fantasyTeam.findFirst({
+              where: eq(fantasyTeam.userId, userId),
+            })
+          )?.id;
+        if (!teamId) return;
+
+        await tx
+          .insert(rosterSlot)
+          .values(
+            Array.from({ length: ROSTER_SIZE }, (_, index) => ({
+              fantasyTeamId: teamId,
+              position: index + 1,
+            })),
+          )
+          .onConflictDoNothing({
+            target: [rosterSlot.fantasyTeamId, rosterSlot.position],
+          });
       });
-  });
+      return;
+    } catch (error) {
+      if (!isUniqueViolation(error) || attempt === MAX_TEAM_NAME_ATTEMPTS) {
+        throw error;
+      }
+      // Colidiu com o nome de outro time — tenta o próximo candidato numerado.
+    }
+  }
+}
+
+/**
+ * Já existe um time com esse nome? Compara pela mesma chave do índice
+ * `fantasy_team_name_uidx` (`lower(btrim(name))`), então a resposta bate com o
+ * que o banco aceitaria.
+ *
+ * É uma checagem **antecipada**, não a garantia: entre este `SELECT` e o
+ * `INSERT`/`UPDATE` outro cadastro pode levar o nome. A autoridade continua
+ * sendo o índice único, e quem chama trata `isUniqueViolation`. Serve para o
+ * cadastro (app/(auth)/signup/actions.ts) recusar o nome **antes** de criar a
+ * conta, em vez de descobrir o conflito com o usuário já criado.
+ */
+export async function teamNameExists(
+  q: Querier,
+  name: string,
+): Promise<boolean> {
+  const [row] = await q
+    .select({ id: fantasyTeam.id })
+    .from(fantasyTeam)
+    .where(sql`lower(btrim(${fantasyTeam.name})) = ${teamNameKey(name)}`)
+    .limit(1);
+  return row !== undefined;
+}
+
+// --- Primitivas do perfil (app/(app)/profile/actions.ts) ---
+
+/**
+ * Renomeia o time do próprio usuário. Sem checagem prévia de unicidade — o
+ * banco (`fantasy_team_name_uidx`) é a autoridade; quem chama trata
+ * `isUniqueViolation`. `where userId` (nunca por `teamId` vindo do cliente).
+ */
+export async function updateTeamNameForUser(
+  tx: Querier,
+  userId: string,
+  name: string,
+): Promise<void> {
+  await tx
+    .update(fantasyTeam)
+    .set({ name })
+    .where(eq(fantasyTeam.userId, userId));
+}
+
+/** Atualiza as 5 colunas do brasão do time do próprio usuário. */
+export async function updateTeamCrestForUser(
+  tx: Querier,
+  userId: string,
+  crest: Crest,
+): Promise<void> {
+  await tx
+    .update(fantasyTeam)
+    .set({
+      crestShape: crest.shape,
+      crestSymbol: crest.symbol,
+      crestBg: crest.background,
+      crestFg: crest.foreground,
+      crestBorder: crest.border,
+    })
+    .where(eq(fantasyTeam.userId, userId));
 }

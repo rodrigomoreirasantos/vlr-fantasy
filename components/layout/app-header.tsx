@@ -12,6 +12,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { TeamCrest } from "@/components/crest/team-crest";
+import type { Crest } from "@/lib/crest/types";
 import { formatScore } from "@/lib/team/score";
 import { cn } from "@/lib/utils";
 
@@ -24,7 +26,7 @@ type Section = { label: string; icon: LucideIcon; href?: string };
 
 const SECTIONS: Section[] = [
   { label: "Início", icon: Home },
-  { label: "Perfil", icon: User },
+  { label: "Perfil", icon: User, href: "/profile" },
   { label: "Escalação", icon: Crosshair, href: "/my-team" },
   { label: "Ranking", icon: Trophy, href: "/ranking" },
   { label: "Menu", icon: Menu },
@@ -32,11 +34,17 @@ const SECTIONS: Section[] = [
 
 export type AppHeaderProps = {
   teamName: string;
+  crest: Crest;
   points: number;
   userName: string;
 };
 
-export function AppHeader({ teamName, points, userName }: AppHeaderProps) {
+export function AppHeader({
+  teamName,
+  crest,
+  points,
+  userName,
+}: AppHeaderProps) {
   const pathname = usePathname();
 
   return (
@@ -46,8 +54,11 @@ export function AppHeader({ teamName, points, userName }: AppHeaderProps) {
           VLR<span className="text-foreground">FANTASY</span>
         </span>
         <span aria-hidden className="h-5 w-px bg-border" />
-        <span className="text-base font-extrabold tracking-wide uppercase">
-          {teamName}
+        <span className="flex items-center gap-2">
+          <TeamCrest crest={crest} size="sm" title={`Brasão de ${teamName}`} />
+          <span className="text-base font-extrabold tracking-wide uppercase">
+            {teamName}
+          </span>
         </span>
         <span aria-hidden className="h-5 w-px bg-border" />
         <span className="text-base font-extrabold text-info tabular-nums">

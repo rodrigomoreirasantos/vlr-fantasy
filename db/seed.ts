@@ -270,7 +270,9 @@ async function seedActiveRound() {
  * substituição (preencher vaga vazia está fora de escopo do produto).
  */
 async function seedExistingUsersTeams() {
-  const users = await db.select({ id: user.id, name: user.name }).from(user);
+  const users = await db
+    .select({ id: user.id, name: user.name, username: user.username })
+    .from(user);
   if (users.length === 0) return;
 
   const referencePlayers = await db.query.player.findMany({
@@ -285,7 +287,9 @@ async function seedExistingUsersTeams() {
   );
 
   for (const u of users) {
-    await ensureFantasyTeam(u.id, u.name);
+    // `backfillUsernames` já rodou antes desta função (ver `main`), então
+    // todo usuário aqui já tem login.
+    await ensureFantasyTeam(u.id, u.username ?? u.name);
 
     const team = await db.query.fantasyTeam.findFirst({
       where: eq(fantasyTeam.userId, u.id),

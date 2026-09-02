@@ -9,6 +9,7 @@ import {
   rosterSlot,
   user,
 } from "@/db/schema";
+import { parseCrest } from "@/lib/crest/crest";
 import type {
   ChampionshipSummary,
   PendingInvite,
@@ -80,21 +81,37 @@ export async function getChampionship(championshipId: string, q: Querier = db) {
 }
 
 /**
- * Uma linha por membro aceito do campeonato, com a soma da pontuação atual
- * do elenco (`player.score` das 5 vagas). Sem ordenação — a classificação é
- * responsabilidade de `rankStandings` (standings.ts). Os `leftJoin` garantem
- * que um membro sem time ou com elenco vazio apareça com 0 pontos, nunca
- * suma da lista.
+ * Uma linha por membro aceito, por campeonato pedido, com a soma da
+ * pontuação atual do elenco (`player.score` das 5 vagas). Sem ordenação — a
+ * classificação é responsabilidade de `rankStandings` (standings.ts). Os
+ * `leftJoin` garantem que um membro sem time ou com elenco vazio apareça com
+ * 0 pontos, nunca suma da lista.
+ *
+ * Resolve **todos** os campeonatos pedidos numa única consulta — usada pelo
+ * perfil para extrair a colocação do usuário em cada campeonato sem repetir
+ * a query por campeonato. `getStandingRows` (abaixo) é o caso particular de
+ * um só campeonato, usado por `/ranking`.
  */
-export async function getStandingRows(
-  championshipId: string,
-): Promise<StandingRow[]> {
+export async function getStandingRowsByChampionship(
+  championshipIds: readonly string[],
+): Promise<Map<string, StandingRow[]>> {
+  const byChampionship = new Map<string, StandingRow[]>(
+    championshipIds.map((id) => [id, []]),
+  );
+  if (championshipIds.length === 0) return byChampionship;
+
   const rows = await db
     .select({
+      championshipId: championshipMember.championshipId,
       userId: user.id,
       userName: user.name,
       username: user.username,
       teamName: fantasyTeam.name,
+      crestShape: fantasyTeam.crestShape,
+      crestSymbol: fantasyTeam.crestSymbol,
+      crestBg: fantasyTeam.crestBg,
+      crestFg: fantasyTeam.crestFg,
+      crestBorder: fantasyTeam.crestBorder,
       points: sum(player.score),
     })
     .from(championshipMember)
@@ -104,25 +121,51 @@ export async function getStandingRows(
     .leftJoin(player, eq(player.id, rosterSlot.playerId))
     .where(
       and(
-        eq(championshipMember.championshipId, championshipId),
+        inArray(championshipMember.championshipId, championshipIds),
         eq(championshipMember.status, "accepted"),
       ),
     )
     .groupBy(
+      championshipMember.championshipId,
       user.id,
       user.name,
       user.username,
       fantasyTeam.id,
       fantasyTeam.name,
+      fantasyTeam.crestShape,
+      fantasyTeam.crestSymbol,
+      fantasyTeam.crestBg,
+      fantasyTeam.crestFg,
+      fantasyTeam.crestBorder,
     );
 
-  return rows.map((row) => ({
-    userId: row.userId,
-    userName: row.userName,
-    username: row.username,
-    teamName: row.teamName ?? "Sem time",
-    points: Number(row.points ?? 0),
-  }));
+  for (const row of rows) {
+    const standing: StandingRow = {
+      userId: row.userId,
+      userName: row.userName,
+      username: row.username,
+      teamName: row.teamName ?? "Sem time",
+      crest: parseCrest({
+        shape: row.crestShape ?? "",
+        symbol: row.crestSymbol ?? "",
+        background: row.crestBg ?? "",
+        foreground: row.crestFg ?? "",
+        border: row.crestBorder ?? "",
+      }),
+      points: Number(row.points ?? 0),
+    };
+    byChampionship.get(row.championshipId)?.push(standing);
+  }
+
+  return byChampionship;
+}
+
+/** Classificação de um único campeonato — caso particular de `getStandingRowsByChampionship`. */
+export async function getStandingRows(
+  championshipId: string,
+): Promise<StandingRow[]> {
+  const byChampionship = await getStandingRowsByChampionship([championshipId]);
+  return byChampionship.get(championshipId) ?? [];
 }
 
 /** Convites recebidos pelo usuário, ainda pendentes. */
@@ -273,4 +316,46 @@ export async function updateMembershipStatus(
     .update(championshipMember)
     .set({ status: args.status, respondedAt: new Date() })
     .where(eq(championshipMember.id, args.memberId));
+}
+
+export type InviteBlockReason =
+  "not_owner" | "self" | "already_member" | "already_invited";
+
+/**
+ * Convida um usuário já resolvido (`targetUserId`) para um campeonato. É a
+ * segunda metade de `inviteMember` (app/(app)/ranking/actions.ts) — achar o
+ * usuário pelo login é responsabilidade de quem chama, com
+ * `findUserByUsername` — extraída para o perfil reaproveitar sem duplicar a
+ * regra de bloqueio. Devolve um resultado, **não lança** — no estilo de
+ * `evaluateSubstitution` (lib/market/eligibility.ts); quem traduz é
+ * `inviteBlockMessage` (format.ts).
+ */
+export async function inviteUserToChampionship(
+  tx: Querier,
+  args: { championshipId: string; ownerId: string; targetUserId: string },
+): Promise<{ ok: true } | { ok: false; reason: InviteBlockReason }> {
+  const targetChampionship = await getChampionship(args.championshipId, tx);
+  if (!targetChampionship || targetChampionship.ownerId !== args.ownerId) {
+    return { ok: false, reason: "not_owner" };
+  }
+  if (args.targetUserId === args.ownerId) {
+    return { ok: false, reason: "self" };
+  }
+
+  const inserted = await upsertPendingMember(tx, {
+    championshipId: args.championshipId,
+    userId: args.targetUserId,
+    invitedById: args.ownerId,
+  });
+  if (inserted) return { ok: true };
+
+  const existing = await findMembership(tx, {
+    championshipId: args.championshipId,
+    userId: args.targetUserId,
+  });
+  return {
+    ok: false,
+    reason:
+      existing?.status === "accepted" ? "already_member" : "already_invited",
+  };
 }

@@ -5,14 +5,15 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { normalizeUsernameInput } from "@/lib/auth/username";
 import {
-  findMembership,
   findUserByUsername,
-  getChampionship,
   insertChampionshipWithOwner,
+  inviteUserToChampionship,
   lockMembershipForUpdate,
   updateMembershipStatus,
-  upsertPendingMember,
 } from "@/lib/championship/queries";
+import { inviteBlockMessage } from "@/lib/championship/format";
+import { canonicalPair } from "@/lib/friendship/pair";
+import { ensureFriendship } from "@/lib/friendship/queries";
 import { ActionError, authActionClient } from "@/lib/safe-action";
 import {
   createChampionshipSchema,
@@ -49,40 +50,20 @@ export const inviteMember = authActionClient
     const normalizedUsername = normalizeUsernameInput(parsedInput.username);
 
     await db.transaction(async (tx) => {
-      const targetChampionship = await getChampionship(
-        parsedInput.championshipId,
-        tx,
-      );
-      if (!targetChampionship || targetChampionship.ownerId !== ctx.userId) {
-        throw new ActionError("Só quem criou o campeonato pode convidar.");
-      }
-
       const targetUser = await findUserByUsername(tx, normalizedUsername);
       if (!targetUser) {
         throw new ActionError(
           `Não encontramos ninguém com o login @${normalizedUsername}.`,
         );
       }
-      if (targetUser.id === ctx.userId) {
-        throw new ActionError("Você já está neste campeonato.");
-      }
 
-      const inserted = await upsertPendingMember(tx, {
+      const result = await inviteUserToChampionship(tx, {
         championshipId: parsedInput.championshipId,
-        userId: targetUser.id,
-        invitedById: ctx.userId,
+        ownerId: ctx.userId,
+        targetUserId: targetUser.id,
       });
-
-      if (!inserted) {
-        const existing = await findMembership(tx, {
-          championshipId: parsedInput.championshipId,
-          userId: targetUser.id,
-        });
-        throw new ActionError(
-          existing?.status === "accepted"
-            ? "Esse jogador já está no campeonato."
-            : "Esse jogador já foi convidado.",
-        );
+      if (!result.ok) {
+        throw new ActionError(inviteBlockMessage(result.reason));
       }
     });
 
@@ -109,6 +90,14 @@ export const respondToInvite = authActionClient
         memberId: parsedInput.memberId,
         status: parsedInput.accept ? "accepted" : "declined",
       });
+
+      // Auto-amizade: aceitar um convite de campeonato também cria (ou
+      // reaproveita) o vínculo de amizade com quem convidou — na mesma
+      // transação do aceite: ou entra tudo, ou nada.
+      if (parsedInput.accept && member.invitedById) {
+        const pair = canonicalPair(ctx.userId, member.invitedById);
+        if (pair) await ensureFriendship(tx, pair);
+      }
     });
 
     revalidatePath("/ranking");

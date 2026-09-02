@@ -1,4 +1,5 @@
 import type { fantasyTeam, player, round } from "@/db/schema";
+import { parseCrest } from "@/lib/crest/crest";
 import { formatTimeLeft, isMarketOpen } from "@/lib/market/window";
 import type { Player, RosterSlot, TeamSummary } from "@/lib/team/types";
 
@@ -55,6 +56,13 @@ export function toTeamSummary(
 ): TeamSummary {
   return {
     name: team.name,
+    crest: parseCrest({
+      shape: team.crestShape,
+      symbol: team.crestSymbol,
+      background: team.crestBg,
+      foreground: team.crestFg,
+      border: team.crestBorder,
+    }),
     points,
     balanceCents: team.balanceCents,
     scoredMatches: {

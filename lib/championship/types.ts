@@ -1,3 +1,5 @@
+import type { Crest } from "@/lib/crest/types";
+
 export type ChampionshipSummary = {
   id: string;
   name: string;
@@ -15,6 +17,7 @@ export type StandingRow = {
   userName: string;
   username: string | null;
   teamName: string;
+  crest: Crest;
   /** Soma da pontuação atual do elenco (`player.score`) das 5 vagas. */
   points: number;
 };

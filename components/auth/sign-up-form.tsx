@@ -1,20 +1,21 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useAction } from "next-safe-action/hooks";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 
+import { signUpWithTeam } from "@/app/(auth)/signup/actions";
 import { Button } from "@/components/ui/button";
 import {
   Field,
+  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { signUp } from "@/lib/auth-client";
-import { translateAuthError } from "@/lib/auth-errors";
 import { signUpSchema, type SignUpInput } from "@/lib/validations/auth";
 
 export function SignUpForm() {
@@ -24,37 +25,32 @@ export function SignUpForm() {
   const form = useForm<SignUpInput>({
     resolver: zodResolver(signUpSchema),
     defaultValues: {
-      name: "",
-      username: "",
       email: "",
+      teamName: "",
+      username: "",
       password: "",
       confirmPassword: "",
     },
   });
 
-  const onSubmit = async (values: SignUpInput) => {
-    setServerError(null);
-
-    const { error } = await signUp.email({
-      name: values.name,
-      username: values.username,
-      email: values.email,
-      password: values.password,
-    });
-
-    if (error) {
-      setServerError(translateAuthError(error.code));
-      return;
-    }
-
-    router.push("/my-team");
-    router.refresh();
-  };
+  // Conta e nome do time nascem juntos numa única Server Action — ver
+  // `app/(auth)/signup/actions.ts` para o porquê de não ser `signUp.email`.
+  const { execute, isExecuting } = useAction(signUpWithTeam, {
+    onExecute: () => setServerError(null),
+    onSuccess: () => {
+      router.push("/my-team");
+      router.refresh();
+    },
+    onError: ({ error }) =>
+      setServerError(
+        error.serverError ?? "Não foi possível criar a conta. Tente novamente.",
+      ),
+  });
 
   return (
     <form
       noValidate
-      onSubmit={form.handleSubmit(onSubmit)}
+      onSubmit={form.handleSubmit((values) => execute(values))}
       className="space-y-4"
     >
       {serverError && (
@@ -67,40 +63,6 @@ export function SignUpForm() {
       )}
 
       <FieldGroup>
-        <Controller
-          name="name"
-          control={form.control}
-          render={({ field, fieldState }) => (
-            <Field data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor={field.name}>Nome</FieldLabel>
-              <Input
-                {...field}
-                id={field.name}
-                autoComplete="name"
-                aria-invalid={fieldState.invalid}
-              />
-              {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-            </Field>
-          )}
-        />
-
-        <Controller
-          name="username"
-          control={form.control}
-          render={({ field, fieldState }) => (
-            <Field data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor={field.name}>Login</FieldLabel>
-              <Input
-                {...field}
-                id={field.name}
-                autoComplete="username"
-                aria-invalid={fieldState.invalid}
-              />
-              {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-            </Field>
-          )}
-        />
-
         <Controller
           name="email"
           control={form.control}
@@ -115,6 +77,52 @@ export function SignUpForm() {
                 aria-invalid={fieldState.invalid}
               />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+            </Field>
+          )}
+        />
+
+        <Controller
+          name="teamName"
+          control={form.control}
+          render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid}>
+              <FieldLabel htmlFor={field.name}>Nome do time</FieldLabel>
+              <Input
+                {...field}
+                id={field.name}
+                autoComplete="off"
+                aria-invalid={fieldState.invalid}
+              />
+              {fieldState.invalid ? (
+                <FieldError errors={[fieldState.error]} />
+              ) : (
+                <FieldDescription>
+                  É único no jogo e aparece no ranking.
+                </FieldDescription>
+              )}
+            </Field>
+          )}
+        />
+
+        <Controller
+          name="username"
+          control={form.control}
+          render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid}>
+              <FieldLabel htmlFor={field.name}>Nickname</FieldLabel>
+              <Input
+                {...field}
+                id={field.name}
+                autoComplete="username"
+                aria-invalid={fieldState.invalid}
+              />
+              {fieldState.invalid ? (
+                <FieldError errors={[fieldState.error]} />
+              ) : (
+                <FieldDescription>
+                  Seu @ para receber convites de campeonatos e amizades.
+                </FieldDescription>
+              )}
             </Field>
           )}
         />
@@ -156,12 +164,8 @@ export function SignUpForm() {
         />
       </FieldGroup>
 
-      <Button
-        type="submit"
-        className="w-full"
-        disabled={form.formState.isSubmitting}
-      >
-        {form.formState.isSubmitting ? "Criando conta…" : "Criar conta"}
+      <Button type="submit" className="w-full" disabled={isExecuting}>
+        {isExecuting ? "Criando conta…" : "Criar conta"}
       </Button>
     </form>
   );

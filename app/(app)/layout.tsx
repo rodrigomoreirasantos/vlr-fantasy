@@ -22,7 +22,10 @@ export default async function AppLayout({
     redirect("/login");
   }
 
-  const overview = await getTeamOverview(session.user.id, session.user.name);
+  const overview = await getTeamOverview(
+    session.user.id,
+    session.user.username ?? session.user.name,
+  );
   if (!overview) {
     throw new Error("Não foi possível carregar o seu time.");
   }
@@ -31,6 +34,7 @@ export default async function AppLayout({
     <div className="min-h-screen bg-background">
       <AppHeader
         teamName={overview.summary.name}
+        crest={overview.summary.crest}
         points={overview.summary.points}
         userName={session.user.name}
       />
