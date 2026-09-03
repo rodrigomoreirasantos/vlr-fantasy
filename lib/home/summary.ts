@@ -9,7 +9,7 @@ import type {
 } from "@/lib/round/types";
 import { averagePoints, priceDeltaCents } from "@/lib/scoring/pricing";
 import type { RosterSlot } from "@/lib/team/types";
-import type { LineupAlert } from "@/lib/home/types";
+import type { HomeSummary, LineupAlert } from "@/lib/home/types";
 
 /**
  * Regras puras da Home — sem banco, sem React. `lib/home/queries.ts` é o
@@ -172,4 +172,28 @@ export function projectRoundHighlights(
       .sort((a, b) => a.priceDeltaCents - b.priceDeltaCents)
       .slice(0, limit),
   };
+}
+
+/** De quanto em quanto tempo a Home se atualiza sozinha, com jogo acontecendo. */
+export const LIVE_REFRESH_MS = 60_000;
+
+/** E quando não há nada em andamento — o calendário muda em horas, não em minutos. */
+export const IDLE_REFRESH_MS = 5 * 60_000;
+
+/**
+ * O ritmo de atualização automática da Home (`<LiveRefresh>`).
+ *
+ * Não é um número fixo de propósito: cada ciclo é uma rodada de consultas por
+ * usuário conectado, e só vale de minuto em minuto quando há placar mudando —
+ * partida ao vivo ou rodada em curso já pontuando. Fora disso, o que a tela
+ * mostra muda em horas, e insistir seria gastar banco para redesenhar a mesma
+ * coisa.
+ */
+export function refreshIntervalMs(summary: HomeSummary): number {
+  const hasLiveMatch = summary.upcoming.matches.some(
+    (match) => match.status === "live",
+  );
+  const roundInProgress = summary.highlights?.partial === true;
+
+  return hasLiveMatch || roundInProgress ? LIVE_REFRESH_MS : IDLE_REFRESH_MS;
 }

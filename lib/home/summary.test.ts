@@ -3,12 +3,16 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_CREST } from "@/lib/crest/crest";
 import type { RankedStanding } from "@/lib/championship/types";
 import {
+  IDLE_REFRESH_MS,
+  LIVE_REFRESH_MS,
   lineupAlerts,
   patrimonyCents,
   patrimonyDeltaCents,
   placementChanges,
   projectRoundHighlights,
+  refreshIntervalMs,
 } from "@/lib/home/summary";
+import type { HomeSummary } from "@/lib/home/types";
 import type {
   LiveRoundScore,
   RoundMatch,
@@ -271,5 +275,62 @@ describe("projectRoundHighlights", () => {
       "A",
       "B",
     ]);
+  });
+});
+
+function summary(overrides: Partial<HomeSummary> = {}): HomeSummary {
+  return {
+    pendingInvites: [],
+    hasFinishedRound: false,
+    recap: null,
+    nextRound: null,
+    upcoming: { matches: [], myOrganizations: [] },
+    highlights: null,
+    ...overrides,
+  };
+}
+
+describe("refreshIntervalMs", () => {
+  it("tela parada se atualiza devagar", () => {
+    expect(refreshIntervalMs(summary())).toBe(IDLE_REFRESH_MS);
+  });
+
+  it("partida ao vivo acelera o ciclo", () => {
+    const live = summary({
+      upcoming: {
+        matches: [match({ status: "live" })],
+        myOrganizations: [],
+      },
+    });
+
+    expect(refreshIntervalMs(live)).toBe(LIVE_REFRESH_MS);
+  });
+
+  it("rodada em curso já pontuando também acelera", () => {
+    const scoring = summary({
+      highlights: {
+        roundNumber: 7,
+        partial: true,
+        topScorer: null,
+        risers: [],
+        fallers: [],
+      },
+    });
+
+    expect(refreshIntervalMs(scoring)).toBe(LIVE_REFRESH_MS);
+  });
+
+  it("rodada fechada não precisa de pressa", () => {
+    const closed = summary({
+      highlights: {
+        roundNumber: 7,
+        partial: false,
+        topScorer: null,
+        risers: [],
+        fallers: [],
+      },
+    });
+
+    expect(refreshIntervalMs(closed)).toBe(IDLE_REFRESH_MS);
   });
 });
