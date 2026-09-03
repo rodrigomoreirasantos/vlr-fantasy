@@ -13,8 +13,6 @@ function brief(
     marketClosesAt: new Date("2026-03-14T18:00:00Z"),
     marketCountdown: "Mercado fecha em 36h 12m",
     alerts: [],
-    matches: [],
-    myOrganizations: [],
     ...overrides,
   };
 }
@@ -57,7 +55,7 @@ describe("NextRoundBrief", () => {
   it("mostra o número da rodada e o estado do mercado vindo do servidor", () => {
     render(<NextRoundBrief nextRound={brief()} />);
 
-    expect(screen.getByText("O que vem — Rodada 4")).toBeInTheDocument();
+    expect(screen.getByText("Sua rodada 4")).toBeInTheDocument();
     expect(screen.getByText("Mercado fecha em 36h 12m")).toBeInTheDocument();
   });
 });

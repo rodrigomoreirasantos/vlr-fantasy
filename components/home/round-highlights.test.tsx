@@ -8,6 +8,8 @@ function highlights(
   overrides: Partial<RoundHighlightsData> = {},
 ): RoundHighlightsData {
   return {
+    roundNumber: 7,
+    partial: false,
     topScorer: {
       playerId: "boaster",
       nickname: "Boaster",
@@ -38,12 +40,12 @@ function highlights(
 }
 
 describe("RoundHighlights", () => {
-  it("estado vazio: sem rodada fechada", () => {
+  it("estado vazio: nenhuma partida pontuada ainda", () => {
     render(<RoundHighlights highlights={null} />);
 
     expect(
       screen.getByText(
-        "Os destaques aparecem depois que a primeira rodada fechar.",
+        "Os destaques aparecem assim que a primeira partida for pontuada.",
       ),
     ).toBeInTheDocument();
   });
@@ -59,9 +61,24 @@ describe("RoundHighlights", () => {
     expect(screen.getByText("−3.0")).toBeInTheDocument();
   });
 
-  it("mantém o título da seção quando há conteúdo", () => {
+  it("mantém o título da seção, com o número da rodada, quando há conteúdo", () => {
     render(<RoundHighlights highlights={highlights()} />);
 
-    expect(screen.getByText("Destaques da rodada")).toBeInTheDocument();
+    expect(screen.getByText("Destaques da rodada 7")).toBeInTheDocument();
+  });
+
+  it("rodada fechada não se anuncia como parcial", () => {
+    render(<RoundHighlights highlights={highlights()} />);
+
+    expect(screen.queryByText("Parcial")).not.toBeInTheDocument();
+  });
+
+  it("rodada em andamento avisa que os números ainda vão mudar", () => {
+    render(<RoundHighlights highlights={highlights({ partial: true })} />);
+
+    expect(screen.getByText("Parcial")).toBeInTheDocument();
+    expect(
+      screen.getByText(/atualiza conforme as partidas da rodada terminam/),
+    ).toBeInTheDocument();
   });
 });

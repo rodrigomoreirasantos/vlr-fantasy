@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { UpcomingMatches } from "@/components/home/upcoming-matches";
@@ -139,5 +140,96 @@ describe("UpcomingMatches", () => {
       ?.parentElement as HTMLElement;
     expect(within(hoje).getByText(/NRG/)).toBeInTheDocument();
     expect(within(hoje).queryByText(/LOUD/)).not.toBeInTheDocument();
+  });
+
+  it("um único campeonato na grade não merece filtro", () => {
+    renderPanel([match({ id: "a" }), match({ id: "b" })]);
+
+    expect(
+      screen.queryByRole("group", { name: "Filtrar por campeonato" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("oferece os campeonatos com Champions e Masters à frente", () => {
+    renderPanel([
+      match({ id: "a", event: "VCT 2026: Americas Stage 2" }),
+      match({ id: "b", event: "VCT 2026: Masters Toronto" }),
+      match({ id: "c", event: "Valorant Champions 2026" }),
+    ]);
+
+    const filters = screen.getByRole("group", {
+      name: "Filtrar por campeonato",
+    });
+    const labels = within(filters)
+      .getAllByRole("button")
+      .map((button) => button.textContent);
+
+    expect(labels).toEqual([
+      "Todos3",
+      "Champions1",
+      "Masters Toronto1",
+      "Americas Stage 21",
+    ]);
+  });
+
+  it("escolher um campeonato deixa só os jogos dele na lista", async () => {
+    const user = userEvent.setup();
+    renderPanel([
+      match({ id: "a", teamA: "NRG", event: "VCT 2026: Americas Stage 2" }),
+      match({
+        id: "b",
+        teamA: "FNATIC",
+        teamB: "Team Heretics",
+        event: "Valorant Champions 2026",
+      }),
+    ]);
+
+    await user.click(screen.getByRole("button", { name: /Champions/ }));
+
+    expect(screen.getByText(/FNATIC/)).toBeInTheDocument();
+    expect(screen.queryByText(/NRG/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Champions/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("'Todos' devolve a grade inteira", async () => {
+    const user = userEvent.setup();
+    renderPanel([
+      match({ id: "a", teamA: "NRG", event: "VCT 2026: Americas Stage 2" }),
+      match({
+        id: "b",
+        teamA: "FNATIC",
+        teamB: "Team Heretics",
+        event: "Valorant Champions 2026",
+      }),
+    ]);
+
+    await user.click(screen.getByRole("button", { name: /Champions/ }));
+    await user.click(screen.getByRole("button", { name: /Todos/ }));
+
+    expect(screen.getByText(/NRG/)).toBeInTheDocument();
+    expect(screen.getByText(/FNATIC/)).toBeInTheDocument();
+  });
+
+  it("uma grade longa é cortada, e o resto fica a um clique", async () => {
+    const user = userEvent.setup();
+    const many = Array.from({ length: 15 }, (_, index) =>
+      match({
+        id: `m${index}`,
+        teamA: `Time ${index}`,
+        scheduledAt: new Date(
+          new Date("2026-09-04T17:00:00Z").getTime() + index * 3_600_000,
+        ),
+      }),
+    );
+    renderPanel(many);
+
+    expect(screen.queryByText(/Time 14/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Ver mais 3 jogos" }));
+
+    expect(screen.getByText(/Time 14/)).toBeInTheDocument();
   });
 });

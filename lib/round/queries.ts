@@ -1,9 +1,10 @@
-import { and, asc, desc, eq, gt, gte, lt, ne } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, lt, ne, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
   match,
   player,
+  playerMatchStat,
   round,
   roundPlayerScore,
   roundRoster,
@@ -11,6 +12,7 @@ import {
   vlrEvent,
 } from "@/db/schema";
 import type {
+  LiveRoundScore,
   PriceMover,
   RoundMatch,
   RoundRosterEntry,
@@ -246,4 +248,36 @@ export async function getRoundPriceMovers(
   ]);
 
   return { risers, fallers };
+}
+
+/**
+ * A pontuação **parcial** da rodada em andamento, direto de
+ * `player_match_stat`: só entra quem já jogou um mapa extraído.
+ *
+ * É o que sustenta os destaques ao vivo. `round_player_score` não serve aqui
+ * — ela só existe depois de `closeActiveRound`, e a Home ficaria congelada na
+ * rodada anterior enquanto os jogos da semana vão terminando.
+ *
+ * O `groupBy` pela PK de `player` basta: no Postgres as demais colunas da
+ * mesma tabela são funcionalmente dependentes dela.
+ */
+export async function listLiveRoundScores(
+  roundId: string,
+  q: Querier = db,
+): Promise<LiveRoundScore[]> {
+  return q
+    .select({
+      playerId: player.id,
+      nickname: player.nickname,
+      team: player.team,
+      role: player.role,
+      points: sql<number>`sum(${playerMatchStat.fantasyPoints})::float8`,
+      priceCents: player.priceCents,
+      gamesPlayed: player.gamesPlayed,
+    })
+    .from(playerMatchStat)
+    .innerJoin(match, eq(match.id, playerMatchStat.matchId))
+    .innerJoin(player, eq(player.id, playerMatchStat.playerId))
+    .where(eq(match.roundId, roundId))
+    .groupBy(player.id);
 }

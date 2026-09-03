@@ -1,6 +1,13 @@
 import type { RankedStanding } from "@/lib/championship/types";
 import { availabilityMessage } from "@/lib/round/format";
-import type { RoundMatch, RoundTeamResult } from "@/lib/round/types";
+import type {
+  LiveRoundScore,
+  PriceMover,
+  RoundMatch,
+  RoundScorer,
+  RoundTeamResult,
+} from "@/lib/round/types";
+import { averagePoints, priceDeltaCents } from "@/lib/scoring/pricing";
 import type { RosterSlot } from "@/lib/team/types";
 import type { LineupAlert } from "@/lib/home/types";
 
@@ -105,4 +112,64 @@ export function lineupAlerts(
 
     return [];
   });
+}
+
+/**
+ * Os destaques da rodada **ainda aberta**, projetados a partir do que já foi
+ * jogado. Existe porque o usuário não pode esperar o fechamento para saber
+ * quem está indo bem: os jogos terminam ao longo da semana e a Home tem que
+ * andar junto.
+ *
+ * A projeção de preço reusa `priceDeltaCents` — a mesma função que
+ * `closeActiveRound` aplica de verdade — com a média **da rodada**, calculada
+ * só sobre quem jogou (mesmo recorte do fechamento). Ela é uma previsão, não
+ * uma promessa: enquanto faltar jogo, a média muda e o delta muda com ela. É
+ * por isso que a tela rotula esses destaques como parciais.
+ */
+export function projectRoundHighlights(
+  scores: readonly LiveRoundScore[],
+  limit: number,
+): {
+  topScorer: RoundScorer | null;
+  risers: PriceMover[];
+  fallers: PriceMover[];
+} {
+  const average = averagePoints(scores.map((score) => score.points));
+
+  const movers = scores.map((score) => ({
+    playerId: score.playerId,
+    nickname: score.nickname,
+    team: score.team,
+    role: score.role,
+    priceDeltaCents: priceDeltaCents({
+      priceCents: score.priceCents,
+      points: score.points,
+      averagePoints: average,
+      gamesPlayed: score.gamesPlayed,
+    }),
+  }));
+
+  const [topScorer] = [...scores]
+    .sort((a, b) => b.points - a.points)
+    .map((score) => ({
+      playerId: score.playerId,
+      nickname: score.nickname,
+      team: score.team,
+      role: score.role,
+      points: Math.round(score.points * 10) / 10,
+    }));
+
+  return {
+    topScorer: topScorer ?? null,
+    // O mesmo filtro de sinal de `getRoundPriceMovers`: delta zero não é
+    // valorização, e sem ele o mesmo jogador apareceria nas duas listas.
+    risers: movers
+      .filter((mover) => mover.priceDeltaCents > 0)
+      .sort((a, b) => b.priceDeltaCents - a.priceDeltaCents)
+      .slice(0, limit),
+    fallers: movers
+      .filter((mover) => mover.priceDeltaCents < 0)
+      .sort((a, b) => a.priceDeltaCents - b.priceDeltaCents)
+      .slice(0, limit),
+  };
 }

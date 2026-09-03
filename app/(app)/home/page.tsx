@@ -40,7 +40,10 @@ export default async function HomePage() {
         hasFinishedRound={summary.hasFinishedRound}
       />
       <NextRoundBrief nextRound={summary.nextRound} />
-      <UpcomingMatches upcoming={summary.upcoming} />
+      {/* O `now` vem do servidor para o primeiro paint e a hidratação
+          usarem exatamente o mesmo instante — mesmo motivo do
+          `initialCountdown` de `<MarketCountdown>`. */}
+      <UpcomingMatches upcoming={summary.upcoming} now={new Date()} />
       <RoundHighlights highlights={summary.highlights} />
     </main>
   );

@@ -35,6 +35,23 @@ export type RoundScorer = {
   points: number;
 };
 
+/**
+ * A pontuação parcial de um jogador na rodada **em andamento**, somada
+ * direto de `player_match_stat`. É o que existe antes do fechamento — os
+ * snapshots de `round_player_score` só nascem em `closeActiveRound`.
+ */
+export type LiveRoundScore = {
+  playerId: string;
+  nickname: string;
+  team: string;
+  role: PlayerRole;
+  /** Soma dos pontos dos mapas já extraídos. */
+  points: number;
+  /** Preço atual, base da projeção de valorização. */
+  priceCents: number;
+  gamesPlayed: number;
+};
+
 /** Um jogador que valorizou ou desvalorizou na rodada. */
 export type PriceMover = {
   playerId: string;

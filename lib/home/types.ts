@@ -25,7 +25,12 @@ export type RoundRecap = {
   placements: ChampionshipPlacement[];
 };
 
-/** O que vem na próxima rodada. */
+/**
+ * A sua rodada corrente: quanto falta para o mercado fechar e o que está
+ * errado na sua escalação. O calendário não vive aqui — quem mostra as
+ * partidas é `UpcomingMatches`, e duplicá-lo dava a mesma lista duas vezes na
+ * mesma tela.
+ */
 export type NextRoundBrief = {
   roundNumber: number;
   /** A janela inteira, não só o fechamento: o mercado pode ainda não ter aberto. */
@@ -37,9 +42,6 @@ export type NextRoundBrief = {
    */
   marketCountdown: string;
   alerts: LineupAlert[];
-  matches: RoundMatch[];
-  /** Organizações dos seus 5 jogadores — destaca a partida deles em `<MatchList>`. */
-  myOrganizations: readonly string[];
 };
 
 /**
@@ -54,8 +56,15 @@ export type UpcomingMatches = {
   myOrganizations: readonly string[];
 };
 
-/** Os destaques do jogo inteiro na rodada fechada. */
+/** Os destaques do jogo inteiro na rodada — fechada ou em andamento. */
 export type RoundHighlights = {
+  roundNumber: number;
+  /**
+   * A rodada ainda está aberta: os números vêm de `player_match_stat` e
+   * mudam a cada jogo encerrado, e as variações de preço são projeções.
+   * `false` é o snapshot congelado de `round_player_score`.
+   */
+  partial: boolean;
   topScorer: RoundScorer | null;
   risers: PriceMover[];
   fallers: PriceMover[];
@@ -77,6 +86,6 @@ export type HomeSummary = {
   nextRound: NextRoundBrief | null;
   /** Calendário real do circuito — vazio enquanto o scrap não tiver rodado. */
   upcoming: UpcomingMatches;
-  /** `null` junto com `recap` — não há destaques sem rodada fechada. */
+  /** `null` só enquanto nenhuma partida da rodada em curso tiver sido pontuada. */
   highlights: RoundHighlights | null;
 };

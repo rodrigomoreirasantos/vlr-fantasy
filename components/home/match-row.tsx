@@ -15,10 +15,9 @@ export type MatchRowProps = {
 };
 
 /**
- * Uma partida numa lista. Compartilhada pelo calendário da rodada
- * (`<MatchList>`) e pelo calendário do circuito (`<UpcomingMatches>`): as duas
- * telas mostram a mesma coisa com contextos diferentes nas laterais, e
- * duplicar a linha faria as duas divergirem na primeira mudança de estilo.
+ * Uma partida numa lista: o calendário do circuito (`<UpcomingMatches>`) é
+ * hoje o único chamador, mas as laterais continuam injetáveis — a linha não
+ * decide o que mostrar ao lado dos times, quem a usa é que decide.
  */
 export function MatchRow({
   match,

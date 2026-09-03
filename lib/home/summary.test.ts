@@ -7,8 +7,13 @@ import {
   patrimonyCents,
   patrimonyDeltaCents,
   placementChanges,
+  projectRoundHighlights,
 } from "@/lib/home/summary";
-import type { RoundMatch, RoundTeamResult } from "@/lib/round/types";
+import type {
+  LiveRoundScore,
+  RoundMatch,
+  RoundTeamResult,
+} from "@/lib/round/types";
 import type { Player, RosterSlot } from "@/lib/team/types";
 
 function result(overrides: Partial<RoundTeamResult> = {}): RoundTeamResult {
@@ -184,5 +189,87 @@ describe("lineupAlerts", () => {
     const alerts = lineupAlerts(roster, matches);
     expect(alerts).toHaveLength(1);
     expect(alerts[0]?.message).toBe("TenZ não deve jogar (Reserva).");
+  });
+});
+
+function liveScore(overrides: Partial<LiveRoundScore> = {}): LiveRoundScore {
+  return {
+    playerId: "tenz",
+    nickname: "TenZ",
+    team: "SENTINELS",
+    role: "Duelista",
+    points: 20,
+    priceCents: 100_000,
+    gamesPlayed: 10,
+    ...overrides,
+  };
+}
+
+describe("projectRoundHighlights", () => {
+  it("sem ninguém pontuado, não inventa destaque", () => {
+    expect(projectRoundHighlights([], 5)).toEqual({
+      topScorer: null,
+      risers: [],
+      fallers: [],
+    });
+  });
+
+  it("o maior pontuador é o de mais pontos na rodada", () => {
+    const highlights = projectRoundHighlights(
+      [
+        liveScore({ playerId: "tenz", nickname: "TenZ", points: 18 }),
+        liveScore({ playerId: "aspas", nickname: "aspas", points: 31.25 }),
+      ],
+      5,
+    );
+
+    expect(highlights.topScorer?.nickname).toBe("aspas");
+    // Uma casa decimal, como `calculateRound` grava em `player.score`.
+    expect(highlights.topScorer?.points).toBe(31.3);
+  });
+
+  it("quem ficou acima da média sobe, quem ficou abaixo cai", () => {
+    const highlights = projectRoundHighlights(
+      [
+        liveScore({ playerId: "aspas", nickname: "aspas", points: 40 }),
+        liveScore({ playerId: "sacy", nickname: "Sacy", points: 5 }),
+      ],
+      5,
+    );
+
+    expect(highlights.risers.map((mover) => mover.nickname)).toEqual(["aspas"]);
+    expect(highlights.fallers.map((mover) => mover.nickname)).toEqual(["Sacy"]);
+    expect(highlights.risers[0].priceDeltaCents).toBeGreaterThan(0);
+    expect(highlights.fallers[0].priceDeltaCents).toBeLessThan(0);
+  });
+
+  it("ninguém aparece nas duas listas: delta zero não é variação", () => {
+    const highlights = projectRoundHighlights(
+      [
+        liveScore({ playerId: "a", points: 10 }),
+        liveScore({ playerId: "b", points: 10 }),
+      ],
+      5,
+    );
+
+    expect(highlights.risers).toEqual([]);
+    expect(highlights.fallers).toEqual([]);
+  });
+
+  it("respeita o limite de cada lista, do maior para o menor", () => {
+    const highlights = projectRoundHighlights(
+      [
+        liveScore({ playerId: "a", nickname: "A", points: 50 }),
+        liveScore({ playerId: "b", nickname: "B", points: 40 }),
+        liveScore({ playerId: "c", nickname: "C", points: 30 }),
+        liveScore({ playerId: "d", nickname: "D", points: 0 }),
+      ],
+      2,
+    );
+
+    expect(highlights.risers.map((mover) => mover.nickname)).toEqual([
+      "A",
+      "B",
+    ]);
   });
 });

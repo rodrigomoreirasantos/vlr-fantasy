@@ -11,6 +11,7 @@ import {
   patrimonyCents,
   patrimonyDeltaCents,
   placementChanges,
+  projectRoundHighlights,
 } from "@/lib/home/summary";
 import type {
   HomeSummary,
@@ -26,6 +27,7 @@ import {
   getRoundPriceMovers,
   getTeamRoundResult,
   getTopRoundScorers,
+  listLiveRoundScores,
   listRoundMatches,
   listUpcomingMatches,
 } from "@/lib/round/queries";
@@ -36,8 +38,13 @@ import type { RosterSlot } from "@/lib/team/types";
 /** Quantos destaques listar em cada lado (maiores altas / maiores quedas). */
 const PRICE_MOVER_LIMIT = 5;
 
-/** Quantos jogos do circuito cabem no painel sem virar uma lista infinita. */
-const UPCOMING_MATCH_LIMIT = 12;
+/**
+ * Quantos jogos do circuito a Home carrega. Maior que o que cabe na tela de
+ * propósito: o filtro por campeonato precisa de material para filtrar, e uma
+ * janela curta esconderia campeonatos inteiros do seletor.
+ * `<UpcomingMatches>` é quem decide quantos exibir de cada vez.
+ */
+const UPCOMING_MATCH_LIMIT = 40;
 
 /** As organizações dos 5 jogadores escalados, sem repetição. */
 function organizationsOf(roster: readonly RosterSlot[]): string[] {
@@ -131,13 +138,17 @@ async function buildRecap(
   };
 }
 
-/** O que vem na próxima rodada: countdown, alertas e o calendário oficial. */
+/**
+ * A sua rodada corrente: countdown do mercado e alertas da escalação. As
+ * partidas ainda são lidas — `lineupAlerts` precisa delas para saber quem não
+ * tem jogo na semana —, mas não saem daqui: o calendário é de
+ * `<UpcomingMatches>`.
+ */
 async function buildNextRoundBrief(
   nextRound: RoundRow,
   roster: readonly RosterSlot[],
 ): Promise<NextRoundBrief> {
   const matches = await listRoundMatches(nextRound.id);
-  const myOrganizations = organizationsOf(roster);
 
   return {
     roundNumber: nextRound.number,
@@ -148,15 +159,34 @@ async function buildNextRoundBrief(
       closesAt: nextRound.marketClosesAt,
     }),
     alerts: lineupAlerts(roster, matches),
-    matches,
-    myOrganizations,
   };
 }
 
-/** Os destaques do jogo inteiro na rodada fechada. `null` junto com o recap. */
+/**
+ * Os destaques do jogo inteiro, na rodada mais recente que já tem números.
+ *
+ * A rodada **em andamento** vem primeiro, e é o ponto: as partidas terminam ao
+ * longo da semana e `player_match_stat` já sabe quem pontuou muito antes de a
+ * rodada fechar. Esperar o fechamento deixava a Home mostrando a semana
+ * passada enquanto a atual acontecia. Sem nenhum jogo pontuado ainda, cai no
+ * snapshot congelado da última rodada fechada — e só é `null` quando não
+ * existe nem um nem outro.
+ */
 async function buildHighlights(
   latestFinishedRound: RoundRow | null,
+  currentRound: RoundRow | null,
 ): Promise<RoundHighlights | null> {
+  if (currentRound) {
+    const liveScores = await listLiveRoundScores(currentRound.id);
+    if (liveScores.length > 0) {
+      return {
+        roundNumber: currentRound.number,
+        partial: true,
+        ...projectRoundHighlights(liveScores, PRICE_MOVER_LIMIT),
+      };
+    }
+  }
+
   if (!latestFinishedRound) return null;
 
   const [topScorers, movers] = await Promise.all([
@@ -165,6 +195,8 @@ async function buildHighlights(
   ]);
 
   return {
+    roundNumber: latestFinishedRound.number,
+    partial: false,
     topScorer: topScorers[0] ?? null,
     risers: movers.risers,
     fallers: movers.fallers,
@@ -210,7 +242,7 @@ export async function getHomeSummary(
       championships,
       latestFinishedRound ?? null,
     ),
-    buildHighlights(latestFinishedRound ?? null),
+    buildHighlights(latestFinishedRound ?? null, nextRound ?? null),
     nextRound
       ? buildNextRoundBrief(nextRound, overview.roster)
       : Promise.resolve(null),
