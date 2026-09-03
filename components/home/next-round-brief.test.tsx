@@ -1,44 +1,36 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { NextRoundBrief } from "@/components/home/next-round-brief";
-import type {
-  NextRoundBrief as NextRoundBriefData,
-  RoundMarketWindow,
-} from "@/lib/home/types";
+import type { NextRoundBrief as NextRoundBriefData } from "@/lib/home/types";
+import type { RoundMatch } from "@/lib/round/types";
 
-function window_(
-  overrides: Partial<RoundMarketWindow> = {},
-): RoundMarketWindow {
+const NOW = new Date("2026-09-03T12:00:00Z");
+/** O mercado deste jogo fecha às 19:00Z — uma hora antes. */
+const AMERICAS_KICKOFF = new Date("2026-09-03T20:00:00Z");
+const CHAMPIONS_KICKOFF = new Date("2026-09-04T16:00:00Z");
+
+function match(overrides: Partial<RoundMatch> = {}): RoundMatch {
   return {
+    id: "americas",
+    teamA: "SENTINELS",
+    teamB: "NRG",
     event: "VCT 2026: Americas Stage 2",
-    label: "Americas Stage 2",
-    tier: "league",
-    closesAt: new Date("2026-03-14T18:00:00Z"),
-    countdown: "Mercado fecha em 36h 12m",
-    firstMatch: {
-      teamA: "LOUD",
-      teamB: "MIBR",
-      scheduledAt: new Date("2026-03-14T19:00:00Z"),
-    },
-    binding: true,
+    scheduledAt: AMERICAS_KICKOFF,
+    status: "upcoming",
+    scoreA: null,
+    scoreB: null,
     ...overrides,
   };
 }
 
-const CHAMPIONS = window_({
+const CHAMPIONS = match({
+  id: "champions",
+  teamA: "FNATIC",
+  teamB: "Team Heretics",
   event: "Valorant Champions 2026",
-  label: "Champions",
-  tier: "champions",
-  closesAt: new Date("2026-03-16T15:00:00Z"),
-  countdown: "Mercado fecha em 84h 12m",
-  firstMatch: {
-    teamA: "FNATIC",
-    teamB: "Team Heretics",
-    scheduledAt: new Date("2026-03-16T16:00:00Z"),
-  },
-  binding: false,
+  scheduledAt: CHAMPIONS_KICKOFF,
 });
 
 function brief(
@@ -46,17 +38,22 @@ function brief(
 ): NextRoundBriefData {
   return {
     roundNumber: 4,
-    marketOpensAt: new Date("2026-03-10T00:00:00Z"),
-    marketClosesAt: new Date("2026-03-14T18:00:00Z"),
-    marketCountdown: "Mercado fecha em 36h 12m",
-    windows: [window_()],
+    marketOpensAt: new Date("2026-08-31T00:00:00Z"),
+    marketClosesAt: new Date("2026-09-03T19:00:00Z"),
+    marketCountdown: "Mercado fecha em 7h 0m",
+    matches: [match()],
+    myOrganizations: [],
     ...overrides,
   };
 }
 
+function renderPanel(overrides: Partial<NextRoundBriefData> = {}) {
+  return render(<NextRoundBrief nextRound={brief(overrides)} now={NOW} />);
+}
+
 describe("NextRoundBrief", () => {
   it("estado vazio: nenhuma rodada agendada", () => {
-    render(<NextRoundBrief nextRound={null} />);
+    render(<NextRoundBrief nextRound={null} now={NOW} />);
 
     expect(
       screen.getByText("Nenhuma rodada agendada no momento."),
@@ -64,64 +61,71 @@ describe("NextRoundBrief", () => {
   });
 
   it("mostra o número da rodada e o estado do mercado vindo do servidor", () => {
-    render(<NextRoundBrief nextRound={brief()} />);
+    renderPanel();
 
     expect(screen.getByText("Sua rodada 4")).toBeInTheDocument();
-    expect(screen.getByText("Mercado fecha em 36h 12m")).toBeInTheDocument();
+    expect(screen.getByText("Mercado fecha em 7h 0m")).toBeInTheDocument();
   });
 
-  it("diz de qual jogo o fechamento depende", () => {
-    render(<NextRoundBrief nextRound={brief()} />);
+  it("cada linha mostra a hora do mercado, não a do kickoff", () => {
+    const { container } = renderPanel();
 
-    expect(screen.getByText(/Fecha 1h antes de/)).toBeInTheDocument();
-    expect(screen.getByText("LOUD × MIBR")).toBeInTheDocument();
+    // Kickoff 20:00Z; o mercado dele fecha às 19:00Z.
+    expect(screen.getByText("19:00")).toBeInTheDocument();
+    expect(screen.queryByText("20:00")).not.toBeInTheDocument();
+    expect(container.querySelector("time")).toHaveAttribute(
+      "dateTime",
+      new Date("2026-09-03T19:00:00Z").toISOString(),
+    );
   });
 
-  it("rodada sem partida marcada cai na janela da própria rodada", () => {
-    render(<NextRoundBrief nextRound={brief({ windows: [] })} />);
+  it("lista o confronto e o campeonato de cada jogo", () => {
+    renderPanel();
 
-    expect(screen.getByText("Mercado fecha em 36h 12m")).toBeInTheDocument();
+    expect(screen.getByText(/SENTINELS/)).toBeInTheDocument();
+    expect(screen.getByText("VCT 2026: Americas Stage 2")).toBeInTheDocument();
+  });
+
+  it("rodada sem partida marcada ainda mostra o fechamento da rodada", () => {
+    renderPanel({ matches: [] });
+
+    expect(screen.getByText("Mercado fecha em 7h 0m")).toBeInTheDocument();
     expect(
       screen.getByText("Nenhum jogo marcado para esta rodada ainda."),
     ).toBeInTheDocument();
   });
 
   it("um único campeonato não merece filtro", () => {
-    render(<NextRoundBrief nextRound={brief()} />);
+    renderPanel();
 
     expect(
-      screen.queryByRole("group", { name: "Fechamento por campeonato" }),
+      screen.queryByRole("group", { name: "Filtrar por campeonato" }),
     ).not.toBeInTheDocument();
   });
 
-  it("abre pelo campeonato que fecha primeiro", () => {
-    render(
-      <NextRoundBrief nextRound={brief({ windows: [window_(), CHAMPIONS] })} />,
-    );
-
-    expect(screen.getByText("Mercado fecha em 36h 12m")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /Americas Stage 2/ }),
-    ).toHaveAttribute("aria-pressed", "true");
-  });
-
-  it("escolher outro campeonato mostra o fechamento dele", async () => {
+  it("filtra a grade por campeonato, como em 'Próximos jogos'", async () => {
     const user = userEvent.setup();
-    render(
-      <NextRoundBrief nextRound={brief({ windows: [window_(), CHAMPIONS] })} />,
-    );
+    renderPanel({ matches: [match(), CHAMPIONS] });
 
     await user.click(screen.getByRole("button", { name: /Champions/ }));
 
-    expect(screen.getByText("Mercado fecha em 84h 12m")).toBeInTheDocument();
-    expect(screen.getByText("FNATIC × Team Heretics")).toBeInTheDocument();
+    expect(screen.getByText(/FNATIC/)).toBeInTheDocument();
+    expect(screen.queryByText(/SENTINELS/)).not.toBeInTheDocument();
   });
 
-  it("num campeonato que não tranca, avisa qual tranca antes", async () => {
+  it("o countdown segue o campeonato escolhido", async () => {
     const user = userEvent.setup();
-    render(
-      <NextRoundBrief nextRound={brief({ windows: [window_(), CHAMPIONS] })} />,
-    );
+    renderPanel({ matches: [match(), CHAMPIONS] });
+
+    await user.click(screen.getByRole("button", { name: /Champions/ }));
+
+    // Champions começa 04/09 16:00Z: mercado às 15:00Z, 27h depois de NOW.
+    expect(screen.getByText("Mercado fecha em 27h 0m")).toBeInTheDocument();
+  });
+
+  it("num campeonato que não tranca, avisa que a escalação fecha antes", async () => {
+    const user = userEvent.setup();
+    renderPanel({ matches: [match(), CHAMPIONS] });
 
     expect(
       screen.queryByText(/Sua escalação, porém, tranca antes/),
@@ -132,6 +136,12 @@ describe("NextRoundBrief", () => {
     expect(
       screen.getByText(/Sua escalação, porém, tranca antes/),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Americas Stage 2 fecha em/)).toBeInTheDocument();
+  });
+
+  it("destaca a partida de um dos seus 5", () => {
+    renderPanel({ myOrganizations: ["NRG"] });
+
+    const row = screen.getByRole("listitem");
+    expect(within(row).getByText("Seu jogador")).toBeInTheDocument();
   });
 });

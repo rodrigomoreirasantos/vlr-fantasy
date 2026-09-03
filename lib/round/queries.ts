@@ -63,25 +63,45 @@ export async function getRoundByNumber(number: number, q: Querier = db) {
   return q.query.round.findFirst({ where: eq(round.number, number) });
 }
 
-export async function listRoundMatches(
+/**
+ * As partidas **ainda por vir** da rodada, e só as de campeonato que o fantasy
+ * segue.
+ *
+ * O `innerJoin` com `vlr_event` + `tracked` é o mesmo de
+ * `listUpcomingMatches`, e pelo mesmo motivo: sem ele entram as partidas de
+ * demonstração do seed (sem `eventId`), que inventam confronto e campeonato —
+ * era daí que saía um "SENTINELS × FNATIC" em VCT Americas. A tela do mercado
+ * fala do circuito real ou não fala nada.
+ *
+ * Partida que já começou fica de fora: o mercado dela fechou há uma hora, e
+ * não há mais nada a decidir sobre ela.
+ */
+export async function listUpcomingRoundMatches(
   roundId: string,
+  now: Date = new Date(),
   q: Querier = db,
 ): Promise<RoundMatch[]> {
-  const rows = await q.query.match.findMany({
-    where: eq(match.roundId, roundId),
-    orderBy: (row, { asc }) => [asc(row.scheduledAt)],
-  });
-
-  return rows.map((row) => ({
-    id: row.id,
-    teamA: row.teamA,
-    teamB: row.teamB,
-    event: row.event,
-    scheduledAt: row.scheduledAt,
-    status: row.status,
-    scoreA: row.scoreA,
-    scoreB: row.scoreB,
-  }));
+  return q
+    .select({
+      id: match.id,
+      teamA: match.teamA,
+      teamB: match.teamB,
+      event: match.event,
+      scheduledAt: match.scheduledAt,
+      status: match.status,
+      scoreA: match.scoreA,
+      scoreB: match.scoreB,
+    })
+    .from(match)
+    .innerJoin(vlrEvent, eq(vlrEvent.id, match.eventId))
+    .where(
+      and(
+        eq(match.roundId, roundId),
+        eq(vlrEvent.tracked, true),
+        gt(match.scheduledAt, now),
+      ),
+    )
+    .orderBy(asc(match.scheduledAt));
 }
 
 /**

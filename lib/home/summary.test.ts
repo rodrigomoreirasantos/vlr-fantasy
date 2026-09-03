@@ -8,9 +8,9 @@ import {
   patrimonyCents,
   patrimonyDeltaCents,
   placementChanges,
+  nextMarketClose,
   projectRoundHighlights,
   refreshIntervalMs,
-  roundMarketWindows,
 } from "@/lib/home/summary";
 import type { HomeSummary } from "@/lib/home/types";
 import type {
@@ -250,70 +250,48 @@ describe("refreshIntervalMs", () => {
   });
 });
 
-describe("roundMarketWindows", () => {
-  const OPENS_AT = new Date("2026-08-31T00:00:00Z");
-  const CHAMPIONS_KICKOFF = new Date("2026-09-04T16:00:00Z");
+describe("nextMarketClose", () => {
   const AMERICAS_KICKOFF = new Date("2026-09-03T20:00:00Z");
+  const CHAMPIONS_KICKOFF = new Date("2026-09-04T16:00:00Z");
 
   function week(): RoundMatch[] {
     return [
       match({
-        id: "champions-1",
+        id: "champions",
         event: "Valorant Champions 2026",
         scheduledAt: CHAMPIONS_KICKOFF,
       }),
       match({
-        id: "champions-2",
-        event: "Valorant Champions 2026",
-        scheduledAt: new Date("2026-09-05T16:00:00Z"),
-      }),
-      match({
-        id: "americas-1",
+        id: "americas",
         event: "VCT 2026: Americas Stage 2",
         scheduledAt: AMERICAS_KICKOFF,
       }),
     ];
   }
 
-  it("uma janela por campeonato, fechando 1h antes do primeiro jogo dele", () => {
-    const windows = roundMarketWindows(week(), OPENS_AT, OPENS_AT);
+  it("fecha uma hora antes do primeiro jogo que ainda não começou", () => {
+    const closesAt = nextMarketClose(week(), new Date("2026-09-01T00:00:00Z"));
 
-    expect(windows).toHaveLength(2);
-    const champions = windows.find(
-      (window) => window.event === "Valorant Champions 2026",
+    expect(closesAt).toEqual(
+      new Date(AMERICAS_KICKOFF.getTime() - 60 * 60_000),
     );
-    expect(champions?.closesAt).toEqual(
+  });
+
+  it("passado o primeiro jogo, vale o próximo", () => {
+    const closesAt = nextMarketClose(week(), new Date("2026-09-03T21:00:00Z"));
+
+    expect(closesAt).toEqual(
       new Date(CHAMPIONS_KICKOFF.getTime() - 60 * 60_000),
     );
-    expect(champions?.firstMatch.scheduledAt).toEqual(CHAMPIONS_KICKOFF);
   });
 
-  it("quem fecha primeiro é quem tranca a escalação", () => {
-    const windows = roundMarketWindows(week(), OPENS_AT, OPENS_AT);
-
-    expect(windows[0].event).toBe("VCT 2026: Americas Stage 2");
-    expect(windows[0].binding).toBe(true);
-    expect(windows[1].binding).toBe(false);
+  it("com o mercado do último jogo já fechado, não há próximo", () => {
+    expect(
+      nextMarketClose(week(), new Date("2026-09-05T00:00:00Z")),
+    ).toBeNull();
   });
 
-  it("a frase do mercado já vem formatada do servidor", () => {
-    const windows = roundMarketWindows(
-      week(),
-      OPENS_AT,
-      new Date("2026-09-03T18:00:00Z"),
-    );
-
-    expect(windows[0].countdown).toBe("Mercado fecha em 1h 0m");
-  });
-
-  it("o rótulo curto é o do chip, e o nome longo fica no evento", () => {
-    const windows = roundMarketWindows(week(), OPENS_AT, OPENS_AT);
-
-    expect(windows[1].label).toBe("Champions");
-    expect(windows[1].tier).toBe("champions");
-  });
-
-  it("rodada sem partida não inventa janela", () => {
-    expect(roundMarketWindows([], OPENS_AT, OPENS_AT)).toEqual([]);
+  it("rodada sem partida não inventa fechamento", () => {
+    expect(nextMarketClose([], new Date())).toBeNull();
   });
 });

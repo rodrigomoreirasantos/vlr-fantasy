@@ -320,20 +320,24 @@ async function seedRounds() {
 /**
  * Dez confrontos entre organizações que já aparecem em `PLAYERS` — o
  * suficiente para todo jogador do `REFERENCE_ROSTER` ter uma partida na
- * Rodada 2, e para o estado "sem partida" (`lib/home/summary.ts`) ficar
- * disponível para demonstrar com qualquer outra organização.
+ * Rodada 2.
+ *
+ * **Cada confronto respeita a região da liga.** Dado de demonstração também
+ * precisa ser verdade: FNATIC é EMEA, DRX e Gen.G são Pacific, e um
+ * "SENTINELS × FNATIC em VCT Americas" na tela não é uma amostra, é um erro
+ * que alguém vai passar meia hora caçando no scraper.
  */
 const MATCH_PAIRINGS: { teamA: string; teamB: string; event: string }[] = [
-  { teamA: "SENTINELS", teamB: "FNATIC", event: "VCT Americas" },
-  { teamA: "Team Liquid", teamB: "LEVIATÁN", event: "VCT Americas" },
-  { teamA: "NRG", teamB: "LOUD", event: "VCT Americas" },
-  { teamA: "DRX", teamB: "100 Thieves", event: "VCT Pacific" },
+  { teamA: "SENTINELS", teamB: "NRG", event: "VCT Americas" },
+  { teamA: "LOUD", teamB: "LEVIATÁN", event: "VCT Americas" },
   { teamA: "Evil Geniuses", teamB: "Cloud9", event: "VCT Americas" },
-  { teamA: "Team Heretics", teamB: "Gen.G", event: "VCT EMEA" },
-  { teamA: "FNATIC", teamB: "NRG", event: "VCT Americas" },
-  { teamA: "SENTINELS", teamB: "DRX", event: "VCT Pacific" },
-  { teamA: "LOUD", teamB: "Evil Geniuses", event: "VCT Americas" },
-  { teamA: "Cloud9", teamB: "Team Heretics", event: "VCT EMEA" },
+  { teamA: "100 Thieves", teamB: "SENTINELS", event: "VCT Americas" },
+  { teamA: "NRG", teamB: "LOUD", event: "VCT Americas" },
+  { teamA: "Cloud9", teamB: "100 Thieves", event: "VCT Americas" },
+  { teamA: "LEVIATÁN", teamB: "Evil Geniuses", event: "VCT Americas" },
+  { teamA: "FNATIC", teamB: "Team Liquid", event: "VCT EMEA" },
+  { teamA: "Team Heretics", teamB: "FNATIC", event: "VCT EMEA" },
+  { teamA: "DRX", teamB: "Gen.G", event: "VCT Pacific" },
 ];
 
 /** Um horário por partida, espaçado uniformemente dentro da janela da rodada. */

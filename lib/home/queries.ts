@@ -9,9 +9,9 @@ import type { ChampionshipSummary } from "@/lib/championship/types";
 import {
   patrimonyCents,
   patrimonyDeltaCents,
+  nextMarketClose,
   placementChanges,
   projectRoundHighlights,
-  roundMarketWindows,
 } from "@/lib/home/summary";
 import type {
   HomeSummary,
@@ -28,8 +28,8 @@ import {
   getTeamRoundResult,
   getTopRoundScorers,
   listLiveRoundScores,
-  listRoundMatches,
   listUpcomingMatches,
+  listUpcomingRoundMatches,
 } from "@/lib/round/queries";
 import type { RoundTeamResult } from "@/lib/round/types";
 import { getTeamOverview } from "@/lib/team/queries";
@@ -139,25 +139,31 @@ async function buildRecap(
 }
 
 /**
- * A sua rodada corrente: o fechamento do mercado, geral e por campeonato. As
- * partidas são lidas para derivar as janelas (uma hora antes do primeiro jogo
- * de cada campeonato), mas não saem daqui — o calendário é de
- * `<UpcomingMatches>`.
+ * A sua rodada corrente: o fechamento do mercado, jogo a jogo.
+ *
+ * O countdown do topo é o **próximo** fechamento entre as partidas da rodada,
+ * não a coluna `market_closes_at` seca: as duas coincidem enquanto o primeiro
+ * jogo da semana não começa, e depois dele é o próximo jogo que passa a valer.
+ * `marketClosesAt` fica como piso para a rodada que ainda não tem partida
+ * marcada.
  */
 async function buildNextRoundBrief(
   nextRound: RoundRow,
+  roster: readonly RosterSlot[],
 ): Promise<NextRoundBrief> {
-  const matches = await listRoundMatches(nextRound.id);
+  const matches = await listUpcomingRoundMatches(nextRound.id);
+  const closesAt = nextMarketClose(matches) ?? nextRound.marketClosesAt;
 
   return {
     roundNumber: nextRound.number,
     marketOpensAt: nextRound.marketOpensAt,
-    marketClosesAt: nextRound.marketClosesAt,
+    marketClosesAt: closesAt,
     marketCountdown: formatMarketCountdown({
       opensAt: nextRound.marketOpensAt,
-      closesAt: nextRound.marketClosesAt,
+      closesAt,
     }),
-    windows: roundMarketWindows(matches, nextRound.marketOpensAt),
+    matches,
+    myOrganizations: organizationsOf(roster),
   };
 }
 
@@ -242,7 +248,9 @@ export async function getHomeSummary(
       latestFinishedRound ?? null,
     ),
     buildHighlights(latestFinishedRound ?? null, nextRound ?? null),
-    nextRound ? buildNextRoundBrief(nextRound) : Promise.resolve(null),
+    nextRound
+      ? buildNextRoundBrief(nextRound, overview.roster)
+      : Promise.resolve(null),
   ]);
 
   return {

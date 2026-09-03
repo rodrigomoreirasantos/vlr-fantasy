@@ -1,6 +1,5 @@
 import type { RankedStanding } from "@/lib/championship/types";
-import { marketClosesAtFor, formatMarketCountdown } from "@/lib/market/window";
-import { eventTier, shortEventLabel } from "@/lib/round/events";
+import { marketClosesAtFor } from "@/lib/market/window";
 import type {
   LiveRoundScore,
   PriceMover,
@@ -9,7 +8,7 @@ import type {
   RoundTeamResult,
 } from "@/lib/round/types";
 import { averagePoints, priceDeltaCents } from "@/lib/scoring/pricing";
-import type { HomeSummary, RoundMarketWindow } from "@/lib/home/types";
+import type { HomeSummary } from "@/lib/home/types";
 
 /**
  * Regras puras da Home — sem banco, sem React. `lib/home/queries.ts` é o
@@ -125,61 +124,23 @@ export function projectRoundHighlights(
 }
 
 /**
- * O fechamento do mercado campeonato a campeonato, a partir das partidas da
- * rodada.
+ * O próximo fechamento de mercado entre as partidas dadas — uma hora antes do
+ * primeiro kickoff que ainda não passou. `null` quando todas já começaram.
  *
- * Cada campeonato tem o seu primeiro jogo da semana, e portanto a sua própria
- * hora de fechar — uma hora antes dele (`marketClosesAtFor`). Quem tranca a
- * escalação de verdade é o mais cedo de todos (`binding`), que é exatamente o
- * `round.market_closes_at` gravado por `syncRoundsFromMatches`: os dois números
- * saem da mesma regra, e por isso não têm como divergir.
- *
- * Sem `Date` cru em lugar nenhum: a frase de cada janela já sai formatada por
- * `formatMarketCountdown`, a mesma que o cliente reexecuta a cada tick.
+ * É a mesma conta de `syncRoundsFromMatches` (`marketClosesAtFor`), aplicada
+ * às mesmas partidas: o número que a tela mostra e o `round.market_closes_at`
+ * que tranca a escalação não têm como divergir.
  */
-export function roundMarketWindows(
+export function nextMarketClose(
   matches: readonly RoundMatch[],
-  opensAt: Date,
   now: Date = new Date(),
-): RoundMarketWindow[] {
-  const firstByEvent = new Map<string, RoundMatch>();
-  for (const match of matches) {
-    const current = firstByEvent.get(match.event);
-    if (!current || match.scheduledAt < current.scheduledAt) {
-      firstByEvent.set(match.event, match);
-    }
-  }
+): Date | null {
+  const closes = matches
+    .map((match) => marketClosesAtFor(match.scheduledAt))
+    .filter((closesAt) => closesAt.getTime() > now.getTime())
+    .sort((a, b) => a.getTime() - b.getTime());
 
-  const windows = [...firstByEvent.values()].map((match) => ({
-    event: match.event,
-    label: shortEventLabel(match.event),
-    tier: eventTier(match.event),
-    closesAt: marketClosesAtFor(match.scheduledAt),
-    countdown: formatMarketCountdown(
-      { opensAt, closesAt: marketClosesAtFor(match.scheduledAt) },
-      now,
-    ),
-    firstMatch: {
-      teamA: match.teamA,
-      teamB: match.teamB,
-      scheduledAt: match.scheduledAt,
-    },
-    binding: false,
-  }));
-
-  const earliest = windows.reduce<Date | null>(
-    (soonest, window) =>
-      soonest === null || window.closesAt < soonest ? window.closesAt : soonest,
-    null,
-  );
-
-  return windows
-    .map((window) => ({
-      ...window,
-      binding:
-        earliest !== null && window.closesAt.getTime() === earliest.getTime(),
-    }))
-    .sort((a, b) => a.closesAt.getTime() - b.closesAt.getTime());
+  return closes[0] ?? null;
 }
 
 /** De quanto em quanto tempo a Home se atualiza sozinha, com jogo acontecendo. */

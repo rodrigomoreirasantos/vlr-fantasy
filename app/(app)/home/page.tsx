@@ -46,7 +46,7 @@ export default async function HomePage() {
         recap={summary.recap}
         hasFinishedRound={summary.hasFinishedRound}
       />
-      <NextRoundBrief nextRound={summary.nextRound} />
+      <NextRoundBrief nextRound={summary.nextRound} now={new Date()} />
       {/* O `now` vem do servidor para o primeiro paint e a hidratação
           usarem exatamente o mesmo instante — mesmo motivo do
           `initialCountdown` de `<MarketCountdown>`. */}

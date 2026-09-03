@@ -1,25 +1,6 @@
 import type { ChampionshipPlacement } from "@/components/profile/championship-placements";
 import type { PendingInvite } from "@/lib/championship/types";
-import type { EventTier } from "@/lib/round/events";
 import type { PriceMover, RoundMatch, RoundScorer } from "@/lib/round/types";
-
-/**
- * Quando o mercado fecha para um campeonato da rodada — uma hora antes do
- * primeiro jogo dele (`roundMarketWindows`, summary.ts).
- */
-export type RoundMarketWindow = {
-  event: string;
-  /** `shortEventLabel(event)` — o texto do chip. */
-  label: string;
-  tier: EventTier;
-  closesAt: Date;
-  /** A frase do estado do mercado, já formatada no servidor. */
-  countdown: string;
-  /** O primeiro jogo do campeonato na rodada: é ele que fecha esta janela. */
-  firstMatch: { teamA: string; teamB: string; scheduledAt: Date };
-  /** É o mais cedo de todos — o que de fato tranca a escalação. */
-  binding: boolean;
-};
 
 /** O que aconteceu na última rodada fechada. */
 export type RoundRecap = {
@@ -34,10 +15,12 @@ export type RoundRecap = {
 };
 
 /**
- * A sua rodada corrente: quando o mercado fecha, campeonato a campeonato. Só
- * isso — o calendário é de `UpcomingMatches`, e o estado dos jogadores não é
- * dado que exista no Valorant competitivo (não há boletim de lesão nem
- * escalação divulgada com antecedência).
+ * A sua rodada corrente: quando o mercado fecha, jogo a jogo. Mesma lista de
+ * "Próximos jogos", com outro relógio — o do fechamento, não o do kickoff.
+ *
+ * O estado dos jogadores não entra: no Valorant competitivo não há boletim de
+ * lesão nem escalação divulgada com antecedência, e um aviso que a fonte não
+ * sabe dar é um aviso que a tela inventa.
  */
 export type NextRoundBrief = {
   roundNumber: number;
@@ -49,8 +32,14 @@ export type NextRoundBrief = {
    * servidor para o primeiro paint do countdown no cliente.
    */
   marketCountdown: string;
-  /** Um fechamento por campeonato, do mais cedo para o mais tarde. */
-  windows: RoundMarketWindow[];
+  /**
+   * As partidas ainda por vir da rodada, só de campeonato seguido. Cada uma
+   * tem o seu fechamento — uma hora antes do kickoff —, e é isso que a tela
+   * lista, com o mesmo filtro por campeonato de "Próximos jogos".
+   */
+  matches: RoundMatch[];
+  /** Organizações dos seus 5 — destacam a partida deles na lista. */
+  myOrganizations: readonly string[];
 };
 
 /**

@@ -108,10 +108,16 @@ não aposta. Daí em diante nada de novo acontece: `isMarketOpen` e
 `evaluateSubstitution` já bloqueavam por `market-closed` — só faltava o dado
 certo naquela coluna.
 
-Na Home, "Sua rodada" mostra esse fechamento **campeonato a campeonato**
-(`roundMarketWindows`, `lib/home/summary.ts`): cada torneio fecha uma hora
-antes do seu próprio primeiro jogo. Quem tranca a escalação continua sendo o
-mais cedo de todos — que é, por construção, o mesmo número gravado na coluna.
+Na Home, "Sua rodada" mostra esse fechamento **jogo a jogo**: a mesma grade de
+"Próximos jogos" (`<MatchSchedule>`, mesmo filtro por campeonato), com o
+relógio trocado — cada linha é a hora em que o mercado daquele jogo fecha.
+Quem tranca a escalação é o mais cedo de todos (`nextMarketClose`), que é, por
+construção, o mesmo número gravado na coluna.
+
+Essa lista lê **só partida de campeonato seguido** (`listUpcomingRoundMatches`,
+o mesmo `innerJoin` de `listUpcomingMatches`). Sem ele entram as partidas de
+demonstração do seed, que não têm `event_id` e inventam confronto e
+campeonato.
 
 ## A estrutura real do vlr.gg (verificada em 03/09/2026)
 
