@@ -1,5 +1,6 @@
 import type { RankedStanding } from "@/lib/championship/types";
-import { availabilityMessage } from "@/lib/round/format";
+import { marketClosesAtFor, formatMarketCountdown } from "@/lib/market/window";
+import { eventTier, shortEventLabel } from "@/lib/round/events";
 import type {
   LiveRoundScore,
   PriceMover,
@@ -8,8 +9,7 @@ import type {
   RoundTeamResult,
 } from "@/lib/round/types";
 import { averagePoints, priceDeltaCents } from "@/lib/scoring/pricing";
-import type { RosterSlot } from "@/lib/team/types";
-import type { HomeSummary, LineupAlert } from "@/lib/home/types";
+import type { HomeSummary, RoundMarketWindow } from "@/lib/home/types";
 
 /**
  * Regras puras da Home — sem banco, sem React. `lib/home/queries.ts` é o
@@ -62,56 +62,6 @@ export function placementChanges(
     memberCount: current.length,
     change: previousRow ? previousRow.position - currentRow.position : null,
   };
-}
-
-/**
- * Um alerta por jogador dos 5 que não deve jogar a próxima rodada: vaga
- * vazia, indisponibilidade (`availability` ≠ `available`) ou organização sem
- * partida marcada. Quando um jogador acumula os dois últimos motivos, a
- * indisponibilidade vence — é o motivo mais específico. Silêncio (`[]`)
- * quando os 5 jogam.
- */
-export function lineupAlerts(
-  roster: readonly RosterSlot[],
-  matches: readonly RoundMatch[],
-): LineupAlert[] {
-  const scheduledOrganizations = new Set(
-    matches.flatMap((match) => [match.teamA, match.teamB]),
-  );
-
-  return roster.flatMap((slot, index): LineupAlert[] => {
-    const position = index + 1;
-
-    if (!slot.player) {
-      return [{ position, message: `A vaga ${position} está vazia.` }];
-    }
-
-    const { player } = slot;
-
-    if (player.availability !== "available") {
-      return [
-        {
-          position,
-          message: availabilityMessage(
-            player.nickname,
-            player.availability,
-            player.availabilityNote,
-          ),
-        },
-      ];
-    }
-
-    if (!scheduledOrganizations.has(player.team)) {
-      return [
-        {
-          position,
-          message: `${player.nickname} (${player.team}) não tem partida nesta rodada.`,
-        },
-      ];
-    }
-
-    return [];
-  });
 }
 
 /**
@@ -172,6 +122,64 @@ export function projectRoundHighlights(
       .sort((a, b) => a.priceDeltaCents - b.priceDeltaCents)
       .slice(0, limit),
   };
+}
+
+/**
+ * O fechamento do mercado campeonato a campeonato, a partir das partidas da
+ * rodada.
+ *
+ * Cada campeonato tem o seu primeiro jogo da semana, e portanto a sua própria
+ * hora de fechar — uma hora antes dele (`marketClosesAtFor`). Quem tranca a
+ * escalação de verdade é o mais cedo de todos (`binding`), que é exatamente o
+ * `round.market_closes_at` gravado por `syncRoundsFromMatches`: os dois números
+ * saem da mesma regra, e por isso não têm como divergir.
+ *
+ * Sem `Date` cru em lugar nenhum: a frase de cada janela já sai formatada por
+ * `formatMarketCountdown`, a mesma que o cliente reexecuta a cada tick.
+ */
+export function roundMarketWindows(
+  matches: readonly RoundMatch[],
+  opensAt: Date,
+  now: Date = new Date(),
+): RoundMarketWindow[] {
+  const firstByEvent = new Map<string, RoundMatch>();
+  for (const match of matches) {
+    const current = firstByEvent.get(match.event);
+    if (!current || match.scheduledAt < current.scheduledAt) {
+      firstByEvent.set(match.event, match);
+    }
+  }
+
+  const windows = [...firstByEvent.values()].map((match) => ({
+    event: match.event,
+    label: shortEventLabel(match.event),
+    tier: eventTier(match.event),
+    closesAt: marketClosesAtFor(match.scheduledAt),
+    countdown: formatMarketCountdown(
+      { opensAt, closesAt: marketClosesAtFor(match.scheduledAt) },
+      now,
+    ),
+    firstMatch: {
+      teamA: match.teamA,
+      teamB: match.teamB,
+      scheduledAt: match.scheduledAt,
+    },
+    binding: false,
+  }));
+
+  const earliest = windows.reduce<Date | null>(
+    (soonest, window) =>
+      soonest === null || window.closesAt < soonest ? window.closesAt : soonest,
+    null,
+  );
+
+  return windows
+    .map((window) => ({
+      ...window,
+      binding:
+        earliest !== null && window.closesAt.getTime() === earliest.getTime(),
+    }))
+    .sort((a, b) => a.closesAt.getTime() - b.closesAt.getTime());
 }
 
 /** De quanto em quanto tempo a Home se atualiza sozinha, com jogo acontecendo. */

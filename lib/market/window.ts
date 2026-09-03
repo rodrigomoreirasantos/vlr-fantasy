@@ -7,6 +7,21 @@ dayjs.locale("pt-br");
 
 export type MarketWindow = { opensAt: Date; closesAt: Date };
 
+/**
+ * Quanto o mercado fecha **antes** do primeiro jogo — a regra inviolável nº 8.
+ *
+ * Não é no kickoff: escalar com o jogo prestes a começar já é escalar sabendo
+ * de escalação divulgada, mapa escolhido e time em quadra. Uma hora de
+ * antecedência é o que transforma a escalação numa aposta, e não numa
+ * conferência.
+ */
+export const MARKET_CLOSE_LEAD_MS = 60 * 60_000;
+
+/** O fechamento do mercado de uma rodada, dado o kickoff do seu primeiro jogo. */
+export function marketClosesAtFor(firstKickoff: Date): Date {
+  return new Date(firstKickoff.getTime() - MARKET_CLOSE_LEAD_MS);
+}
+
 /** `now` injetável → testes determinísticos sem fake timers. */
 export function isMarketOpen(w: MarketWindow, now: Date = new Date()): boolean {
   const current = dayjs(now);

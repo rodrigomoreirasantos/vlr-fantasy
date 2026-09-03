@@ -1,16 +1,24 @@
 import type { ChampionshipPlacement } from "@/components/profile/championship-placements";
 import type { PendingInvite } from "@/lib/championship/types";
+import type { EventTier } from "@/lib/round/events";
 import type { PriceMover, RoundMatch, RoundScorer } from "@/lib/round/types";
 
 /**
- * Um alerta sobre uma das cinco vagas da escalação: vaga vazia, jogador
- * indisponível ou jogador cuja organização não tem partida na próxima
- * rodada. `message` já vem pronta em pt-BR — `lineupAlerts` (summary.ts) é
- * quem monta a frase.
+ * Quando o mercado fecha para um campeonato da rodada — uma hora antes do
+ * primeiro jogo dele (`roundMarketWindows`, summary.ts).
  */
-export type LineupAlert = {
-  position: number;
-  message: string;
+export type RoundMarketWindow = {
+  event: string;
+  /** `shortEventLabel(event)` — o texto do chip. */
+  label: string;
+  tier: EventTier;
+  closesAt: Date;
+  /** A frase do estado do mercado, já formatada no servidor. */
+  countdown: string;
+  /** O primeiro jogo do campeonato na rodada: é ele que fecha esta janela. */
+  firstMatch: { teamA: string; teamB: string; scheduledAt: Date };
+  /** É o mais cedo de todos — o que de fato tranca a escalação. */
+  binding: boolean;
 };
 
 /** O que aconteceu na última rodada fechada. */
@@ -26,10 +34,10 @@ export type RoundRecap = {
 };
 
 /**
- * A sua rodada corrente: quanto falta para o mercado fechar e o que está
- * errado na sua escalação. O calendário não vive aqui — quem mostra as
- * partidas é `UpcomingMatches`, e duplicá-lo dava a mesma lista duas vezes na
- * mesma tela.
+ * A sua rodada corrente: quando o mercado fecha, campeonato a campeonato. Só
+ * isso — o calendário é de `UpcomingMatches`, e o estado dos jogadores não é
+ * dado que exista no Valorant competitivo (não há boletim de lesão nem
+ * escalação divulgada com antecedência).
  */
 export type NextRoundBrief = {
   roundNumber: number;
@@ -41,7 +49,8 @@ export type NextRoundBrief = {
    * servidor para o primeiro paint do countdown no cliente.
    */
   marketCountdown: string;
-  alerts: LineupAlert[];
+  /** Um fechamento por campeonato, do mais cedo para o mais tarde. */
+  windows: RoundMarketWindow[];
 };
 
 /**

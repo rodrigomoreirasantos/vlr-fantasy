@@ -1,6 +1,7 @@
 import { eq, inArray, sql } from "drizzle-orm";
 
 import { match, round, vlrEvent } from "@/db/schema";
+import { marketClosesAtFor } from "@/lib/market/window";
 import type { Transaction } from "@/lib/team/queries";
 import { weekKeyOf, weekStartOf } from "@/lib/vlr/normalize/week";
 
@@ -20,11 +21,11 @@ export type SyncedRound = {
  * Cria/atualiza uma rodada por semana ISO, a partir das partidas de eventos
  * `tracked`, e liga cada partida à sua rodada.
  *
- * **`marketClosesAt` = kickoff do primeiro jogo da semana.** É a regra
- * inviolável nº 8, e é toda a integração de que ela precisava: `isMarketOpen`
- * (`lib/market/window.ts`) e `evaluateSubstitution` já bloqueiam por
- * `market-closed` — só faltava alguém colocar ali o horário certo. Nenhuma
- * linha de UI muda.
+ * **`marketClosesAt` = uma hora antes do primeiro jogo da semana**
+ * (`marketClosesAtFor`, `lib/market/window.ts`). É a regra inviolável nº 8, e
+ * é toda a integração de que ela precisava: `isMarketOpen` e
+ * `evaluateSubstitution` já bloqueiam por `market-closed` — só faltava alguém
+ * colocar ali o horário certo.
  *
  * A rodada nasce `upcoming` (ou `finished`, se a semana já passou — ver
  * abaixo): quem promove a `active` continua sendo `closeActiveRound`,
@@ -71,11 +72,12 @@ export async function syncRoundsFromMatches(
   // ordem arbitrária em que o Postgres devolveu as partidas.
   for (const weekKey of [...byWeek.keys()].sort()) {
     const weekMatches = byWeek.get(weekKey)!;
-    const marketClosesAt = weekMatches.reduce(
+    const firstKickoff = weekMatches.reduce(
       (earliest, row) =>
         row.scheduledAt < earliest ? row.scheduledAt : earliest,
       weekMatches[0].scheduledAt,
     );
+    const marketClosesAt = marketClosesAtFor(firstKickoff);
     const totalMatches = weekMatches.length;
     const scoredMatches = weekMatches.filter(
       (row) => row.scrapedAt !== null,

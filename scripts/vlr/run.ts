@@ -51,6 +51,11 @@ export function stringArg(
   return argv.find((arg) => arg.startsWith(`--${flag}=`))?.split("=")[1];
 }
 
+/** `--force` presente → `true`. Bandeira sem valor, ausência é `false`. */
+export function boolArg(flag: string, argv = process.argv): boolean {
+  return argv.includes(`--${flag}`);
+}
+
 /**
  * Só executa ao ser chamado direto pelo `tsx`. Mesma guarda de
  * `db/close-round.ts`: `pathToFileURL` em vez de interpolar `file://`, porque

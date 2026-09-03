@@ -5,12 +5,12 @@ import type { RankedStanding } from "@/lib/championship/types";
 import {
   IDLE_REFRESH_MS,
   LIVE_REFRESH_MS,
-  lineupAlerts,
   patrimonyCents,
   patrimonyDeltaCents,
   placementChanges,
   projectRoundHighlights,
   refreshIntervalMs,
+  roundMarketWindows,
 } from "@/lib/home/summary";
 import type { HomeSummary } from "@/lib/home/types";
 import type {
@@ -18,7 +18,6 @@ import type {
   RoundMatch,
   RoundTeamResult,
 } from "@/lib/round/types";
-import type { Player, RosterSlot } from "@/lib/team/types";
 
 function result(overrides: Partial<RoundTeamResult> = {}): RoundTeamResult {
   return {
@@ -42,26 +41,6 @@ function standing(
     isCurrentUser: false,
     ...overrides,
   };
-}
-
-function player(overrides: Partial<Player> = {}): Player {
-  return {
-    id: "tenz",
-    nickname: "TenZ",
-    team: "SENTINELS",
-    agent: "Jett",
-    role: "Duelista",
-    score: 18.2,
-    priceCents: 5000,
-    active: true,
-    availability: "available",
-    availabilityNote: null,
-    ...overrides,
-  };
-}
-
-function slot(overrides: Partial<RosterSlot> = {}): RosterSlot {
-  return { id: "slot-1", player: player(), captain: false, ...overrides };
 }
 
 function match(overrides: Partial<RoundMatch> = {}): RoundMatch {
@@ -129,70 +108,6 @@ describe("placementChanges", () => {
   it("usuário não está na classificação atual: devolve null", () => {
     const current = [standing({ userId: "outro" })];
     expect(placementChanges(current, null, "me")).toBeNull();
-  });
-});
-
-describe("lineupAlerts", () => {
-  it("os 5 jogam: fica em silêncio", () => {
-    const roster = [slot(), slot({ id: "slot-2" })];
-    const matches = [match()];
-    expect(lineupAlerts(roster, matches)).toEqual([]);
-  });
-
-  it("acusa vaga vazia", () => {
-    const roster = [slot({ player: null })];
-    expect(lineupAlerts(roster, [])).toEqual([
-      { position: 1, message: "A vaga 1 está vazia." },
-    ]);
-  });
-
-  it("acusa jogador indisponível (banco)", () => {
-    const roster = [slot({ player: player({ availability: "bench" }) })];
-    expect(lineupAlerts(roster, [match()])).toEqual([
-      { position: 1, message: "TenZ não deve jogar (Reserva)." },
-    ]);
-  });
-
-  it("acusa jogador lesionado com a nota", () => {
-    const roster = [
-      slot({
-        player: player({
-          availability: "injured",
-          availabilityNote: "Fora por lesão no pulso",
-        }),
-      }),
-    ];
-    expect(lineupAlerts(roster, [match()])).toEqual([
-      {
-        position: 1,
-        message: "TenZ não deve jogar (Lesionado): Fora por lesão no pulso.",
-      },
-    ]);
-  });
-
-  it("acusa jogador eliminado", () => {
-    const roster = [slot({ player: player({ availability: "eliminated" }) })];
-    expect(lineupAlerts(roster, [match()])[0]?.message).toBe(
-      "TenZ não deve jogar (Time eliminado).",
-    );
-  });
-
-  it("acusa organização sem partida na rodada", () => {
-    const roster = [slot({ player: player({ team: "LOUD" }) })];
-    const matches = [match({ teamA: "SENTINELS", teamB: "FNATIC" })];
-    expect(lineupAlerts(roster, matches)).toEqual([
-      { position: 1, message: "TenZ (LOUD) não tem partida nesta rodada." },
-    ]);
-  });
-
-  it("indisponibilidade tem precedência sobre organização sem partida", () => {
-    const roster = [
-      slot({ player: player({ team: "LOUD", availability: "bench" }) }),
-    ];
-    const matches = [match({ teamA: "SENTINELS", teamB: "FNATIC" })];
-    const alerts = lineupAlerts(roster, matches);
-    expect(alerts).toHaveLength(1);
-    expect(alerts[0]?.message).toBe("TenZ não deve jogar (Reserva).");
   });
 });
 
@@ -332,5 +247,73 @@ describe("refreshIntervalMs", () => {
     });
 
     expect(refreshIntervalMs(closed)).toBe(IDLE_REFRESH_MS);
+  });
+});
+
+describe("roundMarketWindows", () => {
+  const OPENS_AT = new Date("2026-08-31T00:00:00Z");
+  const CHAMPIONS_KICKOFF = new Date("2026-09-04T16:00:00Z");
+  const AMERICAS_KICKOFF = new Date("2026-09-03T20:00:00Z");
+
+  function week(): RoundMatch[] {
+    return [
+      match({
+        id: "champions-1",
+        event: "Valorant Champions 2026",
+        scheduledAt: CHAMPIONS_KICKOFF,
+      }),
+      match({
+        id: "champions-2",
+        event: "Valorant Champions 2026",
+        scheduledAt: new Date("2026-09-05T16:00:00Z"),
+      }),
+      match({
+        id: "americas-1",
+        event: "VCT 2026: Americas Stage 2",
+        scheduledAt: AMERICAS_KICKOFF,
+      }),
+    ];
+  }
+
+  it("uma janela por campeonato, fechando 1h antes do primeiro jogo dele", () => {
+    const windows = roundMarketWindows(week(), OPENS_AT, OPENS_AT);
+
+    expect(windows).toHaveLength(2);
+    const champions = windows.find(
+      (window) => window.event === "Valorant Champions 2026",
+    );
+    expect(champions?.closesAt).toEqual(
+      new Date(CHAMPIONS_KICKOFF.getTime() - 60 * 60_000),
+    );
+    expect(champions?.firstMatch.scheduledAt).toEqual(CHAMPIONS_KICKOFF);
+  });
+
+  it("quem fecha primeiro é quem tranca a escalação", () => {
+    const windows = roundMarketWindows(week(), OPENS_AT, OPENS_AT);
+
+    expect(windows[0].event).toBe("VCT 2026: Americas Stage 2");
+    expect(windows[0].binding).toBe(true);
+    expect(windows[1].binding).toBe(false);
+  });
+
+  it("a frase do mercado já vem formatada do servidor", () => {
+    const windows = roundMarketWindows(
+      week(),
+      OPENS_AT,
+      new Date("2026-09-03T18:00:00Z"),
+    );
+
+    expect(windows[0].countdown).toBe("Mercado fecha em 1h 0m");
+  });
+
+  it("o rótulo curto é o do chip, e o nome longo fica no evento", () => {
+    const windows = roundMarketWindows(week(), OPENS_AT, OPENS_AT);
+
+    expect(windows[1].label).toBe("Champions");
+    expect(windows[1].tier).toBe("champions");
+  });
+
+  it("rodada sem partida não inventa janela", () => {
+    expect(roundMarketWindows([], OPENS_AT, OPENS_AT)).toEqual([]);
   });
 });

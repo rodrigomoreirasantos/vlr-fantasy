@@ -7,11 +7,11 @@ import {
 import { rankStandings } from "@/lib/championship/standings";
 import type { ChampionshipSummary } from "@/lib/championship/types";
 import {
-  lineupAlerts,
   patrimonyCents,
   patrimonyDeltaCents,
   placementChanges,
   projectRoundHighlights,
+  roundMarketWindows,
 } from "@/lib/home/summary";
 import type {
   HomeSummary,
@@ -139,14 +139,13 @@ async function buildRecap(
 }
 
 /**
- * A sua rodada corrente: countdown do mercado e alertas da escalação. As
- * partidas ainda são lidas — `lineupAlerts` precisa delas para saber quem não
- * tem jogo na semana —, mas não saem daqui: o calendário é de
+ * A sua rodada corrente: o fechamento do mercado, geral e por campeonato. As
+ * partidas são lidas para derivar as janelas (uma hora antes do primeiro jogo
+ * de cada campeonato), mas não saem daqui — o calendário é de
  * `<UpcomingMatches>`.
  */
 async function buildNextRoundBrief(
   nextRound: RoundRow,
-  roster: readonly RosterSlot[],
 ): Promise<NextRoundBrief> {
   const matches = await listRoundMatches(nextRound.id);
 
@@ -158,7 +157,7 @@ async function buildNextRoundBrief(
       opensAt: nextRound.marketOpensAt,
       closesAt: nextRound.marketClosesAt,
     }),
-    alerts: lineupAlerts(roster, matches),
+    windows: roundMarketWindows(matches, nextRound.marketOpensAt),
   };
 }
 
@@ -243,9 +242,7 @@ export async function getHomeSummary(
       latestFinishedRound ?? null,
     ),
     buildHighlights(latestFinishedRound ?? null, nextRound ?? null),
-    nextRound
-      ? buildNextRoundBrief(nextRound, overview.roster)
-      : Promise.resolve(null),
+    nextRound ? buildNextRoundBrief(nextRound) : Promise.resolve(null),
   ]);
 
   return {

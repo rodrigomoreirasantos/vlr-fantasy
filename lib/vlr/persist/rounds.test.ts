@@ -4,12 +4,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/db", () => ({ db: {}, pool: { end: vi.fn() } }));
 
 import { match as matchTable, round as roundTable } from "@/db/schema";
+import { marketClosesAtFor } from "@/lib/market/window";
 import { syncRoundsFromMatches } from "@/lib/vlr/persist/rounds";
 
 type Call = { op: string; payload: unknown };
 
 /** Semana ISO 2026-W36 (31/08 a 06/09). */
 const FIRST_KICKOFF = new Date("2026-09-02T21:00:00Z");
+/** O mercado fecha uma hora antes dele — regra inviolável nº 8. */
+const MARKET_CLOSES_AT = marketClosesAtFor(FIRST_KICKOFF);
 const LATER_KICKOFF = new Date("2026-09-04T18:00:00Z");
 /** Semana seguinte (2026-W37). */
 const NEXT_WEEK_KICKOFF = new Date("2026-09-09T18:00:00Z");
@@ -82,7 +85,7 @@ describe("syncRoundsFromMatches", () => {
     expect(calls).toEqual([]);
   });
 
-  it("cria a rodada da semana com marketClosesAt no kickoff do PRIMEIRO jogo", async () => {
+  it("cria a rodada da semana com marketClosesAt 1h antes do PRIMEIRO jogo", async () => {
     const { tx, calls } = createTxStub(
       [
         { id: "m2", scheduledAt: LATER_KICKOFF, scrapedAt: null },
@@ -94,13 +97,13 @@ describe("syncRoundsFromMatches", () => {
     const [synced] = await syncRoundsFromMatches(tx as never);
 
     // A regra inviolável nº 8: a escalação trava quando a rodada começa.
-    expect(synced.marketClosesAt).toEqual(FIRST_KICKOFF);
+    expect(synced.marketClosesAt).toEqual(MARKET_CLOSES_AT);
     expect(synced.weekKey).toBe("2026-W36");
 
     const insert = calls.find((call) => call.op === "insert:round")!;
     expect(insert.payload).toMatchObject({
       weekKey: "2026-W36",
-      marketClosesAt: FIRST_KICKOFF,
+      marketClosesAt: MARKET_CLOSES_AT,
       status: "upcoming",
       totalMatches: 2,
       scoredMatches: 0,
@@ -154,7 +157,7 @@ describe("syncRoundsFromMatches", () => {
     expect(calls.some((call) => call.op === "insert:round")).toBe(false);
     expect(calls[0]).toMatchObject({
       op: "update:round",
-      payload: { marketClosesAt: FIRST_KICKOFF, scoredMatches: 1 },
+      payload: { marketClosesAt: MARKET_CLOSES_AT, scoredMatches: 1 },
     });
   });
 

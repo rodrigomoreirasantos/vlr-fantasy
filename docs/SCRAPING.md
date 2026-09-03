@@ -41,15 +41,47 @@ não conhece HTTP; o motor de pontuação não conhece nem um nem outro.
 | -------------------- | ------------- | ---------------------------------------------------------------- |
 | `pnpm vlr:events`    | semanal       | `/events` → `vlr_event`. **Não** mexe em `tracked`               |
 | `pnpm vlr:schedule`  | 06:00         | `/matches` → calendário → rodadas semanais (`marketClosesAt`)    |
-| `pnpm vlr:results`   | \*/15min      | `/matches/results` → marca encerradas e enfileira a extração     |
-| `pnpm vlr:work`      | \*/5min       | Consome a fila; falha isolada não derruba o lote                 |
-| `pnpm vlr:round`     | \*/30min      | Rodada toda extraída → `calculateRound` + `closeActiveRound`     |
+| `pnpm vlr:results`   | \*/5min       | `/matches/results` → marca encerradas e enfileira a extração     |
+| `pnpm vlr:work`      | \*/2min       | Consome a fila; falha isolada não derruba o lote                 |
+| `pnpm vlr:round`     | \*/15min      | Rodada toda extraída → `calculateRound` + `closeActiveRound`     |
 | `pnpm vlr:doctor`    | diário        | Roda os parsers contra a rede; exit ≠ 0 se algum seletor quebrou |
 | `pnpm vlr:backfill`  | manual        | Carga histórica (`--pages=20`)                                   |
 | `pnpm vlr:reprocess` | manual        | `--match=<vlrId>` — reparsa do HTML salvo, **sem rede**          |
 
+Mais uma linha, essa só uma vez por dia:
+
+```bash
+pnpm vlr:results --force --pages=3    # varre o que ficou fora da janela
+```
+
 Sem processo de longa duração: a fila vive no próprio Postgres (`vlr_job_run`,
 com `FOR UPDATE SKIP LOCKED`) e os scripts saem quando terminam.
+
+## Ritmo em dia de jogo
+
+O cron é fixo; o que muda é o que cada execução **faz**. Só `vlr:results` vai à
+rede toda vez que roda — e, num dia sem partida, vai à rede para reler a mesma
+página. Por isso ele passa por um portão (`lib/vlr/jobs/cadence.ts`):
+
+> Existe partida de campeonato seguido que já começou (ou começa em 15 min) e
+> que o vlr ainda não fechou?
+
+É exatamente o conjunto que `/matches/results` resolveria. Zero significa que a
+página não tem nada de novo a dizer, e o job sai sem gastar requisição —
+custando uma consulta ao banco.
+
+Com isso o cron pôde apertar sem aumentar em nada o tráfego que o vlr.gg recebe
+fora de dia de jogo: **em dia de jogo**, um resultado vira pontuação em ~7 min
+(`results` a cada 5, `work` a cada 2); **fora dele**, o pipeline inteiro não faz
+uma única requisição.
+
+A cauda da janela é de 12h e é proposital: uma Bo5 cabe folgada, e o que passa
+disso não é jogo demorado, é partida que o vlr nunca fechou (cancelada, W.O.).
+Sem esse limite, uma dessas custaria uma requisição por ciclo para sempre. Quem
+varre esses restos é a passada diária com `--force`.
+
+`vlr:work` e `vlr:round` não precisam de portão: sem fila e sem rodada
+completa, os dois saem depois de uma consulta, sem tocar na rede.
 
 ## Primeira execução
 
@@ -68,10 +100,18 @@ nunca duplicamos nem publicamos jogador em silêncio. Para liberar, revise em
 ## A trava de escalação (regra inviolável nº 8)
 
 `syncRoundsFromMatches` (`lib/vlr/persist/rounds.ts`) coloca em
-`round.market_closes_at` o **kickoff do primeiro jogo da semana**. Daí em
-diante nada de novo acontece: `isMarketOpen` (`lib/market/window.ts`) e
+`round.market_closes_at` **uma hora antes do kickoff do primeiro jogo da
+semana** (`marketClosesAtFor`, `lib/market/window.ts`). A hora de antecedência
+é a regra, não um arredondamento: escalar com o jogo prestes a começar é
+escalar já sabendo de escalação divulgada e time em quadra — vira conferência,
+não aposta. Daí em diante nada de novo acontece: `isMarketOpen` e
 `evaluateSubstitution` já bloqueavam por `market-closed` — só faltava o dado
-certo naquela coluna. Nenhuma linha de UI mudou.
+certo naquela coluna.
+
+Na Home, "Sua rodada" mostra esse fechamento **campeonato a campeonato**
+(`roundMarketWindows`, `lib/home/summary.ts`): cada torneio fecha uma hora
+antes do seu próprio primeiro jogo. Quem tranca a escalação continua sendo o
+mais cedo de todos — que é, por construção, o mesmo número gravado na coluna.
 
 ## A estrutura real do vlr.gg (verificada em 03/09/2026)
 
