@@ -1,0 +1,7 @@
+# Fixtures do vlr.gg: HTML **cru**, exatamente como o servidor devolveu.
+# Formatá-las destruiria o que as torna úteis — os testes de scraper precisam
+# do mesmo espaçamento e da mesma indentação que a página real tem.
+lib/vlr/fixtures/*.html
+
+# Gerado pelo drizzle-kit — nunca editar à mão.
+drizzle/

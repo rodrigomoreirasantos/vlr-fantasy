@@ -57,6 +57,20 @@
       "when": 1788361917996,
       "tag": "0007_steady_barracuda",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788453590148,
+      "tag": "0008_elite_squirrel_girl",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788460340351,
+      "tag": "0009_mute_shatterstar",
+      "breakpoints": true
     }
   ]
 }

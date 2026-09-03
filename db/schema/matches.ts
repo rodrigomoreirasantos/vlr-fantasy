@@ -7,10 +7,12 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
 import { round } from "@/db/schema/rounds";
+import { vlrEvent } from "@/db/schema/vlr";
 import { MATCH_STATUSES } from "@/lib/round/types";
 
 // Mesmo import unidirecional de `PLAYER_ROLES`/`PLAYER_AVAILABILITIES`
@@ -23,9 +25,20 @@ export const match = pgTable(
   "match",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    roundId: uuid("round_id")
-      .notNull()
-      .references(() => round.id, { onDelete: "cascade" }),
+    /** Id externo do vlr.gg — a chave natural que `match` nunca teve. */
+    vlrId: text("vlr_id"),
+    /**
+     * **Nullable, e `set null` em vez de `cascade`.** Uma partida de evento
+     * fora de escopo, ou de uma semana para a qual ainda não existe rodada,
+     * precisa poder existir; e apagar uma rodada não pode sumir com o
+     * calendário que a alimentou.
+     */
+    roundId: uuid("round_id").references(() => round.id, {
+      onDelete: "set null",
+    }),
+    eventId: uuid("event_id").references(() => vlrEvent.id, {
+      onDelete: "set null",
+    }),
     // Texto, não FK: `player.team` também é o nome solto da organização
     // ("FNATIC"). Normalizar as duas pontas de uma vez é uma refatoração
     // maior do que esta fatia — o cruzamento é por igualdade de texto.
@@ -36,6 +49,17 @@ export const match = pgTable(
     status: matchStatus("status").notNull().default("upcoming"),
     scoreA: integer("score_a"),
     scoreB: integer("score_b"),
+    /** Formato da série ("Bo3" → 3). */
+    bestOf: integer("best_of"),
+    /**
+     * Quando o scoreboard foi extraído. Substitui um status `SCRAPED` no enum:
+     * "finalizada E extraída" fica derivada de um fato, não de dois campos que
+     * podem divergir — e a regra de cache permanente vira uma cláusula
+     * `WHERE scraped_at IS NULL`.
+     */
+    scrapedAt: timestamp("scraped_at", { withTimezone: true }),
+    /** Caminho do HTML bruto salvo — o que sustenta `pnpm vlr:reprocess`. */
+    rawHtmlPath: text("raw_html_path"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -46,6 +70,9 @@ export const match = pgTable(
   },
   (t) => [
     index("match_round_scheduled_idx").on(t.roundId, t.scheduledAt),
+    uniqueIndex("match_vlr_id_uidx").on(t.vlrId),
+    // A query do worker: partidas encerradas que ainda não foram extraídas.
+    index("match_scraped_idx").on(t.status, t.scrapedAt),
     check("match_distinct_orgs", sql`${t.teamA} <> ${t.teamB}`),
     // Placar é par: ou os dois lados existem, ou nenhum.
     check(

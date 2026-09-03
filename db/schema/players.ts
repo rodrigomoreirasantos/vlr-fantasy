@@ -30,7 +30,19 @@ export const player = pgTable(
   "player",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    /**
+     * Id externo do vlr.gg — a chave natural do jogador, agora que o
+     * scoreboard a expõe (`/player/49871/yuno`). **Nullable de propósito:** os
+     * registros do seed nasceram sem ela, e o unique com `NULLS DISTINCT`
+     * (padrão do Postgres) deixa vários nulos conviverem — o mesmo truque de
+     * `roster_slot_team_player_uidx`.
+     */
+    vlrId: text("vlr_id"),
     nickname: text("nickname").notNull(),
+    /** Nome civil, quando o vlr traz. */
+    realName: text("real_name"),
+    /** Código de duas letras da bandeira do vlr, ex. "br". */
+    country: text("country"),
     /** Organização do jogador na vida real, ex. "FNATIC". */
     team: text("team").notNull(),
     agent: text("agent").notNull(),
@@ -45,6 +57,23 @@ export const player = pgTable(
       .notNull()
       .default(0),
     active: boolean("active").notNull().default(true),
+    /**
+     * A resolução de identidade não bateu com confiança (nickname colidindo
+     * entre vlrIds diferentes, agente desconhecido). Nasce `active: false`:
+     * fica fora do mercado até alguém olhar. **Nunca duplicamos jogador em
+     * silêncio** — duplicar é pior que segurar.
+     */
+    needsReview: boolean("needs_review").notNull().default(false),
+    /** Rodadas já pontuadas — alimenta o amortecimento de `dampingFactor`. */
+    gamesPlayed: integer("games_played").notNull().default(0),
+    /** Média histórica de pontos, base do preço inicial do backfill. */
+    averageScore: numeric("average_score", {
+      precision: 6,
+      scale: 1,
+      mode: "number",
+    })
+      .notNull()
+      .default(0),
     /** Disponibilidade para a próxima rodada — alimenta os alertas da Home. */
     availability: playerAvailability("availability")
       .notNull()
@@ -61,6 +90,7 @@ export const player = pgTable(
   },
   (table) => [
     uniqueIndex("player_nickname_uidx").on(table.nickname),
+    uniqueIndex("player_vlr_id_uidx").on(table.vlrId),
     // Query exata do mercado: candidatos ativos de uma função.
     index("player_role_active_idx").on(table.role, table.active),
     check("player_price_cents_positive", sql`${table.priceCents} > 0`),

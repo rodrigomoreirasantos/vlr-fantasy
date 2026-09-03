@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { NextRoundBrief } from "@/components/home/next-round-brief";
 import { RoundHighlights } from "@/components/home/round-highlights";
 import { RoundRecap } from "@/components/home/round-recap";
+import { UpcomingMatches } from "@/components/home/upcoming-matches";
 import { PendingInvites } from "@/components/championship/pending-invites";
 import { auth } from "@/lib/auth";
 import { getHomeSummary } from "@/lib/home/queries";
@@ -39,6 +40,7 @@ export default async function HomePage() {
         hasFinishedRound={summary.hasFinishedRound}
       />
       <NextRoundBrief nextRound={summary.nextRound} />
+      <UpcomingMatches upcoming={summary.upcoming} />
       <RoundHighlights highlights={summary.highlights} />
     </main>
   );

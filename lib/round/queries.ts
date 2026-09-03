@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, lt } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, lt, ne } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -8,6 +8,7 @@ import {
   roundPlayerScore,
   roundRoster,
   roundTeamResult,
+  vlrEvent,
 } from "@/db/schema";
 import type {
   PriceMover,
@@ -79,6 +80,53 @@ export async function listRoundMatches(
     scoreA: row.scoreA,
     scoreB: row.scoreB,
   }));
+}
+
+/**
+ * Uma partida já em andamento continua sendo "próximo jogo" até ser marcada
+ * como encerrada. Sem esta folga ela sumiria da tela no instante do kickoff,
+ * que é justamente quando o usuário mais olha — e uma Bo3 leva uma tarde.
+ */
+const LIVE_GRACE_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * Os próximos jogos **reais** do circuito, vindos do pipeline do vlr.gg.
+ *
+ * O `innerJoin` com `vlr_event` + `tracked` é o filtro que importa: só entra
+ * partida de campeonato que o fantasy segue, e as partidas de demonstração do
+ * seed (sem `eventId`) ficam de fora por construção. É a lista que a Home
+ * mostra independentemente de qual rodada está ativa — o calendário do
+ * circuito não é o mesmo recorte que o calendário da sua rodada.
+ */
+export async function listUpcomingMatches(
+  limit: number,
+  now: Date = new Date(),
+  q: Querier = db,
+): Promise<RoundMatch[]> {
+  const rows = await q
+    .select({
+      id: match.id,
+      teamA: match.teamA,
+      teamB: match.teamB,
+      event: match.event,
+      scheduledAt: match.scheduledAt,
+      status: match.status,
+      scoreA: match.scoreA,
+      scoreB: match.scoreB,
+    })
+    .from(match)
+    .innerJoin(vlrEvent, eq(vlrEvent.id, match.eventId))
+    .where(
+      and(
+        eq(vlrEvent.tracked, true),
+        ne(match.status, "finished"),
+        gte(match.scheduledAt, new Date(now.getTime() - LIVE_GRACE_MS)),
+      ),
+    )
+    .orderBy(asc(match.scheduledAt))
+    .limit(limit);
+
+  return rows;
 }
 
 export async function getTeamRoundResult(

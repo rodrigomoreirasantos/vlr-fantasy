@@ -12,6 +12,39 @@ export function formatMatchKickoff(scheduledAt: Date): string {
   return dayjs(scheduledAt).format("ddd, DD/MM [às] HH:mm");
 }
 
+/** Só a hora, ex. "21:00" — a coluna pela qual se lê um calendário. */
+export function formatKickoffTime(scheduledAt: Date): string {
+  return dayjs(scheduledAt).format("HH:mm");
+}
+
+/**
+ * Cabeçalho do dia num calendário: "Hoje", "Amanhã" ou "sáb, 06/09".
+ *
+ * "Hoje"/"Amanhã" não são enfeite — são a informação que o leitor de fato
+ * procura ao decidir se dá tempo de mexer na escalação. `now` injetável
+ * mantém o teste determinístico, como em `lib/market/window.ts`.
+ */
+export function formatMatchDay(
+  scheduledAt: Date,
+  now: Date = new Date(),
+): string {
+  const day = dayjs(scheduledAt);
+  const today = dayjs(now);
+
+  if (day.isSame(today, "day")) return "Hoje";
+  if (day.isSame(today.add(1, "day"), "day")) return "Amanhã";
+  return day.format("ddd, DD/MM");
+}
+
+/**
+ * A data legível por máquina do atributo `dateTime` de `<time>`. Existe para
+ * que nenhum componente precise importar o dayjs só por causa disso — a regra
+ * de datas do CLAUDE.md vale também para o atributo, não só para o texto.
+ */
+export function toIsoDate(date: Date): string {
+  return dayjs(date).toISOString();
+}
+
 const AVAILABILITY_LABELS: Record<PlayerAvailability, string> = {
   available: "Disponível",
   bench: "Reserva",

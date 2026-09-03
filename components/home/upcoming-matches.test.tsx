@@ -1,0 +1,143 @@
+import { render, screen, within } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+
+import { UpcomingMatches } from "@/components/home/upcoming-matches";
+import type { RoundMatch } from "@/lib/round/types";
+
+const NOW = new Date("2026-09-03T12:00:00Z");
+
+function match(overrides: Partial<RoundMatch> = {}): RoundMatch {
+  return {
+    id: "match-1",
+    teamA: "NRG",
+    teamB: "100 Thieves",
+    event: "VCT 2026: Americas Stage 2",
+    scheduledAt: new Date("2026-09-04T17:00:00Z"),
+    status: "upcoming",
+    scoreA: null,
+    scoreB: null,
+    ...overrides,
+  };
+}
+
+function renderPanel(
+  matches: RoundMatch[],
+  myOrganizations: readonly string[] = [],
+) {
+  return render(
+    <UpcomingMatches upcoming={{ matches, myOrganizations }} now={NOW} />,
+  );
+}
+
+describe("UpcomingMatches", () => {
+  it("estado vazio: nenhum jogo confirmado", () => {
+    renderPanel([]);
+
+    expect(
+      screen.getByText("Nenhum jogo confirmado no circuito agora."),
+    ).toBeInTheDocument();
+  });
+
+  it("lista os jogos com times, campeonato e horário", () => {
+    renderPanel([match()]);
+
+    expect(screen.getByText(/NRG/)).toBeInTheDocument();
+    expect(screen.getByText("VCT 2026: Americas Stage 2")).toBeInTheDocument();
+    expect(screen.getByText("17:00")).toBeInTheDocument();
+  });
+
+  it("agrupa por dia, com 'Hoje' e 'Amanhã' por nome", () => {
+    renderPanel([
+      match({ id: "a", scheduledAt: new Date("2026-09-03T21:00:00Z") }),
+      match({ id: "b", scheduledAt: new Date("2026-09-04T08:00:00Z") }),
+    ]);
+
+    expect(
+      screen.getByRole("heading", { name: "Hoje", level: 3 }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Amanhã", level: 3 }),
+    ).toBeInTheDocument();
+  });
+
+  it("conta os jogos de cada dia, no singular e no plural", () => {
+    renderPanel([
+      match({ id: "a", scheduledAt: new Date("2026-09-03T21:00:00Z") }),
+      match({ id: "b", scheduledAt: new Date("2026-09-03T23:30:00Z") }),
+      match({ id: "c", scheduledAt: new Date("2026-09-04T08:00:00Z") }),
+    ]);
+
+    expect(screen.getByText("2 jogos")).toBeInTheDocument();
+    expect(screen.getByText("1 jogo")).toBeInTheDocument();
+  });
+
+  it("marca como 'Próximo' apenas o primeiro jogo a começar", () => {
+    renderPanel([
+      match({ id: "a", scheduledAt: new Date("2026-09-03T21:00:00Z") }),
+      match({ id: "b", scheduledAt: new Date("2026-09-04T08:00:00Z") }),
+    ]);
+
+    expect(screen.getAllByText("Próximo")).toHaveLength(1);
+  });
+
+  it("um jogo já começado não recebe o selo 'Próximo'", () => {
+    renderPanel([match({ scheduledAt: new Date("2026-09-03T10:00:00Z") })]);
+
+    expect(screen.queryByText("Próximo")).not.toBeInTheDocument();
+  });
+
+  it("destaca o jogo que envolve um dos seus 5", () => {
+    renderPanel(
+      [
+        match({ id: "a", teamA: "NRG", teamB: "100 Thieves" }),
+        match({
+          id: "b",
+          teamA: "LOUD",
+          teamB: "G2 Esports",
+          scheduledAt: new Date("2026-09-04T20:00:00Z"),
+        }),
+      ],
+      ["LOUD"],
+    );
+
+    expect(screen.getAllByText("Seu jogador")).toHaveLength(1);
+  });
+
+  it("um jogo ao vivo é anunciado como tal", () => {
+    renderPanel([match({ status: "live" })]);
+
+    expect(screen.getByText("Ao vivo")).toBeInTheDocument();
+  });
+
+  it("o horário é uma data legível por máquina", () => {
+    const { container } = renderPanel([match()]);
+
+    const time = container.querySelector("time");
+    expect(time).toHaveAttribute(
+      "dateTime",
+      new Date("2026-09-04T17:00:00Z").toISOString(),
+    );
+  });
+
+  it("cada dia lista suas próprias partidas", () => {
+    renderPanel([
+      match({
+        id: "a",
+        teamA: "NRG",
+        teamB: "100 Thieves",
+        scheduledAt: new Date("2026-09-03T21:00:00Z"),
+      }),
+      match({
+        id: "b",
+        teamA: "LOUD",
+        teamB: "G2 Esports",
+        scheduledAt: new Date("2026-09-04T08:00:00Z"),
+      }),
+    ]);
+
+    const hoje = screen.getByRole("heading", { name: "Hoje" }).parentElement
+      ?.parentElement as HTMLElement;
+    expect(within(hoje).getByText(/NRG/)).toBeInTheDocument();
+    expect(within(hoje).queryByText(/LOUD/)).not.toBeInTheDocument();
+  });
+});

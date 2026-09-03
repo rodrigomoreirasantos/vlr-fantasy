@@ -42,7 +42,13 @@ export async function closeActiveRound(
   // 1. Catálogo + preços — a média da rodada e o novo preço de cada jogador,
   // calculados uma única vez e reaproveitados no snapshot e na repreçificação.
   const players = await tx.select().from(player);
-  const average = averagePoints(players.map((row) => row.score));
+  // A média é a **da rodada**, não a do catálogo: só entra quem pontuou. Com o
+  // catálogo real do vlr (centenas de jogadores, a maioria sem jogo na semana)
+  // incluir os zeros puxaria a média para perto de zero, e praticamente todo
+  // jogador que atuou bateria o teto de +15% — inflação sistêmica, toda rodada.
+  const average = averagePoints(
+    players.filter((row) => row.score !== 0).map((row) => row.score),
+  );
   const nextPriceById = new Map(
     players.map((row) => [
       row.id,
@@ -50,6 +56,9 @@ export async function closeActiveRound(
         priceCents: row.priceCents,
         points: row.score,
         averagePoints: average,
+        // Amortece as primeiras rodadas de quem acabou de entrar no catálogo:
+        // um preço derivado do backfill ainda é um chute.
+        gamesPlayed: row.gamesPlayed,
       }),
     ]),
   );
@@ -123,7 +132,14 @@ export async function closeActiveRound(
   for (const row of players) {
     await tx
       .update(player)
-      .set({ priceCents: nextPriceById.get(row.id)!, score: 0 })
+      .set({
+        priceCents: nextPriceById.get(row.id)!,
+        score: 0,
+        // Só conta rodada para quem de fato atuou: é o contador que alimenta
+        // `dampingFactor`, e incrementá-lo para o catálogo inteiro faria todo
+        // jogador "amadurecer" sem nunca ter entrado em quadra.
+        gamesPlayed: row.score !== 0 ? row.gamesPlayed + 1 : row.gamesPlayed,
+      })
       .where(eq(player.id, row.id));
   }
 

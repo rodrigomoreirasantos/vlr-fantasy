@@ -42,6 +42,18 @@ export type NextRoundBrief = {
   myOrganizations: readonly string[];
 };
 
+/**
+ * Os próximos jogos **reais** do circuito, vindos do pipeline do vlr.gg
+ * (`lib/vlr/`). Independente da rodada: o calendário do circuito segue
+ * acontecendo mesmo que a rodada ativa do jogo seja outra, e é ele que
+ * responde "o que vai acontecer agora".
+ */
+export type UpcomingMatches = {
+  matches: RoundMatch[];
+  /** Organizações dos seus 5 — destacam a partida deles na lista. */
+  myOrganizations: readonly string[];
+};
+
 /** Os destaques do jogo inteiro na rodada fechada. */
 export type RoundHighlights = {
   topScorer: RoundScorer | null;
@@ -63,6 +75,8 @@ export type HomeSummary = {
   recap: RoundRecap | null;
   /** `null` só no caso degenerado de não haver nenhuma rodada `upcoming`. */
   nextRound: NextRoundBrief | null;
+  /** Calendário real do circuito — vazio enquanto o scrap não tiver rodado. */
+  upcoming: UpcomingMatches;
   /** `null` junto com `recap` — não há destaques sem rodada fechada. */
   highlights: RoundHighlights | null;
 };

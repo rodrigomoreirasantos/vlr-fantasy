@@ -21,6 +21,12 @@ export const round = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     number: integer("number").notNull(),
     name: text("name"),
+    /**
+     * Semana ISO da rodada, ex. `"2026-W37"` (`weekKeyOf`). É a chave que
+     * torna `syncRoundsFromMatches` idempotente sem precisar inventar um
+     * `number` a cada execução. Nullable: as rodadas do seed nasceram sem.
+     */
+    weekKey: text("week_key"),
     marketOpensAt: timestamp("market_opens_at", {
       withTimezone: true,
     }).notNull(),
@@ -41,6 +47,7 @@ export const round = pgTable(
   },
   (table) => [
     uniqueIndex("round_number_uidx").on(table.number),
+    uniqueIndex("round_week_key_uidx").on(table.weekKey),
     // No máximo uma rodada ativa por vez.
     uniqueIndex("round_single_active_uidx")
       .on(table.status)

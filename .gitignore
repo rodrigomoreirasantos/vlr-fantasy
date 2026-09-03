@@ -34,6 +34,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# HTML bruto do vlr.gg (lib/vlr/http/raw-store.ts)
+/storage
+
 # vercel
 .vercel
 

@@ -27,6 +27,7 @@ import {
   getTeamRoundResult,
   getTopRoundScorers,
   listRoundMatches,
+  listUpcomingMatches,
 } from "@/lib/round/queries";
 import type { RoundTeamResult } from "@/lib/round/types";
 import { getTeamOverview } from "@/lib/team/queries";
@@ -34,6 +35,18 @@ import type { RosterSlot } from "@/lib/team/types";
 
 /** Quantos destaques listar em cada lado (maiores altas / maiores quedas). */
 const PRICE_MOVER_LIMIT = 5;
+
+/** Quantos jogos do circuito cabem no painel sem virar uma lista infinita. */
+const UPCOMING_MATCH_LIMIT = 12;
+
+/** As organizações dos 5 jogadores escalados, sem repetição. */
+function organizationsOf(roster: readonly RosterSlot[]): string[] {
+  return [
+    ...new Set(
+      roster.flatMap((slot) => (slot.player ? [slot.player.team] : [])),
+    ),
+  ];
+}
 
 type RoundRow = {
   id: string;
@@ -124,11 +137,7 @@ async function buildNextRoundBrief(
   roster: readonly RosterSlot[],
 ): Promise<NextRoundBrief> {
   const matches = await listRoundMatches(nextRound.id);
-  const myOrganizations = [
-    ...new Set(
-      roster.flatMap((slot) => (slot.player ? [slot.player.team] : [])),
-    ),
-  ];
+  const myOrganizations = organizationsOf(roster);
 
   return {
     roundNumber: nextRound.number,
@@ -180,12 +189,14 @@ export async function getHomeSummary(
     championships,
     latestFinishedRound,
     nextRound,
+    upcomingMatches,
   ] = await Promise.all([
     getTeamOverview(userId, userName),
     listPendingInvites(userId),
     listUserChampionships(userId),
     getLatestFinishedRound(),
     getNextRound(),
+    listUpcomingMatches(UPCOMING_MATCH_LIMIT),
   ]);
 
   if (!overview) {
@@ -210,6 +221,10 @@ export async function getHomeSummary(
     hasFinishedRound: latestFinishedRound !== undefined,
     recap,
     nextRound: nextRoundBrief,
+    upcoming: {
+      matches: upcomingMatches,
+      myOrganizations: organizationsOf(overview.roster),
+    },
     highlights,
   };
 }

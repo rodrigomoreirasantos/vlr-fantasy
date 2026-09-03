@@ -22,6 +22,20 @@ export function averagePoints(scores: readonly number[]): number {
 }
 
 /**
+ * Amortecimento das primeiras rodadas de um jogador. Um jogador recém-chegado
+ * ao catálogo tem uma amostra pequena demais para justificar uma variação
+ * cheia: uma partida excepcional na estreia dispararia o teto de 15% em cima
+ * de um preço que ainda é um chute do backfill.
+ *
+ * Rampa: 0.25 na 1ª rodada, 0.5 na 2ª, 0.75 na 3ª, 1.0 da 4ª em diante.
+ * `gamesPlayed` é o número de rodadas **já** pontuadas — 0 é a estreia.
+ */
+export function dampingFactor(gamesPlayed: number): number {
+  const factors = [0.25, 0.5, 0.75];
+  return factors[Math.max(0, Math.trunc(gamesPlayed))] ?? 1;
+}
+
+/**
  * Variação de preço já com o teto de 15% e o piso `MIN_PRICE_CENTS`
  * aplicados — nunca o delta "cru". É o que mantém a invariante
  * `nextPriceCents(x) - x === priceDeltaCents(x)` verdadeira por construção
@@ -32,11 +46,17 @@ export function priceDeltaCents(args: {
   priceCents: number;
   points: number;
   averagePoints: number;
+  /** Rodadas já pontuadas pelo jogador. Omitido = sem amortecimento. */
+  gamesPlayed?: number;
 }): number {
-  const { priceCents, points, averagePoints } = args;
+  const { priceCents, points, averagePoints, gamesPlayed } = args;
 
+  // O amortecimento entra **antes** do teto e do piso, e não numa etapa
+  // posterior: é o que mantém `nextPriceCents(x) - x === priceDeltaCents(x)`
+  // — e, com ela, o CHECK `round_player_score_delta_consistent`.
+  const damping = gamesPlayed === undefined ? 1 : dampingFactor(gamesPlayed);
   const rawDeltaCents = Math.round(
-    (points - averagePoints) * PRICE_PER_POINT_CENTS,
+    (points - averagePoints) * PRICE_PER_POINT_CENTS * damping,
   );
   const maxSwingCents = Math.round(priceCents * MAX_SWING_RATIO);
   const cappedDeltaCents = Math.max(
@@ -56,6 +76,7 @@ export function nextPriceCents(args: {
   priceCents: number;
   points: number;
   averagePoints: number;
+  gamesPlayed?: number;
 }): number {
   return args.priceCents + priceDeltaCents(args);
 }

@@ -33,8 +33,20 @@ const NEXT_UPCOMING_ROUND = {
   marketClosesAt: new Date(Date.now() + DAY_MS),
 };
 
-const PLAYER_A = { id: "player-a", score: 10, priceCents: 10_000 };
-const PLAYER_B = { id: "player-b", score: 20, priceCents: 5_000 };
+// `gamesPlayed` alto de propósito: estes dois são veteranos, então
+// `dampingFactor` vale 1 e os preços esperados abaixo continuam valendo.
+const PLAYER_A = {
+  id: "player-a",
+  score: 10,
+  priceCents: 10_000,
+  gamesPlayed: 9,
+};
+const PLAYER_B = {
+  id: "player-b",
+  score: 20,
+  priceCents: 5_000,
+  gamesPlayed: 9,
+};
 // Média = 15. A: (10-15)*200 = -1000 (dentro do teto de 15% de 10000).
 // B: (20-15)*200 = +1000, capado a 15% de 5000 = 750.
 const PLAYER_A_NEXT_PRICE = 9_000;
@@ -246,13 +258,63 @@ describe("closeActiveRound", () => {
     expect(playerUpdates).toEqual([
       {
         op: "update:player",
-        payload: { priceCents: PLAYER_A_NEXT_PRICE, score: 0 },
+        payload: {
+          priceCents: PLAYER_A_NEXT_PRICE,
+          score: 0,
+          gamesPlayed: PLAYER_A.gamesPlayed + 1,
+        },
       },
       {
         op: "update:player",
-        payload: { priceCents: PLAYER_B_NEXT_PRICE, score: 0 },
+        payload: {
+          priceCents: PLAYER_B_NEXT_PRICE,
+          score: 0,
+          gamesPlayed: PLAYER_B.gamesPlayed + 1,
+        },
       },
     ]);
+  });
+
+  it("quem não pontuou não ganha rodada no contador de `gamesPlayed`", async () => {
+    const benched = {
+      id: "player-c",
+      score: 0,
+      priceCents: 8_000,
+      gamesPlayed: 4,
+    };
+    const { tx, calls } = createTxStub({ players: [PLAYER_A, benched] });
+
+    await closeActiveRound(tx as never);
+
+    // `gamesPlayed` alimenta `dampingFactor`: incrementá-lo para o catálogo
+    // inteiro faria todo jogador "amadurecer" sem entrar em quadra.
+    const update = calls.filter((c) => c.op === "update:player")[1];
+    expect(update.payload).toMatchObject({ gamesPlayed: 4 });
+  });
+
+  it("a média da rodada ignora quem não pontuou — senão todo mundo valoriza", async () => {
+    // Com o catálogo real do vlr a maioria não joga na semana. Se os zeros
+    // entrassem na média, ela desabaria e quem atuou bateria o teto de +15%.
+    const zeroed = {
+      id: "player-z",
+      score: 0,
+      priceCents: 10_000,
+      gamesPlayed: 9,
+    };
+    const { tx, calls } = createTxStub({
+      players: [PLAYER_A, PLAYER_B, zeroed],
+    });
+
+    await closeActiveRound(tx as never);
+
+    // Média sobre {10, 20} = 15, como se o zerado não existisse.
+    const updates = calls.filter((c) => c.op === "update:player");
+    expect(updates[0].payload).toMatchObject({
+      priceCents: PLAYER_A_NEXT_PRICE,
+    });
+    expect(updates[1].payload).toMatchObject({
+      priceCents: PLAYER_B_NEXT_PRICE,
+    });
   });
 
   it("finaliza a rodada ativa antes de promover a próxima", async () => {

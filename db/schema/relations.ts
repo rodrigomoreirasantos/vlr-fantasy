@@ -14,6 +14,8 @@ import {
 } from "@/db/schema/round-results";
 import { rosterSlot } from "@/db/schema/roster";
 import { transfer } from "@/db/schema/transfers";
+import { playerMatchStat } from "@/db/schema/player-match-stats";
+import { vlrEvent } from "@/db/schema/vlr";
 
 // Todas as `relations()` das tabelas novas vivem aqui, para não criar ciclo
 // de import entre players.ts ↔ roster.ts ↔ fantasy-teams.ts.
@@ -41,6 +43,7 @@ export const rosterSlotRelations = relations(rosterSlot, ({ one, many }) => ({
 
 export const playerRelations = relations(player, ({ many }) => ({
   rosterSlots: many(rosterSlot),
+  matchStats: many(playerMatchStat),
   incomingTransfers: many(transfer, { relationName: "incomingPlayer" }),
   outgoingTransfers: many(transfer, { relationName: "outgoingPlayer" }),
 }));
@@ -52,12 +55,35 @@ export const roundRelations = relations(round, ({ many }) => ({
   teamResults: many(roundTeamResult),
 }));
 
-export const matchRelations = relations(match, ({ one }) => ({
+export const matchRelations = relations(match, ({ one, many }) => ({
   round: one(round, {
     fields: [match.roundId],
     references: [round.id],
   }),
+  event: one(vlrEvent, {
+    fields: [match.eventId],
+    references: [vlrEvent.id],
+  }),
+  playerStats: many(playerMatchStat),
 }));
+
+export const vlrEventRelations = relations(vlrEvent, ({ many }) => ({
+  matches: many(match),
+}));
+
+export const playerMatchStatRelations = relations(
+  playerMatchStat,
+  ({ one }) => ({
+    match: one(match, {
+      fields: [playerMatchStat.matchId],
+      references: [match.id],
+    }),
+    player: one(player, {
+      fields: [playerMatchStat.playerId],
+      references: [player.id],
+    }),
+  }),
+);
 
 export const roundPlayerScoreRelations = relations(
   roundPlayerScore,
