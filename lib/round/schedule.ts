@@ -10,15 +10,6 @@ export type MatchDay = {
   matches: RoundMatch[];
 };
 
-/**
- * Qual instante da partida a lista mostra e por onde ela agrupa. O calendário
- * do circuito usa o kickoff; o painel de mercado usa a hora em que o mercado
- * daquele jogo fecha. Mesma estrutura, relógios diferentes.
- */
-export type MatchTime = (match: RoundMatch) => Date;
-
-const kickoffOf: MatchTime = (match) => match.scheduledAt;
-
 /** `Date` → `"2026-09-04"`, o dia local em que a partida acontece. */
 function dayKey(date: Date): string {
   const year = date.getFullYear();
@@ -38,18 +29,17 @@ function dayKey(date: Date): string {
 export function groupMatchesByDay(
   matches: readonly RoundMatch[],
   now: Date = new Date(),
-  timeOf: MatchTime = kickoffOf,
 ): MatchDay[] {
   const byDay = new Map<string, RoundMatch[]>();
 
   // Ordena antes de agrupar: assim tanto os dias quanto as partidas dentro de
   // cada dia saem em ordem, sem depender da ordem em que vieram do banco.
   const ordered = [...matches].sort(
-    (a, b) => timeOf(a).getTime() - timeOf(b).getTime(),
+    (a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime(),
   );
 
   for (const match of ordered) {
-    const key = dayKey(timeOf(match));
+    const key = dayKey(match.scheduledAt);
     const bucket = byDay.get(key);
     if (bucket) bucket.push(match);
     else byDay.set(key, [match]);
@@ -57,7 +47,7 @@ export function groupMatchesByDay(
 
   return [...byDay.entries()].map(([key, dayMatches]) => ({
     key,
-    label: formatMatchDay(timeOf(dayMatches[0]), now),
+    label: formatMatchDay(dayMatches[0].scheduledAt, now),
     matches: dayMatches,
   }));
 }
@@ -69,11 +59,10 @@ export function groupMatchesByDay(
 export function nextMatchId(
   matches: readonly RoundMatch[],
   now: Date = new Date(),
-  timeOf: MatchTime = kickoffOf,
 ): string | null {
   const upcoming = matches
-    .filter((match) => timeOf(match).getTime() > now.getTime())
-    .sort((a, b) => timeOf(a).getTime() - timeOf(b).getTime());
+    .filter((match) => match.scheduledAt.getTime() > now.getTime())
+    .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
 
   return upcoming[0]?.id ?? null;
 }

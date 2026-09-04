@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   MARKET_CLOSE_LEAD_MS,
   formatClosesAt,
-  formatMarketCountdown,
+  formatMarketClose,
   formatTimeLeft,
   isMarketOpen,
   marketClosesByMatch,
@@ -67,26 +67,21 @@ describe("formatClosesAt", () => {
   });
 });
 
-describe("formatMarketCountdown", () => {
-  it("antes de abrir: conta para a abertura, não para o fechamento", () => {
-    const now = new Date("2026-03-09T22:00:00Z"); // 2h antes da abertura
-    expect(formatMarketCountdown({ opensAt, closesAt }, now)).toBe(
-      "Mercado abre em 2h 0m",
-    );
+describe("formatMarketClose", () => {
+  it("com o fechamento à frente, diz quanto falta", () => {
+    const now = new Date("2026-03-13T06:00:00Z");
+
+    expect(formatMarketClose(closesAt, now)).toBe("Mercado fecha em 36h 0m");
   });
 
-  it("aberto: conta para o fechamento", () => {
-    const now = new Date("2026-03-13T05:48:00Z"); // 36h12m antes do fechamento
-    expect(formatMarketCountdown({ opensAt, closesAt }, now)).toBe(
-      "Mercado fecha em 36h 12m",
-    );
+  it("passado o fechamento, o mercado está fechado — não 'fecha em Encerrado'", () => {
+    const now = new Date("2026-03-14T19:00:00Z");
+
+    expect(formatMarketClose(closesAt, now)).toBe("Mercado fechado");
   });
 
-  it("encerrado: nunca vira 'fecha em Encerrado'", () => {
-    const now = new Date("2026-03-15T00:00:00Z");
-    expect(formatMarketCountdown({ opensAt, closesAt }, now)).toBe(
-      "Mercado fechado",
-    );
+  it("no instante exato do fechamento, já está fechado", () => {
+    expect(formatMarketClose(closesAt, closesAt)).toBe("Mercado fechado");
   });
 });
 

@@ -110,10 +110,10 @@ certo naquela coluna.
 
 ### Na tela: o fechamento do dia, por campeonato
 
-"Sua rodada" mostra o fechamento **jogo a jogo**, sobre a mesma lista de
-"Próximos jogos" (`<MatchSchedule>`, mesmo filtro por campeonato) e com o
-relógio trocado. A regra que ela aplica é `marketClosesByMatch`
-(`lib/market/window.ts`):
+A Home tem **um** painel de partidas, "Próximos jogos" (`<MatchSchedule>`):
+cada linha traz o kickoff à esquerda e o fechamento do mercado à direita, e o
+countdown do topo segue o filtro de campeonato. A regra que ele aplica é
+`marketClosesByMatch` (`lib/market/window.ts`):
 
 > O mercado de um campeonato fecha **uma hora antes do primeiro jogo daquele
 > campeonato naquele dia.**
@@ -122,11 +122,11 @@ Por isso jogos do mesmo campeonato no mesmo dia repetem o horário — o mercado
 fecha uma vez por dia, não a cada partida — e um dia de Pacific de madrugada
 não tranca quem só tem jogador de Americas.
 
-A lista é **a mesma de "Próximos jogos"**, vinda de `listUpcomingMatches`. Ler
-as partidas ligadas à rodada ativa era o que fazia o painel anunciar um
-fechamento inexistente: com uma rodada de seed ativa (sem `event_id` nas
-partidas), ele mostrava a janela dela — dias à frente — enquanto o próximo jogo
-de verdade era no dia seguinte.
+A lista vem de `listUpcomingMatches` — o scrap, e só ele. Ler as partidas
+ligadas à rodada ativa era o que fazia o painel anunciar um fechamento
+inexistente: com uma rodada de seed ativa (sem `event_id` nas partidas), ele
+mostrava a janela dela — dias à frente — enquanto o próximo jogo de verdade era
+no dia seguinte.
 
 > **Divergência conhecida.** `evaluateSubstitution` ainda tranca pela coluna
 > `round.market_closes_at`, que é semanal: fecha no primeiro jogo da semana e

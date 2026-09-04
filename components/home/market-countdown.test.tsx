@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MarketCountdown } from "@/components/home/market-countdown";
 
-const opensAt = new Date("2026-03-10T00:00:00Z");
 const closesAt = new Date("2026-03-14T18:00:00Z");
 
 describe("MarketCountdown", () => {
@@ -19,7 +18,6 @@ describe("MarketCountdown", () => {
   it("renderiza o texto do servidor no primeiro paint", () => {
     render(
       <MarketCountdown
-        opensAt={opensAt}
         closesAt={closesAt}
         initialCountdown="Mercado fecha em 36h 12m"
       />,
@@ -32,7 +30,6 @@ describe("MarketCountdown", () => {
     vi.setSystemTime(new Date("2026-03-13T05:48:00Z")); // 36h12m antes do fechamento
     render(
       <MarketCountdown
-        opensAt={opensAt}
         closesAt={closesAt}
         initialCountdown="Mercado fecha em 36h 12m"
       />,
@@ -49,7 +46,6 @@ describe("MarketCountdown", () => {
     vi.setSystemTime(new Date("2026-03-14T17:59:30Z"));
     render(
       <MarketCountdown
-        opensAt={opensAt}
         closesAt={closesAt}
         initialCountdown="Mercado fecha em 0m"
       />,

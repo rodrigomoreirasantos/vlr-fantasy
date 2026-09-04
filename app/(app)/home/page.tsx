@@ -3,7 +3,6 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { LiveRefresh } from "@/components/home/live-refresh";
-import { NextRoundBrief } from "@/components/home/next-round-brief";
 import { RoundHighlights } from "@/components/home/round-highlights";
 import { RoundRecap } from "@/components/home/round-recap";
 import { UpcomingMatches } from "@/components/home/upcoming-matches";
@@ -46,7 +45,6 @@ export default async function HomePage() {
         recap={summary.recap}
         hasFinishedRound={summary.hasFinishedRound}
       />
-      <NextRoundBrief nextRound={summary.nextRound} now={new Date()} />
       {/* O `now` vem do servidor para o primeiro paint e a hidratação
           usarem exatamente o mesmo instante — mesmo motivo do
           `initialCountdown` de `<MarketCountdown>`. */}

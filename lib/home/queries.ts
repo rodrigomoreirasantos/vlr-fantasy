@@ -14,11 +14,10 @@ import {
 } from "@/lib/home/summary";
 import type {
   HomeSummary,
-  NextRoundBrief,
   RoundHighlights,
   RoundRecap,
 } from "@/lib/home/types";
-import { formatMarketCountdown, nextMarketClose } from "@/lib/market/window";
+import { formatMarketClose, nextMarketClose } from "@/lib/market/window";
 import {
   getLatestFinishedRound,
   getNextRound,
@@ -29,7 +28,7 @@ import {
   listLiveRoundScores,
   listUpcomingMatches,
 } from "@/lib/round/queries";
-import type { RoundMatch, RoundTeamResult } from "@/lib/round/types";
+import type { RoundTeamResult } from "@/lib/round/types";
 import { getTeamOverview } from "@/lib/team/queries";
 import type { RosterSlot } from "@/lib/team/types";
 
@@ -137,38 +136,6 @@ async function buildRecap(
 }
 
 /**
- * A sua rodada corrente: o fechamento do mercado, jogo a jogo.
- *
- * **As partidas são as mesmas de "Próximos jogos"** — a lista do circuito,
- * vinda do scrap. Ler as partidas ligadas à rodada ativa era o que fazia o
- * painel anunciar um fechamento inexistente: com uma rodada de seed ativa, ele
- * mostrava a janela dela (dias à frente) enquanto o próximo jogo de verdade
- * era no dia seguinte.
- *
- * O countdown é o próximo fechamento entre essas partidas (`nextMarketClose`),
- * nunca a coluna `market_closes_at` — um número derivado do jogo não tem como
- * contradizer o jogo.
- */
-function buildNextRoundBrief(
-  nextRound: RoundRow,
-  matches: readonly RoundMatch[],
-  roster: readonly RosterSlot[],
-): NextRoundBrief {
-  const closesAt = nextMarketClose(matches);
-
-  return {
-    roundNumber: nextRound.number,
-    marketOpensAt: nextRound.marketOpensAt,
-    marketClosesAt: closesAt,
-    marketCountdown: closesAt
-      ? formatMarketCountdown({ opensAt: nextRound.marketOpensAt, closesAt })
-      : null,
-    matches: [...matches],
-    myOrganizations: organizationsOf(roster),
-  };
-}
-
-/**
  * Os destaques do jogo inteiro, na rodada mais recente que já tem números.
  *
  * A rodada **em andamento** vem primeiro, e é o ponto: as partidas terminam ao
@@ -251,18 +218,19 @@ export async function getHomeSummary(
     buildHighlights(latestFinishedRound ?? null, nextRound ?? null),
   ]);
 
-  const nextRoundBrief = nextRound
-    ? buildNextRoundBrief(nextRound, upcomingMatches, overview.roster)
-    : null;
+  const marketClosesAt = nextMarketClose(upcomingMatches);
 
   return {
     pendingInvites,
     hasFinishedRound: latestFinishedRound !== undefined,
     recap,
-    nextRound: nextRoundBrief,
     upcoming: {
       matches: upcomingMatches,
       myOrganizations: organizationsOf(overview.roster),
+      marketClosesAt,
+      marketCountdown: marketClosesAt
+        ? formatMarketClose(marketClosesAt)
+        : null,
     },
     highlights,
   };

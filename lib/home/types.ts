@@ -15,39 +15,6 @@ export type RoundRecap = {
 };
 
 /**
- * A sua rodada corrente: quando o mercado fecha, jogo a jogo. Mesma lista de
- * "Próximos jogos", com outro relógio — o do fechamento, não o do kickoff.
- *
- * O estado dos jogadores não entra: no Valorant competitivo não há boletim de
- * lesão nem escalação divulgada com antecedência, e um aviso que a fonte não
- * sabe dar é um aviso que a tela inventa.
- */
-export type NextRoundBrief = {
-  roundNumber: number;
-  /** A janela inteira, não só o fechamento: o mercado pode ainda não ter aberto. */
-  marketOpensAt: Date;
-  /**
-   * O próximo fechamento entre as partidas abaixo — uma hora antes do primeiro
-   * jogo do dia de algum campeonato. `null` quando não há jogo marcado: sem
-   * jogo não há fechamento, e anunciar um seria inventá-lo.
-   */
-  marketClosesAt: Date | null;
-  /**
-   * A frase do estado do mercado (`formatMarketCountdown`), já formatada no
-   * servidor para o primeiro paint do countdown no cliente.
-   */
-  marketCountdown: string | null;
-  /**
-   * As mesmas partidas de `UpcomingMatches` — o calendário do circuito vindo
-   * do scrap. A tela lista cada uma com o fechamento do seu campeonato no dia
-   * (`marketClosesByMatch`), com o mesmo filtro de "Próximos jogos".
-   */
-  matches: RoundMatch[];
-  /** Organizações dos seus 5 — destacam a partida deles na lista. */
-  myOrganizations: readonly string[];
-};
-
-/**
  * Os próximos jogos **reais** do circuito, vindos do pipeline do vlr.gg
  * (`lib/vlr/`). Independente da rodada: o calendário do circuito segue
  * acontecendo mesmo que a rodada ativa do jogo seja outra, e é ele que
@@ -57,6 +24,15 @@ export type UpcomingMatches = {
   matches: RoundMatch[];
   /** Organizações dos seus 5 — destacam a partida deles na lista. */
   myOrganizations: readonly string[];
+  /**
+   * O próximo fechamento de mercado entre essas partidas — uma hora antes do
+   * primeiro jogo do dia de algum campeonato (`nextMarketClose`). `null`
+   * quando não há jogo marcado: sem jogo não há fechamento, e anunciar um
+   * seria inventá-lo.
+   */
+  marketClosesAt: Date | null;
+  /** A frase do fechamento (`formatMarketClose`), formatada no servidor. */
+  marketCountdown: string | null;
 };
 
 /** Os destaques do jogo inteiro na rodada — fechada ou em andamento. */
@@ -85,9 +61,12 @@ export type HomeSummary = {
   hasFinishedRound: boolean;
   /** `null` quando o usuário não tem resultado na última rodada fechada. */
   recap: RoundRecap | null;
-  /** `null` só no caso degenerado de não haver nenhuma rodada `upcoming`. */
-  nextRound: NextRoundBrief | null;
-  /** Calendário real do circuito — vazio enquanto o scrap não tiver rodado. */
+  /**
+   * O calendário real do circuito, com o mercado junto — vazio enquanto o
+   * scrap não tiver rodado. É a única lista da Home: separar "a sua rodada"
+   * do "o que vem" dava dois painéis com as mesmas partidas e relógios
+   * diferentes.
+   */
   upcoming: UpcomingMatches;
   /** `null` só enquanto nenhuma partida da rodada em curso tiver sido pontuada. */
   highlights: RoundHighlights | null;

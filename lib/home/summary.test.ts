@@ -197,8 +197,12 @@ function summary(overrides: Partial<HomeSummary> = {}): HomeSummary {
     pendingInvites: [],
     hasFinishedRound: false,
     recap: null,
-    nextRound: null,
-    upcoming: { matches: [], myOrganizations: [] },
+    upcoming: {
+      matches: [],
+      myOrganizations: [],
+      marketClosesAt: null,
+      marketCountdown: null,
+    },
     highlights: null,
     ...overrides,
   };
@@ -214,6 +218,8 @@ describe("refreshIntervalMs", () => {
       upcoming: {
         matches: [match({ status: "live" })],
         myOrganizations: [],
+        marketClosesAt: null,
+        marketCountdown: null,
       },
     });
 

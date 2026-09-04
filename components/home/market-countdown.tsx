@@ -3,13 +3,13 @@
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 
-import { formatMarketCountdown } from "@/lib/market/window";
+import { formatMarketClose } from "@/lib/market/window";
 
 export type MarketCountdownProps = {
-  opensAt: Date;
+  /** Uma hora antes do primeiro jogo do dia — `nextMarketClose`. */
   closesAt: Date;
   /**
-   * A frase já formatada no servidor (`formatMarketCountdown`) — usada no
+   * A frase já formatada no servidor (`formatMarketClose`) — usada no
    * primeiro paint. Só depois de montar o componente passa a recalcular e
    * tickar sozinho, o que evita qualquer mismatch entre o HTML do servidor e
    * o do cliente.
@@ -20,13 +20,11 @@ export type MarketCountdownProps = {
 const TICK_MS = 30_000;
 
 /**
- * Contagem regressiva do mercado, resolve o TODO de `lib/team/types.ts`.
- * Mostra os três estados da janela — abre em / fecha em / fechado — pela
- * mesma função pura que o servidor usou, para as duas telas (`/home` e
- * `/my-team`) nunca se contradizerem.
+ * Contagem regressiva do mercado, pela mesma função pura que o servidor usou
+ * — é o que garante que o primeiro paint e o tick seguinte não se
+ * contradigam.
  */
 export function MarketCountdown({
-  opensAt,
   closesAt,
   initialCountdown,
 }: MarketCountdownProps) {
@@ -36,10 +34,10 @@ export function MarketCountdown({
     // Só passa a tickar depois de montar — o primeiro paint (e a hidratação)
     // usam exatamente o texto vindo do servidor, sem recálculo imediato.
     const id = setInterval(() => {
-      setCountdown(formatMarketCountdown({ opensAt, closesAt }));
+      setCountdown(formatMarketClose(closesAt));
     }, TICK_MS);
     return () => clearInterval(id);
-  }, [opensAt, closesAt]);
+  }, [closesAt]);
 
   return (
     <p className="text-base font-extrabold text-primary uppercase">

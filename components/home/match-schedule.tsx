@@ -5,11 +5,7 @@ import { useMemo, useState } from "react";
 import { MatchRow } from "@/components/home/match-row";
 import { eventFilterOptions } from "@/lib/round/events";
 import { formatKickoffTime, toIsoDate } from "@/lib/round/format";
-import {
-  groupMatchesByDay,
-  nextMatchId,
-  type MatchTime,
-} from "@/lib/round/schedule";
+import { groupMatchesByDay, nextMatchId } from "@/lib/round/schedule";
 import type { RoundMatch } from "@/lib/round/types";
 import { cn } from "@/lib/utils";
 
@@ -24,29 +20,26 @@ export type MatchScheduleProps = {
   selectedEvent: string | null;
   onSelectEvent: (event: string | null) => void;
   /**
-   * O instante que cada linha mostra e por onde a lista agrupa: o kickoff no
-   * calendário do circuito, o fechamento do mercado no painel da rodada.
+   * Quando o mercado de cada partida fecha (`marketClosesByMatch`). A linha
+   * mostra o kickoff **e** esse horário: são as duas horas que o usuário
+   * precisa cruzar, e obrigá-lo a fazer a subtração de cabeça seria pedir que
+   * ele guardasse a regra em vez de ler a tela.
    */
-  timeOf?: MatchTime;
+  closesBy: Map<string, Date>;
   /** Injetável para o teste — o "agora" que define "Hoje" e o próximo. */
   now?: Date;
 };
 
 /**
  * A grade de partidas: filtro por campeonato, agrupamento por dia, uma linha
- * por jogo.
- *
- * As duas listas da Home são esta mesma: "Próximos jogos" lê o kickoff,
- * "Sua rodada" lê o fechamento do mercado. Só o relógio muda (`timeOf`) —
- * duplicar a lista faria as duas divergirem na primeira mudança de estilo, e
- * a Home passaria a ter dois calendários com regras diferentes de agrupamento.
+ * por jogo — com o kickoff à esquerda e o fechamento do mercado à direita.
  */
 export function MatchSchedule({
   matches,
   myOrganizations,
   selectedEvent,
   onSelectEvent,
-  timeOf,
+  closesBy,
   now = new Date(),
 }: MatchScheduleProps) {
   const options = useMemo(() => eventFilterOptions(matches), [matches]);
@@ -90,7 +83,7 @@ export function MatchSchedule({
         matches={filtered}
         allMatches={matches}
         myOrganizations={myOrganizations}
-        timeOf={timeOf}
+        closesBy={closesBy}
         now={now}
       />
     </div>
@@ -102,7 +95,7 @@ type ScheduleDaysProps = {
   /** A grade inteira: o destaque de "próximo" não muda por causa do filtro. */
   allMatches: readonly RoundMatch[];
   myOrganizations: readonly string[];
-  timeOf?: MatchTime;
+  closesBy: Map<string, Date>;
   now: Date;
 };
 
@@ -110,7 +103,7 @@ function ScheduleDays({
   matches,
   allMatches,
   myOrganizations,
-  timeOf,
+  closesBy,
   now,
 }: ScheduleDaysProps) {
   const [expanded, setExpanded] = useState(false);
@@ -119,11 +112,10 @@ function ScheduleDays({
   const hidden = matches.length - visible.length;
 
   const mine = new Set(myOrganizations);
-  const days = groupMatchesByDay(visible, now, timeOf);
+  const days = groupMatchesByDay(visible, now);
   // Uma só ênfase na lista inteira, e vinda da grade completa: o próximo jogo
   // a começar é o mesmo esteja o filtro onde estiver.
-  const nextId = nextMatchId(allMatches, now, timeOf);
-  const at = timeOf ?? ((match: RoundMatch) => match.scheduledAt);
+  const nextId = nextMatchId(allMatches, now);
 
   return (
     <>
@@ -156,18 +148,24 @@ function ScheduleDays({
                       // largura fixa e `tabular-nums` mantêm os dígitos
                       // alinhados de linha em linha.
                       <time
-                        dateTime={toIsoDate(at(match))}
+                        dateTime={toIsoDate(match.scheduledAt)}
                         className={cn(
                           "w-11 shrink-0 text-sm font-bold tabular-nums",
                           isNext ? "text-primary" : "text-muted-foreground",
                         )}
                       >
-                        {formatKickoffTime(at(match))}
+                        {formatKickoffTime(match.scheduledAt)}
                       </time>
                     }
                     trailing={
-                      <span className="text-xs text-muted-foreground">
-                        {match.event}
+                      <span className="flex flex-col items-end gap-0.5">
+                        <span className="text-xs text-muted-foreground">
+                          {match.event}
+                        </span>
+                        <MarketCell
+                          closesAt={closesBy.get(match.id)}
+                          now={now}
+                        />
                       </span>
                     }
                   />
@@ -188,6 +186,36 @@ function ScheduleDays({
         </button>
       )}
     </>
+  );
+}
+
+type MarketCellProps = {
+  closesAt: Date | undefined;
+  now: Date;
+};
+
+/**
+ * O fechamento do mercado daquela partida. Fechado não some da lista: saber
+ * que a janela passou é tão acionável quanto saber quanto falta — some a
+ * ênfase, não a informação.
+ */
+function MarketCell({ closesAt, now }: MarketCellProps) {
+  if (!closesAt) return null;
+
+  const closed = closesAt.getTime() <= now.getTime();
+
+  return (
+    <time
+      dateTime={toIsoDate(closesAt)}
+      className={cn(
+        "text-[10px] font-bold tracking-[0.1em] uppercase tabular-nums",
+        closed ? "text-muted-foreground/70" : "text-primary/80",
+      )}
+    >
+      {closed
+        ? "Mercado fechado"
+        : `Mercado fecha ${formatKickoffTime(closesAt)}`}
+    </time>
   );
 }
 

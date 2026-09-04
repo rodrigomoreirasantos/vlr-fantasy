@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { UpcomingMatches } from "@/components/home/upcoming-matches";
+import { formatMarketClose, nextMarketClose } from "@/lib/market/window";
 import type { RoundMatch } from "@/lib/round/types";
 
 const NOW = new Date("2026-09-03T12:00:00Z");
@@ -25,8 +26,20 @@ function renderPanel(
   matches: RoundMatch[],
   myOrganizations: readonly string[] = [],
 ) {
+  const marketClosesAt = nextMarketClose(matches, NOW);
+
   return render(
-    <UpcomingMatches upcoming={{ matches, myOrganizations }} now={NOW} />,
+    <UpcomingMatches
+      upcoming={{
+        matches,
+        myOrganizations,
+        marketClosesAt,
+        marketCountdown: marketClosesAt
+          ? formatMarketClose(marketClosesAt, NOW)
+          : null,
+      }}
+      now={NOW}
+    />,
   );
 }
 
@@ -111,13 +124,61 @@ describe("UpcomingMatches", () => {
   });
 
   it("o horário é uma data legível por máquina", () => {
-    const { container } = renderPanel([match()]);
+    renderPanel([match()]);
 
-    const time = container.querySelector("time");
-    expect(time).toHaveAttribute(
+    // O primeiro `<time>` da linha é o kickoff; o segundo, o fechamento.
+    const [kickoff, market] = screen
+      .getByRole("listitem")
+      .querySelectorAll("time");
+    expect(kickoff).toHaveAttribute(
       "dateTime",
       new Date("2026-09-04T17:00:00Z").toISOString(),
     );
+    expect(market).toHaveAttribute(
+      "dateTime",
+      new Date("2026-09-04T16:00:00Z").toISOString(),
+    );
+  });
+
+  it("cada linha diz quando o mercado dela fecha", () => {
+    renderPanel([match()]);
+
+    // Kickoff 17:00Z; o mercado do dia fecha uma hora antes.
+    expect(screen.getByText("Mercado fecha 16:00")).toBeInTheDocument();
+  });
+
+  it("jogos do mesmo campeonato no mesmo dia fecham juntos", () => {
+    renderPanel([
+      match({ id: "a", scheduledAt: new Date("2026-09-04T17:00:00Z") }),
+      match({ id: "b", scheduledAt: new Date("2026-09-04T20:00:00Z") }),
+    ]);
+
+    // Os dois às 16:00 — uma hora antes do PRIMEIRO jogo do dia.
+    expect(screen.getAllByText("Mercado fecha 16:00")).toHaveLength(2);
+    expect(screen.queryByText("Mercado fecha 19:00")).not.toBeInTheDocument();
+  });
+
+  it("o countdown do mercado abre a lista", () => {
+    renderPanel([match()]);
+
+    // NOW é 03/09 12:00Z; o mercado fecha 04/09 16:00Z.
+    expect(screen.getByText("Mercado fecha em 28h 0m")).toBeInTheDocument();
+  });
+
+  it("o countdown segue o campeonato escolhido", async () => {
+    const user = userEvent.setup();
+    renderPanel([
+      match({ id: "a", event: "VCT 2026: Americas Stage 2" }),
+      match({
+        id: "b",
+        event: "Valorant Champions 2026",
+        scheduledAt: new Date("2026-09-05T17:00:00Z"),
+      }),
+    ]);
+
+    await user.click(screen.getByRole("button", { name: /Champions/ }));
+
+    expect(screen.getByText("Mercado fecha em 52h 0m")).toBeInTheDocument();
   });
 
   it("cada dia lista suas próprias partidas", () => {
