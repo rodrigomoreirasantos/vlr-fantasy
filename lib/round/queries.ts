@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, gte, lt, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, lt, lte, ne, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -259,4 +259,45 @@ export async function listLiveRoundScores(
     .innerJoin(player, eq(player.id, playerMatchStat.playerId))
     .where(eq(match.roundId, roundId))
     .groupBy(player.id);
+}
+
+/**
+ * As partidas que podem trancar o mercado agora: de campeonato seguido, de
+ * ontem para frente.
+ *
+ * A cauda para trás não é folga — é o que sustenta a regra do dia. Um jogo das
+ * 13h **já encerrado** ainda é quem define que o mercado daquele campeonato
+ * fechou às 12h; ignorá-lo faria a trava reabrir no meio da tarde, entre uma
+ * partida e a seguinte. E a janela para frente serve ao mapa
+ * organização → campeonato, de que `lockedOrganizations` precisa para travar
+ * também quem só joga depois.
+ */
+export async function listMarketLockMatches(
+  now: Date = new Date(),
+  q: Querier = db,
+): Promise<RoundMatch[]> {
+  const from = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const to = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  return q
+    .select({
+      id: match.id,
+      teamA: match.teamA,
+      teamB: match.teamB,
+      event: match.event,
+      scheduledAt: match.scheduledAt,
+      status: match.status,
+      scoreA: match.scoreA,
+      scoreB: match.scoreB,
+    })
+    .from(match)
+    .innerJoin(vlrEvent, eq(vlrEvent.id, match.eventId))
+    .where(
+      and(
+        eq(vlrEvent.tracked, true),
+        gte(match.scheduledAt, from),
+        lte(match.scheduledAt, to),
+      ),
+    )
+    .orderBy(asc(match.scheduledAt));
 }

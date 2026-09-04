@@ -92,6 +92,7 @@ describe("RosterPanel", () => {
         market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
+        lockedTeams={[]}
         closesIn="36h 12m"
       />,
     );
@@ -110,6 +111,7 @@ describe("RosterPanel", () => {
         market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
+        lockedTeams={[]}
         closesIn="36h 12m"
       />,
     );
@@ -129,6 +131,7 @@ describe("RosterPanel", () => {
         market={emptyMarket()}
         balanceCents={10_000}
         marketOpen={false}
+        lockedTeams={[]}
         closesIn="Encerrado"
       />,
     );
@@ -155,6 +158,7 @@ describe("RosterPanel", () => {
         market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
+        lockedTeams={[]}
         closesIn="36h 12m"
       />,
     );
@@ -174,6 +178,7 @@ describe("RosterPanel", () => {
         market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
+        lockedTeams={[]}
         closesIn="36h 12m"
       />,
     );
@@ -193,6 +198,7 @@ describe("RosterPanel", () => {
         market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
+        lockedTeams={[]}
         closesIn="36h 12m"
       />,
     );
@@ -212,6 +218,7 @@ describe("RosterPanel", () => {
         market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
+        lockedTeams={[]}
         closesIn="36h 12m"
       />,
     );
@@ -233,6 +240,7 @@ describe("RosterPanel", () => {
         market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
+        lockedTeams={[]}
         closesIn="36h 12m"
       />,
     );
@@ -247,6 +255,32 @@ describe("RosterPanel", () => {
     expect(screen.queryByText(/Mercado ·/)).not.toBeInTheDocument();
   });
 
+  it("vaga travada pela regra do dia: só ela sai de circulação", async () => {
+    const user = userEvent.setup();
+    render(
+      <RosterPanel
+        roster={makeRoster()}
+        market={emptyMarket()}
+        balanceCents={10_000}
+        marketOpen
+        lockedTeams={["FNATIC"]}
+        closesIn="2h 0m"
+      />,
+    );
+
+    // Boaster é do FNATIC, que joga hoje: a linha dele sai de circulação.
+    expect(
+      screen.queryByRole("button", { name: /substituir boaster$/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /vender boaster$/i }),
+    ).not.toBeInTheDocument();
+
+    // TenZ é de outro campeonato e continua negociável.
+    await user.click(screen.getByRole("button", { name: /substituir tenz$/i }));
+    expect(screen.getByText(/Mercado ·/)).toBeInTheDocument();
+  });
+
   it("mercado fechado: o botão Vender da linha não aparece", () => {
     render(
       <RosterPanel
@@ -254,6 +288,7 @@ describe("RosterPanel", () => {
         market={emptyMarket()}
         balanceCents={10_000}
         marketOpen={false}
+        lockedTeams={[]}
         closesIn="Encerrado"
       />,
     );
@@ -278,6 +313,7 @@ describe("RosterPanel — vaga vazia", () => {
         market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
+        lockedTeams={[]}
         closesIn="36h 12m"
       />,
     );
@@ -298,6 +334,7 @@ describe("RosterPanel — vaga vazia", () => {
         market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
+        lockedTeams={[]}
         closesIn="36h 12m"
       />,
     );
@@ -313,6 +350,7 @@ describe("RosterPanel — vaga vazia", () => {
         market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
+        lockedTeams={[]}
         closesIn="36h 12m"
       />,
     );
@@ -335,6 +373,7 @@ describe("RosterPanel — vaga vazia", () => {
         market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
+        lockedTeams={[]}
         closesIn="36h 12m"
       />,
     );
@@ -359,6 +398,7 @@ describe("RosterPanel — vaga vazia", () => {
         market={market}
         balanceCents={10_000}
         marketOpen
+        lockedTeams={[]}
         closesIn="36h 12m"
       />,
     );
@@ -382,6 +422,7 @@ describe("RosterPanel — vaga vazia", () => {
         market={emptyMarket()}
         balanceCents={10_000}
         marketOpen={false}
+        lockedTeams={[]}
         closesIn="Encerrado"
       />,
     );

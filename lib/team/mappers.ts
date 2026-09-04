@@ -1,6 +1,6 @@
 import type { fantasyTeam, player, round } from "@/db/schema";
 import { parseCrest } from "@/lib/crest/crest";
-import { formatTimeLeft, isMarketOpen } from "@/lib/market/window";
+import { formatTimeLeft } from "@/lib/market/window";
 import type { Player, RosterSlot, TeamSummary } from "@/lib/team/types";
 
 // Tipos de linha via `$inferSelect` — nunca redeclarados.
@@ -55,6 +55,8 @@ export function toTeamSummary(
   team: FantasyTeamRow,
   activeRound: RoundRow | null,
   points: number,
+  /** O próximo fechamento entre as partidas do circuito (`nextMarketClose`). */
+  market: { closesAt: Date | null },
 ): TeamSummary {
   return {
     name: team.name,
@@ -72,16 +74,16 @@ export function toTeamSummary(
       total: activeRound?.totalMatches ?? 0,
     },
     market: {
-      open: activeRound
-        ? isMarketOpen({
-            opensAt: activeRound.marketOpensAt,
-            closesAt: activeRound.marketClosesAt,
-          })
-        : false,
-      closesIn: activeRound
-        ? formatTimeLeft(activeRound.marketClosesAt)
-        : "Nenhuma rodada ativa",
-      closesAt: activeRound?.marketClosesAt ?? null,
+      // "Operando", não "aberto para todos": quem tranca é a regra do dia,
+      // campeonato a campeonato (`lockedOrganizations`). Sem rodada ativa não
+      // há onde registrar a transferência, e aí sim nada se move.
+      open: activeRound !== null,
+      closesIn: market.closesAt
+        ? formatTimeLeft(market.closesAt)
+        : activeRound
+          ? "Nenhum jogo marcado"
+          : "Nenhuma rodada ativa",
+      closesAt: market.closesAt,
     },
   };
 }

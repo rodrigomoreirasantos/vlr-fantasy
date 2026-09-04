@@ -46,6 +46,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
         market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
+        lockedTeams={[]}
         closesIn="36h 12m"
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
@@ -74,6 +75,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
         market={market}
         balanceCents={10_000}
         marketOpen
+        lockedTeams={[]}
         closesIn="36h 12m"
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
@@ -107,6 +109,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
         market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
+        lockedTeams={[]}
         closesIn="36h 12m"
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
@@ -127,6 +130,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
         market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
+        lockedTeams={[]}
         closesIn="36h 12m"
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
@@ -153,6 +157,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
         market={market}
         balanceCents={10_000}
         marketOpen
+        lockedTeams={[]}
         closesIn="36h 12m"
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
@@ -177,6 +182,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
         market={market}
         balanceCents={10_000}
         marketOpen={false}
+        lockedTeams={[]}
         closesIn="Encerrado"
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
@@ -209,6 +215,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
         market={market}
         balanceCents={10_000}
         marketOpen
+        lockedTeams={[]}
         closesIn="36h 12m"
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
@@ -239,6 +246,7 @@ describe("MarketSheet — vender sem substituir", () => {
         market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
+        lockedTeams={[]}
         closesIn="36h 12m"
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
@@ -261,6 +269,7 @@ describe("MarketSheet — vender sem substituir", () => {
         market={emptyMarket()}
         balanceCents={10_000}
         marketOpen={false}
+        lockedTeams={[]}
         closesIn="Encerrado"
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
@@ -282,6 +291,7 @@ describe("MarketSheet — vender sem substituir", () => {
         market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
+        lockedTeams={[]}
         closesIn="36h 12m"
         rosteredPlayerIds={[]}
         onConfirm={vi.fn()}
@@ -305,6 +315,7 @@ describe("MarketSheet — nova contratação (vaga vazia)", () => {
         market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
+        lockedTeams={[]}
         closesIn="36h 12m"
         rosteredPlayerIds={[]}
         onConfirm={vi.fn()}
@@ -333,6 +344,7 @@ describe("MarketSheet — nova contratação (vaga vazia)", () => {
         market={market}
         balanceCents={10_000}
         marketOpen
+        lockedTeams={[]}
         closesIn="36h 12m"
         rosteredPlayerIds={[]}
         onConfirm={vi.fn()}
@@ -361,6 +373,7 @@ describe("MarketSheet — nova contratação (vaga vazia)", () => {
         market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
+        lockedTeams={[]}
         closesIn="36h 12m"
         rosteredPlayerIds={[]}
         onConfirm={vi.fn()}
@@ -386,6 +399,7 @@ describe("MarketSheet — nova contratação (vaga vazia)", () => {
         market={market}
         balanceCents={10_000}
         marketOpen
+        lockedTeams={[]}
         closesIn="36h 12m"
         rosteredPlayerIds={[]}
         onConfirm={vi.fn()}

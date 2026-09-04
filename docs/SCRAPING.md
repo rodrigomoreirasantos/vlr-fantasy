@@ -128,10 +128,30 @@ inexistente: com uma rodada de seed ativa (sem `event_id` nas partidas), ele
 mostrava a janela dela — dias à frente — enquanto o próximo jogo de verdade era
 no dia seguinte.
 
-> **Divergência conhecida.** `evaluateSubstitution` ainda tranca pela coluna
-> `round.market_closes_at`, que é semanal: fecha no primeiro jogo da semana e
-> não reabre. A tela já segue a regra do dia; alinhar a trava exige decidir se
-> o mercado reabre entre um dia de jogo e o seguinte.
+### A trava, do lado de quem compra e vende
+
+`lockedOrganizations` (`lib/market/lock.ts`) aplica a mesma regra à
+substituição, e é ela — não mais a coluna `round.market_closes_at` — que
+`evaluateSubstitution` consulta:
+
+- **fecha por campeonato, não por confronto.** Se VCT Americas joga hoje, todo
+  jogador de Americas fica travado, jogue a organização dele hoje ou não. É o
+  que impede ver o primeiro mapa do dia, entender que o meta mudou e reescalar
+  quem entra em quadra às 22h;
+- **vale pelos dois lados da troca** — comprar quem vai entrar em quadra e
+  vender quem vai entrar em quadra são a mesma jogada, de pontas diferentes —
+  e também pela braçadeira: dobrar a pontuação de quem já está entrando é
+  trocá-lo de graça;
+- **reabre no dia seguinte**, e não entre uma partida e a outra da mesma tarde.
+  A partida de hoje que já terminou continua contando: é ela que define que o
+  mercado daquele campeonato fechou hoje (`listMarketLockMatches` lê de ontem
+  para frente exatamente por isso).
+
+A janela da rodada (`round.market_opens_at` / `market_closes_at`) continua no
+banco descrevendo a semana da rodada, mas não tranca mais ninguém. Sem rodada
+ativa nada se move — é o `no-round`, um motivo de bloqueio distinto de
+"mercado fechado", para o usuário nunca ler "o campeonato joga hoje" quando o
+problema é outro.
 
 ## A estrutura real do vlr.gg (verificada em 03/09/2026)
 

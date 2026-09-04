@@ -44,6 +44,8 @@ export type MarketSheetProps = {
   market: Record<PlayerRole, Player[]>;
   balanceCents: number;
   marketOpen: boolean;
+  /** Organizações cujo mercado fechou hoje (`lockedOrganizations`). */
+  lockedTeams: readonly string[];
   closesIn: string;
   rosteredPlayerIds: readonly string[];
   onConfirm: (candidate: Player) => void;
@@ -67,6 +69,7 @@ export function MarketSheet({
   market,
   balanceCents,
   marketOpen,
+  lockedTeams,
   closesIn,
   rosteredPlayerIds,
   onConfirm,
@@ -77,13 +80,26 @@ export function MarketSheet({
 
   const ctx: SubstitutionContext | null = useMemo(() => {
     if (!selection) return null;
-    return { marketOpen, balanceCents, outgoing, rosteredPlayerIds };
-  }, [selection, outgoing, marketOpen, balanceCents, rosteredPlayerIds]);
+    return {
+      marketOpen,
+      lockedTeams,
+      balanceCents,
+      outgoing,
+      rosteredPlayerIds,
+    };
+  }, [
+    selection,
+    outgoing,
+    marketOpen,
+    lockedTeams,
+    balanceCents,
+    rosteredPlayerIds,
+  ]);
 
   const saleVerdict = useMemo(() => {
     if (!outgoing) return null;
-    return evaluateSale({ marketOpen, balanceCents }, outgoing);
-  }, [outgoing, marketOpen, balanceCents]);
+    return evaluateSale({ marketOpen, lockedTeams, balanceCents }, outgoing);
+  }, [outgoing, marketOpen, lockedTeams, balanceCents]);
 
   const candidatesByRole = useMemo(() => {
     if (!ctx) return null;

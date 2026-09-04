@@ -17,6 +17,7 @@ import {
   setCaptain,
   substitutePlayer,
 } from "@/app/(app)/my-team/actions";
+import { isTeamLocked } from "@/lib/market/lock";
 import type { Player, PlayerRole, RosterSlot } from "@/lib/team/types";
 
 export type RosterPanelProps = {
@@ -24,6 +25,8 @@ export type RosterPanelProps = {
   market: Record<PlayerRole, Player[]>;
   balanceCents: number;
   marketOpen: boolean;
+  /** Organizações cujo mercado fechou hoje (`lockedOrganizations`). */
+  lockedTeams: readonly string[];
   closesIn: string;
 };
 
@@ -40,6 +43,7 @@ export function RosterPanel({
   market,
   balanceCents,
   marketOpen,
+  lockedTeams,
   closesIn,
 }: RosterPanelProps) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -90,8 +94,18 @@ export function RosterPanel({
     },
   );
 
+  /**
+   * A vaga é negociável agora? Vaga vazia sempre é — não há jogador travado
+   * nela, e o mercado de quem entra é conferido em `evaluateSubstitution`.
+   */
+  function slotIsOpen(index: number): boolean {
+    const slot = roster[index];
+    if (!marketOpen || !slot?.id) return false;
+    return !slot.player || !isTeamLocked(lockedTeams, slot.player.team);
+  }
+
   function handleSelect(index: number) {
-    if (!marketOpen || !roster[index]?.id) return;
+    if (!slotIsOpen(index)) return;
     setSelectedIndex(index);
   }
 
@@ -144,19 +158,15 @@ export function RosterPanel({
                   captain={slot.captain}
                   selected={index === selectedIndex}
                   onSelect={
-                    marketOpen && slot.id
-                      ? () => handleSelect(index)
-                      : undefined
+                    slotIsOpen(index) ? () => handleSelect(index) : undefined
                   }
                   onSetCaptain={
-                    marketOpen && slot.id
+                    slotIsOpen(index)
                       ? () => handleSetCaptain(index)
                       : undefined
                   }
                   onSell={
-                    marketOpen && slot.id
-                      ? () => handleSellAt(index)
-                      : undefined
+                    slotIsOpen(index) ? () => handleSellAt(index) : undefined
                   }
                 />
               ) : (
@@ -165,9 +175,7 @@ export function RosterPanel({
                   position={index + 1}
                   selected={index === selectedIndex}
                   onSelect={
-                    marketOpen && slot.id
-                      ? () => handleSelect(index)
-                      : undefined
+                    slotIsOpen(index) ? () => handleSelect(index) : undefined
                   }
                 />
               ),
@@ -178,6 +186,8 @@ export function RosterPanel({
         <Panel title="Time Montado">
           <FormationBoard
             roster={roster}
+            // `handleSelect` já recusa a vaga travada; passar a função
+            // sempre mantém o tabuleiro clicável para as outras.
             onSelect={marketOpen ? handleSelect : undefined}
             selectedIndex={selectedIndex}
             onSetCaptain={marketOpen ? handleSetCaptain : undefined}
@@ -192,6 +202,7 @@ export function RosterPanel({
         market={market}
         balanceCents={balanceCents}
         marketOpen={marketOpen}
+        lockedTeams={lockedTeams}
         closesIn={closesIn}
         rosteredPlayerIds={rosteredPlayerIds}
         onConfirm={handleConfirm}

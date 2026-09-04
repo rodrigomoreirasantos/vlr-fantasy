@@ -32,7 +32,7 @@ export default async function MyTeamPage() {
     throw new Error("Não foi possível carregar o seu time.");
   }
 
-  const { summary, roster } = overview;
+  const { summary, roster, lockedTeams } = overview;
   // Qualquer função pode ocupar qualquer vaga — o mercado sempre traz as
   // quatro (lib/market/eligibility.ts).
   const market = await getMarketByRole(PLAYER_ROLES);
@@ -47,6 +47,7 @@ export default async function MyTeamPage() {
         market={market}
         balanceCents={summary.balanceCents}
         marketOpen={summary.market.open}
+        lockedTeams={lockedTeams}
         closesIn={summary.market.closesIn}
       />
 

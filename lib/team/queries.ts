@@ -4,6 +4,9 @@ import { cache } from "react";
 import { db } from "@/db";
 import { fantasyTeam, player, round, rosterSlot, transfer } from "@/db/schema";
 import { isUniqueViolation } from "@/lib/db/errors";
+import { lockedOrganizations } from "@/lib/market/lock";
+import { nextMarketClose } from "@/lib/market/window";
+import { listMarketLockMatches } from "@/lib/round/queries";
 import type { Crest } from "@/lib/crest/types";
 import { teamPoints } from "@/lib/scoring/team";
 import {
@@ -38,6 +41,8 @@ export type TeamOverview = {
   teamId: string;
   summary: TeamSummary;
   roster: RosterSlot[];
+  /** Organizações cujo mercado fechou hoje — a trava de `evaluateSubstitution`. */
+  lockedTeams: string[];
 };
 
 export async function getActiveRound(q: Querier = db) {
@@ -62,6 +67,10 @@ async function loadTeamOverview(userId: string): Promise<TeamOverview | null> {
   if (!team) return null;
 
   const activeRound = await getActiveRound();
+  // As partidas que trancam o mercado hoje — a regra do dia
+  // (`lockedOrganizations`) substituiu a janela da rodada.
+  const lockMatches = await listMarketLockMatches();
+  const lockedTeams = lockedOrganizations(lockMatches);
   const roster = toRosterSlots(team.slots);
   // A braçadeira dobra a pontuação de quem a usa — única fonte da regra
   // (lib/scoring/team.ts), a mesma que a classificação usa.
@@ -69,8 +78,11 @@ async function loadTeamOverview(userId: string): Promise<TeamOverview | null> {
 
   return {
     teamId: team.id,
-    summary: toTeamSummary(team, activeRound ?? null, points),
+    summary: toTeamSummary(team, activeRound ?? null, points, {
+      closesAt: nextMarketClose(lockMatches),
+    }),
     roster,
+    lockedTeams,
   };
 }
 

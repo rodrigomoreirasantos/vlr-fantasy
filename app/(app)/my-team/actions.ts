@@ -8,7 +8,8 @@ import {
   evaluateSubstitution,
   blockReasonMessage,
 } from "@/lib/market/eligibility";
-import { isMarketOpen } from "@/lib/market/window";
+import { isTeamLocked, lockedOrganizations } from "@/lib/market/lock";
+import { listMarketLockMatches } from "@/lib/round/queries";
 import { ActionError, authActionClient } from "@/lib/safe-action";
 import { toDomainPlayer } from "@/lib/team/mappers";
 import {
@@ -51,12 +52,12 @@ export const substitutePlayer = authActionClient
       }
 
       const activeRound = await getActiveRound(tx);
-      const marketOpen = activeRound
-        ? isMarketOpen({
-            opensAt: activeRound.marketOpensAt,
-            closesAt: activeRound.marketClosesAt,
-          })
-        : false;
+      // A trava é a regra do dia, relida do banco dentro da transação: o
+      // cliente pode ter carregado a página antes de o mercado fechar.
+      const marketOpen = activeRound !== null;
+      const lockedTeams = lockedOrganizations(
+        await listMarketLockMatches(new Date(), tx),
+      );
 
       const slot = await lockSlotForUpdate(tx, team.id, slotId);
       if (!slot || slot.playerId !== outgoingPlayerId) {
@@ -84,6 +85,7 @@ export const substitutePlayer = authActionClient
       const verdict = evaluateSubstitution(
         {
           marketOpen,
+          lockedTeams,
           balanceCents: team.balanceCents,
           outgoing: outgoing ? toDomainPlayer(outgoing) : null,
           rosteredPlayerIds,
@@ -142,12 +144,10 @@ export const sellPlayer = authActionClient
       }
 
       const activeRound = await getActiveRound(tx);
-      const marketOpen = activeRound
-        ? isMarketOpen({
-            opensAt: activeRound.marketOpensAt,
-            closesAt: activeRound.marketClosesAt,
-          })
-        : false;
+      const marketOpen = activeRound !== null;
+      const lockedTeams = lockedOrganizations(
+        await listMarketLockMatches(new Date(), tx),
+      );
 
       const slot = await lockSlotForUpdate(tx, team.id, slotId);
       if (!slot || slot.playerId !== outgoingPlayerId) {
@@ -162,7 +162,7 @@ export const sellPlayer = authActionClient
       }
 
       const verdict = evaluateSale(
-        { marketOpen, balanceCents: team.balanceCents },
+        { marketOpen, lockedTeams, balanceCents: team.balanceCents },
         toDomainPlayer(outgoing),
       );
       if (verdict.blockedBy) {
@@ -191,8 +191,9 @@ export const sellPlayer = authActionClient
 
 /**
  * Move a braçadeira de capitão para outra vaga da escalação, respeitando a
- * mesma regra de janela da substituição: só com o mercado aberto. Fora
- * disso, o capitão fica travado com o resto do time.
+ * mesma trava da substituição: o campeonato do jogador que recebe a
+ * braçadeira não pode ter fechado hoje. Dobrar a pontuação de quem já está
+ * entrando em quadra é a mesma jogada que trocá-lo — só que de graça.
  */
 export const setCaptain = authActionClient
   .inputSchema(setCaptainSchema)
@@ -206,14 +207,8 @@ export const setCaptain = authActionClient
       }
 
       const activeRound = await getActiveRound(tx);
-      const marketOpen = activeRound
-        ? isMarketOpen({
-            opensAt: activeRound.marketOpensAt,
-            closesAt: activeRound.marketClosesAt,
-          })
-        : false;
-      if (!marketOpen) {
-        throw new ActionError("A janela de mercado está fechada.");
+      if (!activeRound) {
+        throw new ActionError("Não há rodada ativa no momento.");
       }
 
       const slot = await lockSlotForUpdate(tx, team.id, slotId);
@@ -221,6 +216,14 @@ export const setCaptain = authActionClient
         throw new ActionError("Essa vaga não tem jogador para ser capitão.");
       }
       if (slot.captain) return;
+
+      const [captain] = await loadPlayersByIds(tx, [slot.playerId]);
+      const lockedTeams = lockedOrganizations(
+        await listMarketLockMatches(new Date(), tx),
+      );
+      if (captain && isTeamLocked(lockedTeams, captain.team)) {
+        throw new ActionError(blockReasonMessage("market-closed"));
+      }
 
       await setTeamCaptain(tx, team.id, slotId);
     });

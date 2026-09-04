@@ -25,6 +25,7 @@ function makeContext(
 ): SubstitutionContext {
   return {
     marketOpen: true,
+    lockedTeams: [],
     balanceCents: 10_000,
     outgoing: null,
     rosteredPlayerIds: [],

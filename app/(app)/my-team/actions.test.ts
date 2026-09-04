@@ -18,6 +18,7 @@ const {
   applySaleMock,
   setTeamCaptainMock,
   hasCaptainMock,
+  listMarketLockMatchesMock,
 } = vi.hoisted(() => {
   const txStub = Symbol("tx");
   const transactionMock = vi.fn(async (cb: (tx: unknown) => Promise<unknown>) =>
@@ -37,6 +38,7 @@ const {
     applySaleMock: vi.fn(),
     setTeamCaptainMock: vi.fn(),
     hasCaptainMock: vi.fn(),
+    listMarketLockMatchesMock: vi.fn(),
   };
 });
 
@@ -46,6 +48,9 @@ vi.mock("@/lib/auth", () => ({
 }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
+vi.mock("@/lib/round/queries", () => ({
+  listMarketLockMatches: listMarketLockMatchesMock,
+}));
 vi.mock("@/lib/team/queries", () => ({
   lockTeamForUpdate: lockTeamForUpdateMock,
   getActiveRound: getActiveRoundMock,
@@ -73,11 +78,6 @@ const OPEN_ROUND = {
   id: "round-1",
   marketOpensAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
   marketClosesAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-};
-const CLOSED_ROUND = {
-  id: "round-1",
-  marketOpensAt: new Date(Date.now() - 48 * 60 * 60 * 1000),
-  marketClosesAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
 };
 const SLOT = {
   id: SLOT_ID,
@@ -126,6 +126,8 @@ function arrangeHappyPath() {
   loadPlayersByIdsMock.mockResolvedValue([OUTGOING_ROW, INCOMING_ROW]);
   loadRosteredPlayerIdsMock.mockResolvedValue([OUTGOING_ID]);
   hasCaptainMock.mockResolvedValue(true);
+  // Nenhum jogo hoje: a trava do dia não fecha nada.
+  listMarketLockMatchesMock.mockResolvedValue([]);
 }
 
 beforeEach(() => {
@@ -146,12 +148,12 @@ describe("substitutePlayer", () => {
     expect(transactionMock).not.toHaveBeenCalled();
   });
 
-  it("mercado fechado: bloqueia com a mensagem correspondente", async () => {
-    getActiveRoundMock.mockResolvedValue(CLOSED_ROUND);
+  it("sem rodada ativa: bloqueia com a mensagem correspondente", async () => {
+    getActiveRoundMock.mockResolvedValue(undefined);
 
     const result = await substitutePlayer(VALID_INPUT);
 
-    expect(result?.serverError).toBe("A janela de mercado está fechada.");
+    expect(result?.serverError).toBe("Não há rodada ativa no momento.");
     expect(applySubstitutionMock).not.toHaveBeenCalled();
   });
 
@@ -237,12 +239,12 @@ describe("substitutePlayer — vaga vazia (outgoingPlayerId null)", () => {
     expect(applySubstitutionMock).not.toHaveBeenCalled();
   });
 
-  it("mercado fechado: bloqueia com a mensagem correspondente", async () => {
-    getActiveRoundMock.mockResolvedValue(CLOSED_ROUND);
+  it("sem rodada ativa: bloqueia com a mensagem correspondente", async () => {
+    getActiveRoundMock.mockResolvedValue(undefined);
 
     const result = await substitutePlayer(EMPTY_INPUT);
 
-    expect(result?.serverError).toBe("A janela de mercado está fechada.");
+    expect(result?.serverError).toBe("Não há rodada ativa no momento.");
     expect(applySubstitutionMock).not.toHaveBeenCalled();
   });
 
@@ -289,12 +291,12 @@ describe("setCaptain", () => {
     expect(transactionMock).not.toHaveBeenCalled();
   });
 
-  it("mercado fechado: bloqueia com a mensagem correspondente", async () => {
-    getActiveRoundMock.mockResolvedValue(CLOSED_ROUND);
+  it("sem rodada ativa: bloqueia com a mensagem correspondente", async () => {
+    getActiveRoundMock.mockResolvedValue(undefined);
 
     const result = await setCaptain(CAPTAIN_INPUT);
 
-    expect(result?.serverError).toBe("A janela de mercado está fechada.");
+    expect(result?.serverError).toBe("Não há rodada ativa no momento.");
     expect(setTeamCaptainMock).not.toHaveBeenCalled();
   });
 
@@ -350,12 +352,12 @@ describe("sellPlayer", () => {
     expect(transactionMock).not.toHaveBeenCalled();
   });
 
-  it("mercado fechado: bloqueia com a mensagem correspondente", async () => {
-    getActiveRoundMock.mockResolvedValue(CLOSED_ROUND);
+  it("sem rodada ativa: bloqueia com a mensagem correspondente", async () => {
+    getActiveRoundMock.mockResolvedValue(undefined);
 
     const result = await sellPlayer(SELL_INPUT);
 
-    expect(result?.serverError).toBe("A janela de mercado está fechada.");
+    expect(result?.serverError).toBe("Não há rodada ativa no momento.");
     expect(applySaleMock).not.toHaveBeenCalled();
   });
 
@@ -385,5 +387,84 @@ describe("sellPlayer", () => {
       balanceAfterCents: OUTGOING_ROW.priceCents,
     });
     expect(revalidatePathMock).toHaveBeenCalledWith("/my-team");
+  });
+});
+
+/** Uma partida de hoje cujo mercado já fechou — a trava do dia em ação. */
+function matchTodayAlreadyClosed(event: string, teamA: string, teamB: string) {
+  const kickoff = new Date(Date.now() + 30 * 60 * 1000);
+  return [
+    {
+      id: "match-hoje",
+      teamA,
+      teamB,
+      event,
+      // Começa em 30 min: o mercado fechou há meia hora.
+      scheduledAt: kickoff,
+      status: "upcoming" as const,
+      scoreA: null,
+      scoreB: null,
+    },
+  ];
+}
+
+describe("a trava do dia", () => {
+  it("barra a contratação de quem joga em campeonato já fechado hoje", async () => {
+    listMarketLockMatchesMock.mockResolvedValue(
+      matchTodayAlreadyClosed("VCT Americas", "SENTINELS", "NRG"),
+    );
+
+    const result = await substitutePlayer(VALID_INPUT);
+
+    expect(result?.serverError).toBe(
+      "O mercado deste campeonato já fechou — ele joga hoje.",
+    );
+    expect(applySubstitutionMock).not.toHaveBeenCalled();
+  });
+
+  it("barra a venda de quem joga em campeonato já fechado hoje", async () => {
+    loadPlayersByIdsMock.mockResolvedValue([OUTGOING_ROW]);
+    listMarketLockMatchesMock.mockResolvedValue(
+      matchTodayAlreadyClosed("VCT EMEA", OUTGOING_ROW.team, "FNATIC"),
+    );
+
+    const result = await sellPlayer({
+      slotId: SLOT_ID,
+      outgoingPlayerId: OUTGOING_ID,
+    });
+
+    expect(result?.serverError).toBe(
+      "O mercado deste campeonato já fechou — ele joga hoje.",
+    );
+    expect(applySaleMock).not.toHaveBeenCalled();
+  });
+
+  it("um campeonato fechado não tranca os outros", async () => {
+    listMarketLockMatchesMock.mockResolvedValue(
+      matchTodayAlreadyClosed("VCT Pacific", "DRX", "Gen.G"),
+    );
+
+    const result = await substitutePlayer(VALID_INPUT);
+
+    expect(result?.data).toEqual({ success: true });
+  });
+
+  it("a braçadeira também respeita a trava", async () => {
+    loadPlayersByIdsMock.mockResolvedValue([OUTGOING_ROW]);
+    lockSlotForUpdateMock.mockResolvedValue({
+      id: SLOT_ID,
+      playerId: OUTGOING_ID,
+      captain: false,
+    });
+    listMarketLockMatchesMock.mockResolvedValue(
+      matchTodayAlreadyClosed("VCT EMEA", OUTGOING_ROW.team, "FNATIC"),
+    );
+
+    const result = await setCaptain({ slotId: SLOT_ID });
+
+    expect(result?.serverError).toBe(
+      "O mercado deste campeonato já fechou — ele joga hoje.",
+    );
+    expect(setTeamCaptainMock).not.toHaveBeenCalled();
   });
 });

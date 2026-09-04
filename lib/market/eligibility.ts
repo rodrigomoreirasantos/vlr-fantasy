@@ -1,6 +1,8 @@
+import { isTeamLocked } from "@/lib/market/lock";
 import type { Player } from "@/lib/team/types";
 
 export type BlockReason =
+  | "no-round"
   | "market-closed"
   | "player-inactive"
   | "same-player"
@@ -8,7 +10,18 @@ export type BlockReason =
   | "insufficient-balance";
 
 export type SubstitutionContext = {
+  /**
+   * Há rodada ativa para registrar a transferência. Não é mais a janela da
+   * rodada: quem tranca é `lockedTeams`, campeonato a campeonato.
+   */
   marketOpen: boolean;
+  /**
+   * As organizações cujo mercado já fechou hoje (`lockedOrganizations`). A
+   * troca é barrada se **qualquer um dos dois lados** estiver travado: vender
+   * quem já vai entrar em quadra e comprar quem já vai entrar em quadra são a
+   * mesma jogada, vista de pontas diferentes.
+   */
+  lockedTeams: readonly string[];
   balanceCents: number;
   /**
    * Quem deixa a vaga — define o crédito da venda que abate o custo da
@@ -28,6 +41,7 @@ export type Verdict = {
 };
 
 const REASON_LABELS: Record<BlockReason, string> = {
+  "no-round": "Sem rodada",
   "market-closed": "Mercado fechado",
   "player-inactive": "Indisponível",
   "same-player": "Já é seu",
@@ -44,8 +58,11 @@ const REASON_LABELS: Record<BlockReason, string> = {
  *
  * Precedência fixa (a primeira que casar vence) — assim o usuário nunca vê
  * "sem saldo" quando o problema real é outro:
- * market-closed → player-inactive → same-player → already-rostered →
- * insufficient-balance.
+ * no-round → market-closed → player-inactive → same-player →
+ * already-rostered → insufficient-balance.
+ *
+ * `market-closed` cobre os dois lados da troca: o mercado do campeonato de
+ * quem entra e o do campeonato de quem sai. Basta um deles ter fechado hoje.
  *
  * `same-player` só é alcançável com `ctx.outgoing` — não há função exigida
  * em nenhum dos dois modos: o usuário pode escalar qualquer combinação de
@@ -59,7 +76,11 @@ export function evaluateSubstitution(
   const balanceAfterCents = ctx.balanceCents - netCostCents;
 
   const blockedBy = ((): BlockReason | null => {
-    if (!ctx.marketOpen) return "market-closed";
+    if (!ctx.marketOpen) return "no-round";
+    if (isTeamLocked(ctx.lockedTeams, incoming.team)) return "market-closed";
+    if (ctx.outgoing && isTeamLocked(ctx.lockedTeams, ctx.outgoing.team)) {
+      return "market-closed";
+    }
     if (!incoming.active) return "player-inactive";
     if (ctx.outgoing && incoming.id === ctx.outgoing.id) return "same-player";
     if (ctx.rosteredPlayerIds.includes(incoming.id)) return "already-rostered";
@@ -81,7 +102,7 @@ export function canSubstitute(
 export type SaleVerdict = {
   proceedsCents: number;
   balanceAfterCents: number;
-  blockedBy: "market-closed" | null;
+  blockedBy: "no-round" | "market-closed" | null;
 };
 
 /**
@@ -91,14 +112,24 @@ export type SaleVerdict = {
  * (é sempre crédito, nunca custo).
  */
 export function evaluateSale(
-  ctx: { marketOpen: boolean; balanceCents: number },
+  ctx: {
+    marketOpen: boolean;
+    lockedTeams: readonly string[];
+    balanceCents: number;
+  },
   outgoing: Player,
 ): SaleVerdict {
   const proceedsCents = outgoing.priceCents;
+  const blockedBy = !ctx.marketOpen
+    ? ("no-round" as const)
+    : isTeamLocked(ctx.lockedTeams, outgoing.team)
+      ? ("market-closed" as const)
+      : null;
+
   return {
     proceedsCents,
     balanceAfterCents: ctx.balanceCents + proceedsCents,
-    blockedBy: ctx.marketOpen ? null : "market-closed",
+    blockedBy,
   };
 }
 
@@ -108,8 +139,10 @@ export function blockReasonLabel(reason: BlockReason): string {
 
 export function blockReasonMessage(reason: BlockReason): string {
   switch (reason) {
+    case "no-round":
+      return "Não há rodada ativa no momento.";
     case "market-closed":
-      return "A janela de mercado está fechada.";
+      return "O mercado deste campeonato já fechou — ele joga hoje.";
     case "player-inactive":
       return "Este jogador não está disponível nesta rodada.";
     case "same-player":

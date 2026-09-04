@@ -30,6 +30,7 @@ function makeContext(
 ): SubstitutionContext {
   return {
     marketOpen: true,
+    lockedTeams: [],
     balanceCents: 10_000,
     outgoing: makePlayer({ id: "derke", nickname: "Derke", priceCents: 4000 }),
     rosteredPlayerIds: ["derke"],
@@ -38,9 +39,16 @@ function makeContext(
 }
 
 describe("evaluateSubstitution — precedência", () => {
-  it("mercado fechado vence qualquer outra checagem", () => {
+  it("sem rodada ativa vence qualquer outra checagem", () => {
     const ctx = makeContext({ marketOpen: false });
     const incoming = makePlayer({ id: "chronicle", role: "Sentinela" });
+
+    expect(evaluateSubstitution(ctx, incoming).blockedBy).toBe("no-round");
+  });
+
+  it("a trava do dia vem logo depois, antes de saldo e função", () => {
+    const ctx = makeContext({ lockedTeams: ["FNATIC"], balanceCents: 0 });
+    const incoming = makePlayer({ id: "boaster", team: "FNATIC" });
 
     expect(evaluateSubstitution(ctx, incoming).blockedBy).toBe("market-closed");
   });
@@ -130,7 +138,10 @@ describe("canSubstitute", () => {
 describe("blockReasonMessage", () => {
   it("descreve cada motivo de bloqueio em português", () => {
     expect(blockReasonMessage("market-closed")).toBe(
-      "A janela de mercado está fechada.",
+      "O mercado deste campeonato já fechou — ele joga hoje.",
+    );
+    expect(blockReasonMessage("no-round")).toBe(
+      "Não há rodada ativa no momento.",
     );
     expect(blockReasonMessage("already-rostered")).toBe(
       "Este jogador já está no seu time.",
@@ -189,7 +200,7 @@ describe("evaluateSale", () => {
     const outgoing = makePlayer({ id: "derke", priceCents: 4000 });
 
     const verdict = evaluateSale(
-      { marketOpen: true, balanceCents: 0 },
+      { marketOpen: true, lockedTeams: [], balanceCents: 0 },
       outgoing,
     );
 
@@ -198,14 +209,67 @@ describe("evaluateSale", () => {
     expect(verdict.blockedBy).toBeNull();
   });
 
-  it("mercado fechado é o único bloqueio possível", () => {
+  it("sem rodada ativa, nada se move", () => {
     const outgoing = makePlayer({ id: "derke", priceCents: 4000 });
 
     const verdict = evaluateSale(
-      { marketOpen: false, balanceCents: 10_000 },
+      { marketOpen: false, lockedTeams: [], balanceCents: 10_000 },
       outgoing,
     );
 
-    expect(verdict.blockedBy).toBe("market-closed");
+    expect(verdict.blockedBy).toBe("no-round");
+  });
+});
+
+describe("evaluateSubstitution — a trava do dia", () => {
+  it("não dá para comprar quem já entrou na janela fechada", () => {
+    const ctx = makeContext({ lockedTeams: ["FNATIC"] });
+    const incoming = makePlayer({ id: "boaster", team: "FNATIC" });
+
+    expect(evaluateSubstitution(ctx, incoming).blockedBy).toBe("market-closed");
+  });
+
+  it("nem vender: os dois lados da troca contam", () => {
+    const ctx = makeContext({
+      lockedTeams: ["SENTINELS"],
+      outgoing: makePlayer({ id: "zekken", team: "SENTINELS" }),
+    });
+    const incoming = makePlayer({ id: "boaster", team: "FNATIC" });
+
+    expect(evaluateSubstitution(ctx, incoming).blockedBy).toBe("market-closed");
+  });
+
+  it("um campeonato fechado não tranca os outros", () => {
+    const ctx = makeContext({
+      lockedTeams: ["DRX", "Gen.G"],
+      outgoing: makePlayer({ id: "derke", team: "FNATIC" }),
+    });
+    const incoming = makePlayer({ id: "boaster", team: "FNATIC" });
+
+    expect(evaluateSubstitution(ctx, incoming).blockedBy).toBeNull();
+  });
+});
+
+describe("evaluateSale — a trava do dia", () => {
+  it("vender quem já vai entrar em quadra é a mesma jogada", () => {
+    const outgoing = makePlayer({ team: "SENTINELS" });
+
+    expect(
+      evaluateSale(
+        { marketOpen: true, lockedTeams: ["SENTINELS"], balanceCents: 0 },
+        outgoing,
+      ).blockedBy,
+    ).toBe("market-closed");
+  });
+
+  it("com o campeonato dele aberto, a venda passa", () => {
+    const outgoing = makePlayer({ team: "SENTINELS" });
+
+    expect(
+      evaluateSale(
+        { marketOpen: true, lockedTeams: ["FNATIC"], balanceCents: 0 },
+        outgoing,
+      ).blockedBy,
+    ).toBeNull();
   });
 });
