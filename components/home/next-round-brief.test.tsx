@@ -9,6 +9,8 @@ import type { RoundMatch } from "@/lib/round/types";
 const NOW = new Date("2026-09-03T12:00:00Z");
 /** O mercado deste jogo fecha às 19:00Z — uma hora antes. */
 const AMERICAS_KICKOFF = new Date("2026-09-03T20:00:00Z");
+/** Mesmo campeonato, mesmo dia: fecha junto com o de cima, não às 21:00Z. */
+const AMERICAS_SEGUNDO_JOGO = new Date("2026-09-03T22:00:00Z");
 const CHAMPIONS_KICKOFF = new Date("2026-09-04T16:00:00Z");
 
 function match(overrides: Partial<RoundMatch> = {}): RoundMatch {
@@ -86,13 +88,28 @@ describe("NextRoundBrief", () => {
     expect(screen.getByText("VCT 2026: Americas Stage 2")).toBeInTheDocument();
   });
 
-  it("rodada sem partida marcada ainda mostra o fechamento da rodada", () => {
-    renderPanel({ matches: [] });
+  it("sem jogo marcado, não inventa fechamento nenhum", () => {
+    renderPanel({ matches: [], marketClosesAt: null, marketCountdown: null });
 
-    expect(screen.getByText("Mercado fecha em 7h 0m")).toBeInTheDocument();
+    expect(
+      screen.getByText("Mercado aberto — nenhum jogo marcado para fechá-lo."),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("Nenhum jogo marcado para esta rodada ainda."),
     ).toBeInTheDocument();
+  });
+
+  it("dois jogos do mesmo campeonato no mesmo dia fecham no mesmo horário", () => {
+    renderPanel({
+      matches: [
+        match(),
+        match({ id: "americas-2", scheduledAt: AMERICAS_SEGUNDO_JOGO }),
+      ],
+    });
+
+    // Os dois às 19:00Z — uma hora antes do PRIMEIRO jogo do dia, não de cada um.
+    expect(screen.getAllByText("19:00")).toHaveLength(2);
+    expect(screen.queryByText("21:00")).not.toBeInTheDocument();
   });
 
   it("um único campeonato não merece filtro", () => {
@@ -123,19 +140,19 @@ describe("NextRoundBrief", () => {
     expect(screen.getByText("Mercado fecha em 27h 0m")).toBeInTheDocument();
   });
 
-  it("num campeonato que não tranca, avisa que a escalação fecha antes", async () => {
+  it("cada campeonato tranca no seu horário, sem herdar o do outro", async () => {
     const user = userEvent.setup();
     renderPanel({ matches: [match(), CHAMPIONS] });
 
-    expect(
-      screen.queryByText(/Sua escalação, porém, tranca antes/),
-    ).not.toBeInTheDocument();
+    // Americas fecha hoje 19:00Z; Champions, amanhã 15:00Z.
+    expect(screen.getByText("Mercado fecha em 7h 0m")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Champions/ }));
 
+    expect(screen.getByText("Mercado fecha em 27h 0m")).toBeInTheDocument();
     expect(
-      screen.getByText(/Sua escalação, porém, tranca antes/),
-    ).toBeInTheDocument();
+      screen.queryByText("Mercado fecha em 7h 0m"),
+    ).not.toBeInTheDocument();
   });
 
   it("destaca a partida de um dos seus 5", () => {

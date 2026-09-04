@@ -8,7 +8,6 @@ import {
   patrimonyCents,
   patrimonyDeltaCents,
   placementChanges,
-  nextMarketClose,
   projectRoundHighlights,
   refreshIntervalMs,
 } from "@/lib/home/summary";
@@ -247,51 +246,5 @@ describe("refreshIntervalMs", () => {
     });
 
     expect(refreshIntervalMs(closed)).toBe(IDLE_REFRESH_MS);
-  });
-});
-
-describe("nextMarketClose", () => {
-  const AMERICAS_KICKOFF = new Date("2026-09-03T20:00:00Z");
-  const CHAMPIONS_KICKOFF = new Date("2026-09-04T16:00:00Z");
-
-  function week(): RoundMatch[] {
-    return [
-      match({
-        id: "champions",
-        event: "Valorant Champions 2026",
-        scheduledAt: CHAMPIONS_KICKOFF,
-      }),
-      match({
-        id: "americas",
-        event: "VCT 2026: Americas Stage 2",
-        scheduledAt: AMERICAS_KICKOFF,
-      }),
-    ];
-  }
-
-  it("fecha uma hora antes do primeiro jogo que ainda não começou", () => {
-    const closesAt = nextMarketClose(week(), new Date("2026-09-01T00:00:00Z"));
-
-    expect(closesAt).toEqual(
-      new Date(AMERICAS_KICKOFF.getTime() - 60 * 60_000),
-    );
-  });
-
-  it("passado o primeiro jogo, vale o próximo", () => {
-    const closesAt = nextMarketClose(week(), new Date("2026-09-03T21:00:00Z"));
-
-    expect(closesAt).toEqual(
-      new Date(CHAMPIONS_KICKOFF.getTime() - 60 * 60_000),
-    );
-  });
-
-  it("com o mercado do último jogo já fechado, não há próximo", () => {
-    expect(
-      nextMarketClose(week(), new Date("2026-09-05T00:00:00Z")),
-    ).toBeNull();
-  });
-
-  it("rodada sem partida não inventa fechamento", () => {
-    expect(nextMarketClose([], new Date())).toBeNull();
   });
 });

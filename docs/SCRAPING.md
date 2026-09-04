@@ -108,16 +108,30 @@ não aposta. Daí em diante nada de novo acontece: `isMarketOpen` e
 `evaluateSubstitution` já bloqueavam por `market-closed` — só faltava o dado
 certo naquela coluna.
 
-Na Home, "Sua rodada" mostra esse fechamento **jogo a jogo**: a mesma grade de
-"Próximos jogos" (`<MatchSchedule>`, mesmo filtro por campeonato), com o
-relógio trocado — cada linha é a hora em que o mercado daquele jogo fecha.
-Quem tranca a escalação é o mais cedo de todos (`nextMarketClose`), que é, por
-construção, o mesmo número gravado na coluna.
+### Na tela: o fechamento do dia, por campeonato
 
-Essa lista lê **só partida de campeonato seguido** (`listUpcomingRoundMatches`,
-o mesmo `innerJoin` de `listUpcomingMatches`). Sem ele entram as partidas de
-demonstração do seed, que não têm `event_id` e inventam confronto e
-campeonato.
+"Sua rodada" mostra o fechamento **jogo a jogo**, sobre a mesma lista de
+"Próximos jogos" (`<MatchSchedule>`, mesmo filtro por campeonato) e com o
+relógio trocado. A regra que ela aplica é `marketClosesByMatch`
+(`lib/market/window.ts`):
+
+> O mercado de um campeonato fecha **uma hora antes do primeiro jogo daquele
+> campeonato naquele dia.**
+
+Por isso jogos do mesmo campeonato no mesmo dia repetem o horário — o mercado
+fecha uma vez por dia, não a cada partida — e um dia de Pacific de madrugada
+não tranca quem só tem jogador de Americas.
+
+A lista é **a mesma de "Próximos jogos"**, vinda de `listUpcomingMatches`. Ler
+as partidas ligadas à rodada ativa era o que fazia o painel anunciar um
+fechamento inexistente: com uma rodada de seed ativa (sem `event_id` nas
+partidas), ele mostrava a janela dela — dias à frente — enquanto o próximo jogo
+de verdade era no dia seguinte.
+
+> **Divergência conhecida.** `evaluateSubstitution` ainda tranca pela coluna
+> `round.market_closes_at`, que é semanal: fecha no primeiro jogo da semana e
+> não reabre. A tela já segue a regra do dia; alinhar a trava exige decidir se
+> o mercado reabre entre um dia de jogo e o seguinte.
 
 ## A estrutura real do vlr.gg (verificada em 03/09/2026)
 

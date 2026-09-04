@@ -26,16 +26,21 @@ export type NextRoundBrief = {
   roundNumber: number;
   /** A janela inteira, não só o fechamento: o mercado pode ainda não ter aberto. */
   marketOpensAt: Date;
-  marketClosesAt: Date;
+  /**
+   * O próximo fechamento entre as partidas abaixo — uma hora antes do primeiro
+   * jogo do dia de algum campeonato. `null` quando não há jogo marcado: sem
+   * jogo não há fechamento, e anunciar um seria inventá-lo.
+   */
+  marketClosesAt: Date | null;
   /**
    * A frase do estado do mercado (`formatMarketCountdown`), já formatada no
    * servidor para o primeiro paint do countdown no cliente.
    */
-  marketCountdown: string;
+  marketCountdown: string | null;
   /**
-   * As partidas ainda por vir da rodada, só de campeonato seguido. Cada uma
-   * tem o seu fechamento — uma hora antes do kickoff —, e é isso que a tela
-   * lista, com o mesmo filtro por campeonato de "Próximos jogos".
+   * As mesmas partidas de `UpcomingMatches` — o calendário do circuito vindo
+   * do scrap. A tela lista cada uma com o fechamento do seu campeonato no dia
+   * (`marketClosesByMatch`), com o mesmo filtro de "Próximos jogos".
    */
   matches: RoundMatch[];
   /** Organizações dos seus 5 — destacam a partida deles na lista. */

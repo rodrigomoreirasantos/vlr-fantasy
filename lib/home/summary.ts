@@ -1,9 +1,7 @@
 import type { RankedStanding } from "@/lib/championship/types";
-import { marketClosesAtFor } from "@/lib/market/window";
 import type {
   LiveRoundScore,
   PriceMover,
-  RoundMatch,
   RoundScorer,
   RoundTeamResult,
 } from "@/lib/round/types";
@@ -121,26 +119,6 @@ export function projectRoundHighlights(
       .sort((a, b) => a.priceDeltaCents - b.priceDeltaCents)
       .slice(0, limit),
   };
-}
-
-/**
- * O próximo fechamento de mercado entre as partidas dadas — uma hora antes do
- * primeiro kickoff que ainda não passou. `null` quando todas já começaram.
- *
- * É a mesma conta de `syncRoundsFromMatches` (`marketClosesAtFor`), aplicada
- * às mesmas partidas: o número que a tela mostra e o `round.market_closes_at`
- * que tranca a escalação não têm como divergir.
- */
-export function nextMarketClose(
-  matches: readonly RoundMatch[],
-  now: Date = new Date(),
-): Date | null {
-  const closes = matches
-    .map((match) => marketClosesAtFor(match.scheduledAt))
-    .filter((closesAt) => closesAt.getTime() > now.getTime())
-    .sort((a, b) => a.getTime() - b.getTime());
-
-  return closes[0] ?? null;
 }
 
 /** De quanto em quanto tempo a Home se atualiza sozinha, com jogo acontecendo. */

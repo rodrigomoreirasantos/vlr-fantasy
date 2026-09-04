@@ -6,9 +6,11 @@ import { MarketCountdown } from "@/components/home/market-countdown";
 import { MatchSchedule } from "@/components/home/match-schedule";
 import { Panel } from "@/components/layout/panel";
 import type { NextRoundBrief as NextRoundBriefData } from "@/lib/home/types";
-import { nextMarketClose } from "@/lib/home/summary";
-import { formatMarketCountdown, marketClosesAtFor } from "@/lib/market/window";
-import type { RoundMatch } from "@/lib/round/types";
+import {
+  formatMarketCountdown,
+  marketClosesByMatch,
+  nextMarketClose,
+} from "@/lib/market/window";
 
 export type NextRoundBriefProps = {
   nextRound: NextRoundBriefData | null;
@@ -16,21 +18,19 @@ export type NextRoundBriefProps = {
   now?: Date;
 };
 
-/** O relógio desta lista é o do mercado: uma hora antes de cada jogo começar. */
-const marketTimeOf = (match: RoundMatch) =>
-  marketClosesAtFor(match.scheduledAt);
-
 /**
  * "Sua rodada": quando o mercado fecha, jogo a jogo.
  *
- * É a mesma grade de "Próximos jogos" — mesmo filtro por campeonato, mesmo
- * agrupamento por dia — com o relógio trocado: cada linha mostra a hora em que
- * o mercado daquele jogo fecha, uma hora antes do kickoff. O countdown do topo
- * segue o filtro, e quando o campeonato escolhido não é o que fecha primeiro,
- * o painel diz qual é: quem tranca a escalação é sempre o mais cedo.
+ * É a mesma grade de "Próximos jogos" — mesma lista, mesmo filtro por
+ * campeonato, mesmo agrupamento por dia — com o relógio trocado: cada linha
+ * mostra a hora em que o mercado daquele campeonato fecha naquele dia, uma
+ * hora antes do primeiro jogo dele (`marketClosesByMatch`). Jogos do mesmo
+ * campeonato no mesmo dia repetem o horário porque é isso que a regra diz: o
+ * mercado fecha uma vez por dia, não a cada partida.
  *
- * A lista vem do pipeline do vlr.gg, como o calendário: só partida de
- * campeonato seguido entra (`listUpcomingRoundMatches`).
+ * O countdown do topo segue o filtro — cada campeonato tranca no seu horário,
+ * e um dia de Pacific de madrugada não fecha o mercado de quem só tem jogador
+ * de Americas.
  */
 export function NextRoundBrief({
   nextRound,
@@ -57,6 +57,11 @@ export function NextRoundBrief({
     myOrganizations,
   } = nextRound;
 
+  const closes = marketClosesByMatch(matches);
+  /** O relógio desta lista: o fechamento do campeonato naquele dia. */
+  const marketTimeOf = (match: (typeof matches)[number]) =>
+    closes.get(match.id) ?? match.scheduledAt;
+
   const filtered = selectedEvent
     ? matches.filter((match) => match.event === selectedEvent)
     : matches;
@@ -64,32 +69,28 @@ export function NextRoundBrief({
   // Sem filtro, a frase é a que o servidor formatou — primeiro paint e
   // hidratação idênticos. Com filtro, o cliente recalcula pela mesma função.
   const closesAt = selectedEvent
-    ? (nextMarketClose(filtered, now) ?? marketClosesAt)
+    ? nextMarketClose(filtered, now)
     : marketClosesAt;
   const countdown = selectedEvent
-    ? formatMarketCountdown({ opensAt: marketOpensAt, closesAt }, now)
+    ? closesAt &&
+      formatMarketCountdown({ opensAt: marketOpensAt, closesAt }, now)
     : marketCountdown;
-
-  const bindingClosesAt = nextMarketClose(matches, now);
-  const locksEarlier =
-    bindingClosesAt !== null && bindingClosesAt.getTime() < closesAt.getTime();
 
   return (
     <Panel title={`Sua rodada ${roundNumber}`}>
-      <MarketCountdown
-        // Remonta ao trocar de campeonato: o countdown guarda a frase inicial
-        // no primeiro estado e só a recalcula no tick seguinte — sem a `key`,
-        // a troca ficaria meio minuto mostrando a hora anterior.
-        key={selectedEvent ?? "all"}
-        opensAt={marketOpensAt}
-        closesAt={closesAt}
-        initialCountdown={countdown}
-      />
-
-      {locksEarlier && (
-        <p className="mt-1.5 text-xs text-muted-foreground">
-          Sua escalação, porém, tranca antes: o mercado da rodada fecha com o
-          primeiro jogo dela.
+      {closesAt && countdown ? (
+        <MarketCountdown
+          // Remonta ao trocar de campeonato: o countdown guarda a frase inicial
+          // no primeiro estado e só a recalcula no tick seguinte — sem a `key`,
+          // a troca ficaria meio minuto mostrando a hora anterior.
+          key={selectedEvent ?? "all"}
+          opensAt={marketOpensAt}
+          closesAt={closesAt}
+          initialCountdown={countdown}
+        />
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          Mercado aberto — nenhum jogo marcado para fechá-lo.
         </p>
       )}
 

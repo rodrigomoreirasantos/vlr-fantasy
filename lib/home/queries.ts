@@ -9,7 +9,6 @@ import type { ChampionshipSummary } from "@/lib/championship/types";
 import {
   patrimonyCents,
   patrimonyDeltaCents,
-  nextMarketClose,
   placementChanges,
   projectRoundHighlights,
 } from "@/lib/home/summary";
@@ -19,7 +18,7 @@ import type {
   RoundHighlights,
   RoundRecap,
 } from "@/lib/home/types";
-import { formatMarketCountdown } from "@/lib/market/window";
+import { formatMarketCountdown, nextMarketClose } from "@/lib/market/window";
 import {
   getLatestFinishedRound,
   getNextRound,
@@ -29,9 +28,8 @@ import {
   getTopRoundScorers,
   listLiveRoundScores,
   listUpcomingMatches,
-  listUpcomingRoundMatches,
 } from "@/lib/round/queries";
-import type { RoundTeamResult } from "@/lib/round/types";
+import type { RoundMatch, RoundTeamResult } from "@/lib/round/types";
 import { getTeamOverview } from "@/lib/team/queries";
 import type { RosterSlot } from "@/lib/team/types";
 
@@ -141,28 +139,31 @@ async function buildRecap(
 /**
  * A sua rodada corrente: o fechamento do mercado, jogo a jogo.
  *
- * O countdown do topo é o **próximo** fechamento entre as partidas da rodada,
- * não a coluna `market_closes_at` seca: as duas coincidem enquanto o primeiro
- * jogo da semana não começa, e depois dele é o próximo jogo que passa a valer.
- * `marketClosesAt` fica como piso para a rodada que ainda não tem partida
- * marcada.
+ * **As partidas são as mesmas de "Próximos jogos"** — a lista do circuito,
+ * vinda do scrap. Ler as partidas ligadas à rodada ativa era o que fazia o
+ * painel anunciar um fechamento inexistente: com uma rodada de seed ativa, ele
+ * mostrava a janela dela (dias à frente) enquanto o próximo jogo de verdade
+ * era no dia seguinte.
+ *
+ * O countdown é o próximo fechamento entre essas partidas (`nextMarketClose`),
+ * nunca a coluna `market_closes_at` — um número derivado do jogo não tem como
+ * contradizer o jogo.
  */
-async function buildNextRoundBrief(
+function buildNextRoundBrief(
   nextRound: RoundRow,
+  matches: readonly RoundMatch[],
   roster: readonly RosterSlot[],
-): Promise<NextRoundBrief> {
-  const matches = await listUpcomingRoundMatches(nextRound.id);
-  const closesAt = nextMarketClose(matches) ?? nextRound.marketClosesAt;
+): NextRoundBrief {
+  const closesAt = nextMarketClose(matches);
 
   return {
     roundNumber: nextRound.number,
     marketOpensAt: nextRound.marketOpensAt,
     marketClosesAt: closesAt,
-    marketCountdown: formatMarketCountdown({
-      opensAt: nextRound.marketOpensAt,
-      closesAt,
-    }),
-    matches,
+    marketCountdown: closesAt
+      ? formatMarketCountdown({ opensAt: nextRound.marketOpensAt, closesAt })
+      : null,
+    matches: [...matches],
     myOrganizations: organizationsOf(roster),
   };
 }
@@ -240,7 +241,7 @@ export async function getHomeSummary(
     throw new Error("Não foi possível carregar o seu time.");
   }
 
-  const [recap, highlights, nextRoundBrief] = await Promise.all([
+  const [recap, highlights] = await Promise.all([
     buildRecap(
       overview.teamId,
       userId,
@@ -248,10 +249,11 @@ export async function getHomeSummary(
       latestFinishedRound ?? null,
     ),
     buildHighlights(latestFinishedRound ?? null, nextRound ?? null),
-    nextRound
-      ? buildNextRoundBrief(nextRound, overview.roster)
-      : Promise.resolve(null),
   ]);
+
+  const nextRoundBrief = nextRound
+    ? buildNextRoundBrief(nextRound, upcomingMatches, overview.roster)
+    : null;
 
   return {
     pendingInvites,
