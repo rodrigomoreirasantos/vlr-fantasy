@@ -24,6 +24,7 @@ describe("ChampionshipPlacements", () => {
               id: "champ-1",
               name: "Liga dos Amigos",
               ownerId: "user-1",
+              region: "americas",
               memberCount: 6,
             },
             position: 2,

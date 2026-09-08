@@ -1,13 +1,14 @@
 import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { match } from "@/db/schema";
+import { match, vlrEvent } from "@/db/schema";
 import { SCOUT_VERSION, mapPoints } from "@/lib/scoring/scout";
 import { logInfo } from "@/lib/vlr/http/log";
 import { fetchHtml } from "@/lib/vlr/http/client";
 import { diskRawStore, type RawStore } from "@/lib/vlr/http/raw-store";
 import { upsertEvents } from "@/lib/vlr/persist/events";
 import { upsertMatches } from "@/lib/vlr/persist/matches";
+import { applyMatchPlayerRegions } from "@/lib/vlr/persist/player-regions";
 import { resolvePlayer } from "@/lib/vlr/persist/players";
 import { saveMatchStats, type MatchStatRow } from "@/lib/vlr/persist/stats";
 import { upsertTeams } from "@/lib/vlr/persist/teams";
@@ -114,6 +115,10 @@ async function persistMatchDetail(
     // Um jogador aparece uma vez por mapa: resolver a identidade uma vez por
     // vlrId poupa duas consultas por mapa e mantém a resolução determinística.
     const playerIdByVlrId = new Map<string, string>();
+    // Organização → ids dos jogadores dela nesta partida — a matéria-prima de
+    // `applyMatchPlayerRegions`, montada no mesmo loop que já resolve a
+    // identidade, sem consulta extra.
+    const playersByOrganization = new Map<string, string[]>();
     const rows: MatchStatRow[] = [];
 
     for (const map of detail.maps) {
@@ -132,6 +137,10 @@ async function persistMatchDetail(
           });
           playerId = resolved.id;
           playerIdByVlrId.set(stat.vlrId, playerId);
+
+          const organizationPlayers = playersByOrganization.get(teamName) ?? [];
+          organizationPlayers.push(playerId);
+          playersByOrganization.set(teamName, organizationPlayers);
         }
 
         rows.push({
@@ -165,6 +174,27 @@ async function persistMatchDetail(
       scoreB: detail.scoreB,
       bestOf: detail.bestOf,
       status: detail.status,
+    });
+
+    // A bandeira do evento (`vlr_event.region`) recém-upsertado — `upsertEvents`
+    // não a devolve, então é uma segunda leitura pontual, dentro da mesma
+    // transação. Ordem obrigatória: resolvePlayer → saveMatchStats →
+    // applyMatchPlayerRegions, para um jogador novo nunca ficar um instante
+    // fora de todas as abas de escalação.
+    const eventId = detail.event.vlrId
+      ? (eventIds.get(detail.event.vlrId) ?? null)
+      : null;
+    const eventRow = eventId
+      ? await tx.query.vlrEvent.findFirst({ where: eq(vlrEvent.id, eventId) })
+      : null;
+
+    await applyMatchPlayerRegions(tx, {
+      source: {
+        event: detail.event.name,
+        regionCode: eventRow?.region ?? null,
+        scheduledAt: detail.scheduledAt,
+      },
+      playersByOrganization,
     });
 
     logInfo("vlr.match.persisted", {

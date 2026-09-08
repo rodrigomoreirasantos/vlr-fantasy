@@ -1,4 +1,6 @@
+import { sql } from "drizzle-orm";
 import {
+  check,
   index,
   pgEnum,
   pgTable,
@@ -9,6 +11,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "@/db/schema/auth";
+import { eventRegionEnum } from "@/db/schema/players";
 
 export const championship = pgTable(
   "championship",
@@ -18,6 +21,11 @@ export const championship = pgTable(
     ownerId: text("owner_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    /**
+     * A região deste campeonato — a classificação (`getStandingRows*`) junta
+     * só o time daquela região de cada membro. `TeamRegion`, nunca `"other"`.
+     */
+    region: eventRegionEnum("region").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -26,7 +34,11 @@ export const championship = pgTable(
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [index("championship_owner_idx").on(table.ownerId)],
+  (table) => [
+    index("championship_owner_idx").on(table.ownerId),
+    index("championship_region_idx").on(table.region),
+    check("championship_region_is_team", sql`${table.region} <> 'other'`),
+  ],
 );
 
 export const CHAMPIONSHIP_MEMBER_STATUSES = [

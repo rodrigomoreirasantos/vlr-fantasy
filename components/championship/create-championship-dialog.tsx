@@ -27,6 +27,18 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DEFAULT_TEAM_REGION,
+  regionLabel,
+  TEAM_REGIONS,
+} from "@/lib/round/regions";
+import {
   createChampionshipSchema,
   type CreateChampionshipInput,
 } from "@/lib/validations/championship";
@@ -38,7 +50,7 @@ export function CreateChampionshipDialog() {
 
   const form = useForm<CreateChampionshipInput>({
     resolver: zodResolver(createChampionshipSchema),
-    defaultValues: { name: "" },
+    defaultValues: { name: "", region: DEFAULT_TEAM_REGION },
   });
 
   const { execute, isExecuting } = useAction(createChampionship, {
@@ -94,6 +106,34 @@ export function CreateChampionshipDialog() {
                     placeholder="Liga dos Cria"
                     aria-invalid={fieldState.invalid}
                   />
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
+            />
+
+            <Controller
+              name="region"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>Região</FieldLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger
+                      id={field.name}
+                      aria-invalid={fieldState.invalid}
+                    >
+                      <SelectValue placeholder="Selecione uma região" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TEAM_REGIONS.map((region) => (
+                        <SelectItem key={region} value={region}>
+                          {regionLabel(region)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />
                   )}

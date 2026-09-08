@@ -49,6 +49,7 @@ function makePlayer(overrides: Partial<Player> = {}): Player {
     active: true,
     availability: "available",
     availabilityNote: null,
+    region: "americas",
     ...overrides,
   };
 }
@@ -58,24 +59,28 @@ function makeRoster(): RosterSlot[] {
     {
       id: "slot-1",
       captain: true,
+      warning: null,
       player: makePlayer({
         id: "boaster",
         nickname: "Boaster",
         role: "Controlador",
         agent: "Astra",
         team: "FNATIC",
+        region: "emea",
       }),
     },
-    { id: "slot-2", captain: false, player: makePlayer() },
-    { id: "slot-3", captain: false, player: null },
-    { id: "slot-4", captain: false, player: null },
-    { id: "slot-5", captain: false, player: null },
+    { id: "slot-2", captain: false, warning: null, player: makePlayer() },
+    { id: "slot-3", captain: false, warning: null, player: null },
+    { id: "slot-4", captain: false, warning: null, player: null },
+    { id: "slot-5", captain: false, warning: null, player: null },
   ];
 }
 
 function emptyMarket(): Record<PlayerRole, Player[]> {
   return { Duelista: [], Iniciador: [], Controlador: [], Sentinela: [] };
 }
+
+const AMERICAS_SCOPE = { kind: "region" as const, region: "americas" as const };
 
 describe("RosterPanel", () => {
   beforeEach(() => {
@@ -93,6 +98,7 @@ describe("RosterPanel", () => {
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
       />,
     );
@@ -112,6 +118,7 @@ describe("RosterPanel", () => {
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
       />,
     );
@@ -132,6 +139,7 @@ describe("RosterPanel", () => {
         balanceCents={10_000}
         marketOpen={false}
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="Encerrado"
       />,
     );
@@ -159,6 +167,7 @@ describe("RosterPanel", () => {
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
       />,
     );
@@ -179,6 +188,7 @@ describe("RosterPanel", () => {
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
       />,
     );
@@ -199,6 +209,7 @@ describe("RosterPanel", () => {
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
       />,
     );
@@ -219,6 +230,7 @@ describe("RosterPanel", () => {
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
       />,
     );
@@ -241,6 +253,7 @@ describe("RosterPanel", () => {
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
       />,
     );
@@ -264,6 +277,7 @@ describe("RosterPanel", () => {
         balanceCents={10_000}
         marketOpen
         lockedTeams={["FNATIC"]}
+        scope={AMERICAS_SCOPE}
         closesIn="2h 0m"
       />,
     );
@@ -289,6 +303,7 @@ describe("RosterPanel", () => {
         balanceCents={10_000}
         marketOpen={false}
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="Encerrado"
       />,
     );
@@ -314,6 +329,7 @@ describe("RosterPanel — vaga vazia", () => {
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
       />,
     );
@@ -335,6 +351,7 @@ describe("RosterPanel — vaga vazia", () => {
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
       />,
     );
@@ -351,6 +368,7 @@ describe("RosterPanel — vaga vazia", () => {
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
       />,
     );
@@ -374,6 +392,7 @@ describe("RosterPanel — vaga vazia", () => {
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
       />,
     );
@@ -399,6 +418,7 @@ describe("RosterPanel — vaga vazia", () => {
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
       />,
     );
@@ -423,6 +443,7 @@ describe("RosterPanel — vaga vazia", () => {
         balanceCents={10_000}
         marketOpen={false}
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="Encerrado"
       />,
     );

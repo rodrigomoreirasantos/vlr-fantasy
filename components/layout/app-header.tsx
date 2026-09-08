@@ -14,6 +14,7 @@ import { usePathname } from "next/navigation";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { TeamCrest } from "@/components/crest/team-crest";
 import type { Crest } from "@/lib/crest/types";
+import { regionColor, regionLabel, type TeamRegion } from "@/lib/round/regions";
 import { formatScore } from "@/lib/team/score";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +38,8 @@ export type AppHeaderProps = {
   crest: Crest;
   points: number;
   userName: string;
+  /** A região do time exibido — necessário, não cosmético: sem ele o usuário vê os pontos mudarem ao trocar de aba e acha que perdeu pontuação. */
+  region: TeamRegion;
 };
 
 export function AppHeader({
@@ -44,6 +47,7 @@ export function AppHeader({
   crest,
   points,
   userName,
+  region,
 }: AppHeaderProps) {
   const pathname = usePathname();
 
@@ -66,6 +70,18 @@ export function AppHeader({
           <span className="text-[11px] font-semibold text-muted-foreground uppercase">
             pts
           </span>
+        </span>
+        <span aria-hidden className="h-5 w-px bg-border" />
+        <span
+          className="flex items-center gap-1.5 text-[11px] font-bold tracking-wide uppercase"
+          style={{ color: regionColor(region) }}
+        >
+          <span
+            aria-hidden
+            className="size-1.5 rounded-full"
+            style={{ backgroundColor: regionColor(region) }}
+          />
+          {regionLabel(region)}
         </span>
       </div>
 

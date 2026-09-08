@@ -7,7 +7,10 @@ import {
   evaluateSubstitution,
   type SubstitutionContext,
 } from "@/lib/market/eligibility";
+import type { MarketScope } from "@/lib/market/scope";
 import type { Player } from "@/lib/team/types";
+
+const AMERICAS_SCOPE: MarketScope = { kind: "region", region: "americas" };
 
 function makePlayer(overrides: Partial<Player> = {}): Player {
   return {
@@ -21,6 +24,7 @@ function makePlayer(overrides: Partial<Player> = {}): Player {
     active: true,
     availability: "available",
     availabilityNote: null,
+    region: "americas",
     ...overrides,
   };
 }
@@ -34,6 +38,7 @@ function makeContext(
     balanceCents: 10_000,
     outgoing: makePlayer({ id: "derke", nickname: "Derke", priceCents: 4000 }),
     rosteredPlayerIds: ["derke"],
+    scope: AMERICAS_SCOPE,
     ...overrides,
   };
 }
@@ -192,6 +197,69 @@ describe("evaluateSubstitution — vaga vazia (outgoing null)", () => {
         incoming,
       ).blockedBy,
     ).toBe("insufficient-balance");
+  });
+});
+
+describe("evaluateSubstitution — fora da região", () => {
+  it("bloqueia um candidato de outra região, mesmo com saldo sobrando", () => {
+    const ctx = makeContext({ balanceCents: 10_000 });
+    const incoming = makePlayer({ id: "boaster", region: "emea" });
+
+    expect(evaluateSubstitution(ctx, incoming).blockedBy).toBe("out-of-region");
+  });
+
+  it("libera um candidato da mesma região", () => {
+    const ctx = makeContext();
+    const incoming = makePlayer({ id: "chronicle", region: "americas" });
+
+    expect(evaluateSubstitution(ctx, incoming).blockedBy).toBeNull();
+  });
+
+  it("já escalado vence fora-da-região — 'já é seu' é mais verdadeiro", () => {
+    const ctx = makeContext({ rosteredPlayerIds: ["derke", "tenz"] });
+    const incoming = makePlayer({ id: "tenz", region: "emea" });
+
+    expect(evaluateSubstitution(ctx, incoming).blockedBy).toBe(
+      "already-rostered",
+    );
+  });
+
+  it("mesmo jogador (a própria vaga) vence fora-da-região", () => {
+    const ctx = makeContext({
+      outgoing: makePlayer({ id: "derke", region: "emea" }),
+    });
+    const incoming = makePlayer({ id: "derke", region: "emea" });
+
+    expect(evaluateSubstitution(ctx, incoming).blockedBy).toBe("same-player");
+  });
+
+  it("fora da região vence saldo insuficiente", () => {
+    const ctx = makeContext({ balanceCents: 0 });
+    const incoming = makePlayer({
+      id: "boaster",
+      region: "emea",
+      priceCents: 999_999,
+    });
+
+    expect(evaluateSubstitution(ctx, incoming).blockedBy).toBe("out-of-region");
+  });
+
+  it("escopo por organizações (time Internacional): candidato de fora não passa", () => {
+    const ctx = makeContext({
+      scope: { kind: "organizations", organizations: ["LOUD", "FNATIC"] },
+    });
+    const incoming = makePlayer({ id: "boaster", team: "DRX" });
+
+    expect(evaluateSubstitution(ctx, incoming).blockedBy).toBe("out-of-region");
+  });
+
+  it("escopo por organizações: candidato classificado passa", () => {
+    const ctx = makeContext({
+      scope: { kind: "organizations", organizations: ["LOUD", "FNATIC"] },
+    });
+    const incoming = makePlayer({ id: "boaster", team: "FNATIC" });
+
+    expect(evaluateSubstitution(ctx, incoming).blockedBy).toBeNull();
   });
 });
 

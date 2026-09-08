@@ -1,4 +1,4 @@
-import { Plus } from "lucide-react";
+import { Plus, TriangleAlert } from "lucide-react";
 
 import { PlayerScore } from "@/components/team/player-score";
 import type { RosterSlot } from "@/lib/team/types";
@@ -43,7 +43,7 @@ function Marker({
   /** Presente só quando o usuário pode trocar o capitão (mercado aberto). */
   onSetCaptain?: (index: number) => void;
 }) {
-  const { player, captain } = slot;
+  const { player, captain, warning } = slot;
 
   const circle = (
     <div
@@ -53,6 +53,10 @@ function Marker({
           ? "ring-2 [background-image:repeating-linear-gradient(135deg,var(--accent)_0_4px,var(--muted)_4px_8px)]"
           : "border border-dashed border-border text-border transition-colors",
         player && (captain ? "ring-primary" : "ring-border"),
+        // O tabuleiro não pode contradizer a lista: o mesmo alerta de
+        // `PlayerWarningBadge` (`components/team/player-row.tsx`) também
+        // marca o círculo aqui.
+        player && warning && "ring-destructive",
         player && selected && "ring-primary",
         !player &&
           onSelect &&
@@ -124,6 +128,15 @@ function Marker({
               </span>
             )
           ))}
+        {player && warning && (
+          <span
+            aria-label="Fora do escopo do time"
+            title="Fora do escopo do time"
+            className="absolute -top-1 -right-1 flex size-[18px] items-center justify-center rounded-full bg-card text-destructive ring-1 ring-destructive"
+          >
+            <TriangleAlert aria-hidden className="size-2.5" />
+          </span>
+        )}
       </div>
 
       {player ? (

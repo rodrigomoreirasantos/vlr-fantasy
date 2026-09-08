@@ -38,7 +38,7 @@ describe("CreateChampionshipDialog", () => {
     expect(executeMock).not.toHaveBeenCalled();
   });
 
-  it("nome válido: chama execute com o nome", async () => {
+  it("nome válido: chama execute com o nome e a região padrão (Americas)", async () => {
     const user = userEvent.setup();
     render(<CreateChampionshipDialog />);
 
@@ -46,6 +46,25 @@ describe("CreateChampionshipDialog", () => {
     await user.type(screen.getByLabelText("Nome"), "Liga dos Cria");
     await user.click(screen.getByRole("button", { name: /^criar$/i }));
 
-    expect(executeMock).toHaveBeenCalledWith({ name: "Liga dos Cria" });
+    expect(executeMock).toHaveBeenCalledWith({
+      name: "Liga dos Cria",
+      region: "americas",
+    });
+  });
+
+  it("permite escolher outra região", async () => {
+    const user = userEvent.setup();
+    render(<CreateChampionshipDialog />);
+
+    await user.click(screen.getByRole("button", { name: /criar campeonato/i }));
+    await user.type(screen.getByLabelText("Nome"), "Liga dos Cria");
+    await user.click(screen.getByRole("combobox", { name: /região/i }));
+    await user.click(screen.getByRole("option", { name: "EMEA" }));
+    await user.click(screen.getByRole("button", { name: /^criar$/i }));
+
+    expect(executeMock).toHaveBeenCalledWith({
+      name: "Liga dos Cria",
+      region: "emea",
+    });
   });
 });

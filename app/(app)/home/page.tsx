@@ -10,6 +10,7 @@ import { PendingInvites } from "@/components/championship/pending-invites";
 import { auth } from "@/lib/auth";
 import { getHomeSummary } from "@/lib/home/queries";
 import { refreshIntervalMs } from "@/lib/home/summary";
+import { resolveRegion } from "@/lib/team/region-selection";
 import { getTeamOverview } from "@/lib/team/queries";
 
 export const metadata: Metadata = {
@@ -24,13 +25,15 @@ export default async function HomePage() {
 
   // Mesmos argumentos do layout logado (`app/(app)/layout.tsx`): a
   // memoização por request de `getTeamOverview` evita uma segunda consulta
-  // ao time.
+  // ao time. Sem `?region=` própria — a Home segue a região do header do
+  // proxy / cookie / default, a mesma que o layout já resolveu.
   const userName = session.user.username ?? session.user.name;
+  const { region } = await resolveRegion();
   // Os dois leem `getTeamOverview` com os mesmos argumentos do layout logado:
   // a memoização por request (`cache()`) resolve tudo numa consulta só.
   const [summary, overview] = await Promise.all([
-    getHomeSummary(session.user.id, userName),
-    getTeamOverview(session.user.id, userName),
+    getHomeSummary(session.user.id, userName, region),
+    getTeamOverview(session.user.id, userName, region),
   ]);
 
   const roster = (overview?.roster ?? []).flatMap((slot) =>

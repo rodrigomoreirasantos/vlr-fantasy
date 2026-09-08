@@ -20,9 +20,12 @@ function makePlayer(overrides: Partial<Player> = {}): Player {
     active: true,
     availability: "available",
     availabilityNote: null,
+    region: "americas",
     ...overrides,
   };
 }
+
+const AMERICAS_SCOPE = { kind: "region" as const, region: "americas" as const };
 
 const outgoing = makePlayer({
   id: "derke",
@@ -47,6 +50,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
@@ -76,6 +80,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
@@ -110,6 +115,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
@@ -131,6 +137,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
@@ -158,6 +165,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
@@ -183,6 +191,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
         balanceCents={10_000}
         marketOpen={false}
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="Encerrado"
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
@@ -216,6 +225,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
@@ -247,6 +257,7 @@ describe("MarketSheet — vender sem substituir", () => {
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
@@ -270,6 +281,7 @@ describe("MarketSheet — vender sem substituir", () => {
         balanceCents={10_000}
         marketOpen={false}
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="Encerrado"
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
@@ -292,6 +304,7 @@ describe("MarketSheet — vender sem substituir", () => {
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
         rosteredPlayerIds={[]}
         onConfirm={vi.fn()}
@@ -316,6 +329,7 @@ describe("MarketSheet — nova contratação (vaga vazia)", () => {
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
         rosteredPlayerIds={[]}
         onConfirm={vi.fn()}
@@ -345,6 +359,7 @@ describe("MarketSheet — nova contratação (vaga vazia)", () => {
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
         rosteredPlayerIds={[]}
         onConfirm={vi.fn()}
@@ -374,6 +389,7 @@ describe("MarketSheet — nova contratação (vaga vazia)", () => {
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
         rosteredPlayerIds={[]}
         onConfirm={vi.fn()}
@@ -400,6 +416,7 @@ describe("MarketSheet — nova contratação (vaga vazia)", () => {
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
         rosteredPlayerIds={[]}
         onConfirm={vi.fn()}

@@ -73,7 +73,10 @@ describe("createChampionship", () => {
   it("sem sessão: recusa antes de abrir transação", async () => {
     getSessionMock.mockResolvedValue(null);
 
-    const result = await createChampionship({ name: "Liga dos Cria" });
+    const result = await createChampionship({
+      name: "Liga dos Cria",
+      region: "americas",
+    });
 
     expect(result?.serverError).toBe("Sua sessão expirou. Entre novamente.");
     expect(transactionMock).not.toHaveBeenCalled();
@@ -82,11 +85,15 @@ describe("createChampionship", () => {
   it("sucesso: cria o campeonato com o dono e revalida a página", async () => {
     insertChampionshipWithOwnerMock.mockResolvedValue(CHAMPIONSHIP_ID);
 
-    const result = await createChampionship({ name: "Liga dos Cria" });
+    const result = await createChampionship({
+      name: "Liga dos Cria",
+      region: "americas",
+    });
 
     expect(insertChampionshipWithOwnerMock).toHaveBeenCalledWith(txStub, {
       name: "Liga dos Cria",
       ownerId: OWNER_ID,
+      region: "americas",
     });
     expect(result?.data).toEqual({ championshipId: CHAMPIONSHIP_ID });
     expect(revalidatePathMock).toHaveBeenCalledWith("/ranking");

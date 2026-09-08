@@ -2,6 +2,7 @@ import { relations } from "drizzle-orm";
 
 import { user } from "@/db/schema/auth";
 import { championship, championshipMember } from "@/db/schema/championships";
+import { fantasyIdentity } from "@/db/schema/fantasy-identity";
 import { fantasyTeam } from "@/db/schema/fantasy-teams";
 import { friendship } from "@/db/schema/friendships";
 import { match } from "@/db/schema/matches";
@@ -25,9 +26,25 @@ export const fantasyTeamRelations = relations(fantasyTeam, ({ one, many }) => ({
     fields: [fantasyTeam.userId],
     references: [user.id],
   }),
+  // Nome + brasão: um por usuário, não um por time regional — permite
+  // `loadTeamOverview` resolver elenco e identidade numa consulta só.
+  identity: one(fantasyIdentity, {
+    fields: [fantasyTeam.userId],
+    references: [fantasyIdentity.userId],
+  }),
   slots: many(rosterSlot),
   transfers: many(transfer),
 }));
+
+export const fantasyIdentityRelations = relations(
+  fantasyIdentity,
+  ({ one }) => ({
+    user: one(user, {
+      fields: [fantasyIdentity.userId],
+      references: [user.id],
+    }),
+  }),
+);
 
 export const rosterSlotRelations = relations(rosterSlot, ({ one, many }) => ({
   fantasyTeam: one(fantasyTeam, {

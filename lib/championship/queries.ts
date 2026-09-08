@@ -4,6 +4,7 @@ import { db } from "@/db";
 import {
   championship,
   championshipMember,
+  fantasyIdentity,
   fantasyTeam,
   player,
   roundTeamResult,
@@ -17,6 +18,7 @@ import type {
   PendingMember,
   StandingRow,
 } from "@/lib/championship/types";
+import { toTeamRegion, type TeamRegion } from "@/lib/round/regions";
 import { CAPTAIN_MULTIPLIER } from "@/lib/scoring/team";
 import type { Querier } from "@/lib/team/queries";
 
@@ -32,6 +34,7 @@ export async function listUserChampionships(
       id: championship.id,
       name: championship.name,
       ownerId: championship.ownerId,
+      region: championship.region,
     })
     .from(championshipMember)
     .innerJoin(
@@ -71,6 +74,7 @@ export async function listUserChampionships(
 
   return memberships.map((m) => ({
     ...m,
+    region: toTeamRegion(m.region),
     memberCount: countByChampionship.get(m.id) ?? 0,
   }));
 }
@@ -108,12 +112,12 @@ export async function getStandingRowsByChampionship(
       userId: user.id,
       userName: user.name,
       username: user.username,
-      teamName: fantasyTeam.name,
-      crestShape: fantasyTeam.crestShape,
-      crestSymbol: fantasyTeam.crestSymbol,
-      crestBg: fantasyTeam.crestBg,
-      crestFg: fantasyTeam.crestFg,
-      crestBorder: fantasyTeam.crestBorder,
+      teamName: fantasyIdentity.name,
+      crestShape: fantasyIdentity.crestShape,
+      crestSymbol: fantasyIdentity.crestSymbol,
+      crestBg: fantasyIdentity.crestBg,
+      crestFg: fantasyIdentity.crestFg,
+      crestBorder: fantasyIdentity.crestBorder,
       // A braçadeira dobra a pontuação de quem a usa — mesma regra de
       // `teamPoints` (lib/scoring/team.ts), interpolada aqui porque o `sum`
       // roda no banco, sobre as 5 vagas de cada membro de uma vez.
@@ -121,8 +125,21 @@ export async function getStandingRowsByChampionship(
         then ${player.score} * ${CAPTAIN_MULTIPLIER} else ${player.score} end)`,
     })
     .from(championshipMember)
+    .innerJoin(
+      championship,
+      eq(championship.id, championshipMember.championshipId),
+    )
     .innerJoin(user, eq(user.id, championshipMember.userId))
-    .leftJoin(fantasyTeam, eq(fantasyTeam.userId, user.id))
+    .leftJoin(fantasyIdentity, eq(fantasyIdentity.userId, user.id))
+    // O time **da região do campeonato** — sem este predicado, cada membro
+    // com 5 times viraria 5 linhas e o `sum` somaria os 5 elencos.
+    .leftJoin(
+      fantasyTeam,
+      and(
+        eq(fantasyTeam.userId, user.id),
+        eq(fantasyTeam.region, championship.region),
+      ),
+    )
     .leftJoin(rosterSlot, eq(rosterSlot.fantasyTeamId, fantasyTeam.id))
     .leftJoin(player, eq(player.id, rosterSlot.playerId))
     .where(
@@ -136,13 +153,13 @@ export async function getStandingRowsByChampionship(
       user.id,
       user.name,
       user.username,
-      fantasyTeam.id,
-      fantasyTeam.name,
-      fantasyTeam.crestShape,
-      fantasyTeam.crestSymbol,
-      fantasyTeam.crestBg,
-      fantasyTeam.crestFg,
-      fantasyTeam.crestBorder,
+      fantasyIdentity.userId,
+      fantasyIdentity.name,
+      fantasyIdentity.crestShape,
+      fantasyIdentity.crestSymbol,
+      fantasyIdentity.crestBg,
+      fantasyIdentity.crestFg,
+      fantasyIdentity.crestBorder,
     );
 
   for (const row of rows) {
@@ -192,17 +209,31 @@ export async function getStandingRowsForRoundByChampionship(
       userId: user.id,
       userName: user.name,
       username: user.username,
-      teamName: fantasyTeam.name,
-      crestShape: fantasyTeam.crestShape,
-      crestSymbol: fantasyTeam.crestSymbol,
-      crestBg: fantasyTeam.crestBg,
-      crestFg: fantasyTeam.crestFg,
-      crestBorder: fantasyTeam.crestBorder,
+      teamName: fantasyIdentity.name,
+      crestShape: fantasyIdentity.crestShape,
+      crestSymbol: fantasyIdentity.crestSymbol,
+      crestBg: fantasyIdentity.crestBg,
+      crestFg: fantasyIdentity.crestFg,
+      crestBorder: fantasyIdentity.crestBorder,
       points: roundTeamResult.points,
     })
     .from(championshipMember)
+    .innerJoin(
+      championship,
+      eq(championship.id, championshipMember.championshipId),
+    )
     .innerJoin(user, eq(user.id, championshipMember.userId))
-    .leftJoin(fantasyTeam, eq(fantasyTeam.userId, user.id))
+    .leftJoin(fantasyIdentity, eq(fantasyIdentity.userId, user.id))
+    // O time **da região do campeonato** — mesmo predicado de
+    // `getStandingRowsByChampionship`, para o `roundTeamResult` pendurar no
+    // time certo, não num dos outros 4.
+    .leftJoin(
+      fantasyTeam,
+      and(
+        eq(fantasyTeam.userId, user.id),
+        eq(fantasyTeam.region, championship.region),
+      ),
+    )
     .leftJoin(
       roundTeamResult,
       and(
@@ -322,11 +353,11 @@ export async function lockMembershipForUpdate(tx: Querier, memberId: string) {
  */
 export async function insertChampionshipWithOwner(
   tx: Querier,
-  args: { name: string; ownerId: string },
+  args: { name: string; ownerId: string; region: TeamRegion },
 ): Promise<string> {
   const [created] = await tx
     .insert(championship)
-    .values({ name: args.name, ownerId: args.ownerId })
+    .values({ name: args.name, ownerId: args.ownerId, region: args.region })
     .returning({ id: championship.id });
 
   await tx.insert(championshipMember).values({

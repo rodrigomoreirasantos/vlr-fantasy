@@ -71,6 +71,27 @@
       "when": 1788460340351,
       "tag": "0009_mute_shatterstar",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788882913979,
+      "tag": "0010_reset_fantasy_teams",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788883097878,
+      "tag": "0011_add_region_stage1",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1788883132877,
+      "tag": "0012_drop_fantasy_team_identity",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,5 @@
 import { formatCredits } from "@/lib/market/money";
+import { regionColor, regionLabel } from "@/lib/round/regions";
 import type { TeamSummary } from "@/lib/team/types";
 import { cn } from "@/lib/utils";
 
@@ -21,9 +22,9 @@ function Stat({
   );
 }
 
-/** Saldo, estado do mercado e progresso da rodada. */
+/** Saldo, estado do mercado e a região deste time. */
 export function TeamStats({ summary }: { summary: TeamSummary }) {
-  const { balanceCents, market, scoredMatches } = summary;
+  const { balanceCents, market, region } = summary;
 
   return (
     <section className="grid grid-cols-1 ring-1 ring-border sm:grid-cols-3">
@@ -53,9 +54,12 @@ export function TeamStats({ summary }: { summary: TeamSummary }) {
         </p>
       </Stat>
 
-      <Stat label="Partidas Pontuadas">
-        <p className="mt-1 text-xl font-extrabold tabular-nums">
-          {scoredMatches.played}/{scoredMatches.total}
+      <Stat label="Região">
+        <p
+          className="mt-1 text-xl font-extrabold uppercase"
+          style={{ color: regionColor(region) }}
+        >
+          {regionLabel(region)}
         </p>
       </Stat>
     </section>

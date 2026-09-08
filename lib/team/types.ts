@@ -1,4 +1,6 @@
 import type { Crest } from "@/lib/crest/types";
+import type { PlayerRegion, TeamRegion } from "@/lib/round/regions";
+import type { SlotWarning } from "@/lib/market/scope";
 
 /**
  * As quatro funções de Valorant. Fonte única desta lista — `db/schema/players.ts`
@@ -60,6 +62,11 @@ export type Player = {
   availability: PlayerAvailability;
   /** Detalhe opcional em pt-BR, ex. "Fora por lesão no pulso". */
   availabilityNote: string | null;
+  /**
+   * A liga a que o jogador pertence hoje — o filtro do mercado regional
+   * (`.claude/plans/10-time-por-regiao.md`). Nunca `"international"`.
+   */
+  region: PlayerRegion;
 };
 
 /**
@@ -73,6 +80,13 @@ export type RosterSlot = {
   id: string | null;
   player: Player | null;
   captain: boolean;
+  /**
+   * O jogador escalado não pertence mais ao escopo do time — mudou de liga,
+   * ou (no time Internacional) a organização dele deixou de estar
+   * classificada. `null` quando está em casa. Nunca esvazia a vaga sozinho
+   * (decisão 7 do plano): é só um alerta, o usuário decide quando trocar.
+   */
+  warning: SlotWarning | null;
 };
 
 export type TeamSummary = {
@@ -82,7 +96,8 @@ export type TeamSummary = {
   points: number;
   /** Saldo em moeda virtual disponível para o mercado, em centavos de crédito. */
   balanceCents: number;
-  scoredMatches: { played: number; total: number };
+  /** A região deste time — Americas, EMEA, Pacific, China ou Internacional. */
+  region: TeamRegion;
   market: {
     open: boolean;
     /** Tempo restante já formatado, ex. "36h 12m" (lib/market/window.ts). */

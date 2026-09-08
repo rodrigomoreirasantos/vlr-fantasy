@@ -7,7 +7,8 @@ import { isMain, runScript } from "@/scripts/vlr/run";
 
 if (isMain(import.meta.url)) {
   void runScript("vlr:doctor", async () => {
-    const { checks, healthy, needsReview, scrapedMatches } = await runDoctor();
+    const { checks, healthy, needsReview, scrapedMatches, playersOutOfRegion } =
+      await runDoctor();
 
     const lines = checks.map((check) => {
       const icon = check.status === "ok" ? "✓" : "✗";
@@ -27,7 +28,7 @@ if (isMain(import.meta.url)) {
           ? "✓ Todos os seletores respondendo."
           : "✗ Há seletores quebrados.",
         ...lines,
-        `  · ${scrapedMatches} partidas extraídas, ${needsReview} jogador(es) aguardando revisão.`,
+        `  · ${scrapedMatches} partidas extraídas, ${needsReview} jogador(es) aguardando revisão, ${playersOutOfRegion} fora de região.`,
       ].join("\n"),
     };
   });

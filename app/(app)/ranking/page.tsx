@@ -17,6 +17,7 @@ import {
   listUserChampionships,
 } from "@/lib/championship/queries";
 import { rankStandings } from "@/lib/championship/standings";
+import { regionLabel } from "@/lib/round/regions";
 
 export const metadata: Metadata = {
   title: "Ranking | VLR Fantasy",
@@ -72,7 +73,8 @@ export default async function RankingPage(props: PageProps<"/ranking">) {
       <Panel title="Classificação">
         <StandingsTable standings={standings} />
         <p className="mt-3 text-xs text-muted-foreground">
-          A pontuação considera o elenco atual desta rodada.
+          A pontuação considera o seu time de {regionLabel(selected.region)}{" "}
+          nesta rodada.
         </p>
       </Panel>
 

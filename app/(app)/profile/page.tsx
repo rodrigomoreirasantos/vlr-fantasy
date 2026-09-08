@@ -24,6 +24,7 @@ import {
   listIncomingFriendRequests,
 } from "@/lib/friendship/queries";
 import { hasPasswordAccount } from "@/lib/profile/queries";
+import { resolveRegion } from "@/lib/team/region-selection";
 import { getTeamOverview } from "@/lib/team/queries";
 
 export const metadata: Metadata = {
@@ -38,11 +39,16 @@ export default async function ProfilePage() {
 
   // `getTeamOverview` é memoizada por request: o layout logado já pediu esta
   // mesma visão com os mesmos argumentos, então não há segunda consulta.
+  // Nome e brasão são iguais nas 5 regiões (`fantasy_identity`), então
+  // qualquer uma serve aqui — a região resolvida mantém o cache compartilhado
+  // com o layout.
+  const { region } = await resolveRegion();
   const [overview, championships, friends, incomingRequests, hasPassword] =
     await Promise.all([
       getTeamOverview(
         session.user.id,
         session.user.username ?? session.user.name,
+        region,
       ),
       listUserChampionships(session.user.id),
       listFriends(session.user.id),

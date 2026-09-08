@@ -16,6 +16,7 @@ function recap(overrides: Partial<RoundRecapData> = {}): RoundRecapData {
           id: "champ-1",
           name: "Liga dos Cria",
           ownerId: "user-1",
+          region: "americas",
           memberCount: 6,
         },
         position: 2,

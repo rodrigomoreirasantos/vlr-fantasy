@@ -18,6 +18,7 @@ function championship(
     id: "champ-1",
     name: "Liga dos Cria",
     ownerId: "user-1",
+    region: "americas",
     memberCount: 1,
     ...overrides,
   };

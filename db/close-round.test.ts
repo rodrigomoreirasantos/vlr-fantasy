@@ -408,4 +408,31 @@ describe("closeActiveRound", () => {
     expect(calls.some((c) => c.op === "insert:round_player_score")).toBe(false);
     expect(result).not.toBeNull();
   });
+
+  it("um usuário com 5 times (um por região): grava 5 linhas de round_team_result, uma por time", async () => {
+    // `.claude/plans/10-time-por-regiao.md` — `closeActiveRound` itera
+    // `fantasyTeam.findMany()` sem distinguir usuário; o teste de regressão
+    // é que N times (mesmo usuário ou não) viram N linhas, nunca uma só.
+    const teams = ["americas", "emea", "pacific", "china", "international"].map(
+      (region, index) => ({
+        id: `team-${region}`,
+        region,
+        balanceCents: 1000 * (index + 1),
+        slots: [],
+      }),
+    );
+    const { tx, calls } = createTxStub({ teams });
+
+    await closeActiveRound(tx as never);
+
+    const teamResultCalls = calls.filter(
+      (c) => c.op === "insert:round_team_result",
+    );
+    expect(teamResultCalls).toHaveLength(5);
+    expect(
+      teamResultCalls.map(
+        (c) => (c.payload as { fantasyTeamId: string }).fantasyTeamId,
+      ),
+    ).toEqual(teams.map((t) => t.id));
+  });
 });

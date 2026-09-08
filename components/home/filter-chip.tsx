@@ -1,5 +1,6 @@
 "use client";
 
+import { chipClasses } from "@/components/home/chip-classes";
 import { cn } from "@/lib/utils";
 
 export type FilterChipProps = {
@@ -40,13 +41,7 @@ export function FilterChip({
       aria-pressed={active}
       disabled={disabled}
       onClick={onSelect}
-      className={cn(
-        "clip-corner flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-bold tracking-[0.12em] uppercase ring-1 transition-colors [--clip:6px]",
-        active
-          ? "bg-primary text-primary-foreground ring-primary"
-          : "bg-secondary text-muted-foreground ring-border hover:text-foreground",
-        disabled && "cursor-not-allowed opacity-40 hover:text-muted-foreground",
-      )}
+      className={chipClasses({ active, disabled })}
     >
       {accent && (
         // O ponto colorido amarra o chip à linha do gráfico (ou à etiqueta da

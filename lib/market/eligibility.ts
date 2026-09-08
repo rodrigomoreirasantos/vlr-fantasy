@@ -1,4 +1,6 @@
 import { isTeamLocked } from "@/lib/market/lock";
+import type { MarketScope } from "@/lib/market/scope";
+import { matchesScope } from "@/lib/market/scope";
 import type { Player } from "@/lib/team/types";
 
 export type BlockReason =
@@ -7,6 +9,7 @@ export type BlockReason =
   | "player-inactive"
   | "same-player"
   | "already-rostered"
+  | "out-of-region"
   | "insufficient-balance";
 
 export type SubstitutionContext = {
@@ -31,6 +34,12 @@ export type SubstitutionContext = {
    */
   outgoing: Player | null;
   rosteredPlayerIds: readonly string[];
+  /**
+   * O recorte do time (região ou organizações classificadas) —
+   * `.claude/plans/10-time-por-regiao.md`. Um candidato fora dele nunca entra
+   * por substituição, mesmo que já esteja escalado noutro time do usuário.
+   */
+  scope: MarketScope;
 };
 
 export type Verdict = {
@@ -46,6 +55,7 @@ const REASON_LABELS: Record<BlockReason, string> = {
   "player-inactive": "Indisponível",
   "same-player": "Já é seu",
   "already-rostered": "Já escalado",
+  "out-of-region": "Fora da região",
   "insufficient-balance": "Sem saldo",
 };
 
@@ -59,7 +69,12 @@ const REASON_LABELS: Record<BlockReason, string> = {
  * Precedência fixa (a primeira que casar vence) — assim o usuário nunca vê
  * "sem saldo" quando o problema real é outro:
  * no-round → market-closed → player-inactive → same-player →
- * already-rostered → insufficient-balance.
+ * already-rostered → out-of-region → insufficient-balance.
+ *
+ * `out-of-region` vem **depois** de `same-player`/`already-rostered`: um
+ * jogador que mudou de liga pode continuar escalado (decisão 7 do plano —
+ * nunca vendemos ninguém sozinhos), então "já é seu"/"já escalado" são
+ * respostas mais verdadeiras que "fora da região" para ele.
  *
  * `market-closed` cobre os dois lados da troca: o mercado do campeonato de
  * quem entra e o do campeonato de quem sai. Basta um deles ter fechado hoje.
@@ -84,6 +99,7 @@ export function evaluateSubstitution(
     if (!incoming.active) return "player-inactive";
     if (ctx.outgoing && incoming.id === ctx.outgoing.id) return "same-player";
     if (ctx.rosteredPlayerIds.includes(incoming.id)) return "already-rostered";
+    if (!matchesScope(ctx.scope, incoming)) return "out-of-region";
     // Fronteira exata: gastar o saldo todo é permitido.
     if (netCostCents > ctx.balanceCents) return "insufficient-balance";
     return null;
@@ -108,7 +124,8 @@ export type SaleVerdict = {
 /**
  * Vender `outgoing` sem contratar ninguém no lugar: a vaga fica vazia e o
  * preço cheio do jogador é creditado no saldo. Único bloqueio possível é o
- * mercado fechado — vender não tem função exigida nem checagem de saldo
+ * mercado fechado — vender não tem função exigida, não olha região (decisão
+ * 7: um jogador fora de região continua vendível) nem checagem de saldo
  * (é sempre crédito, nunca custo).
  */
 export function evaluateSale(
@@ -149,6 +166,8 @@ export function blockReasonMessage(reason: BlockReason): string {
       return "Este jogador já ocupa essa vaga.";
     case "already-rostered":
       return "Este jogador já está no seu time.";
+    case "out-of-region":
+      return "Este jogador não atua na região deste time.";
     case "insufficient-balance":
       return "Saldo insuficiente para esta contratação.";
   }

@@ -1,9 +1,12 @@
 import type { Crest } from "@/lib/crest/types";
+import type { TeamRegion } from "@/lib/round/regions";
 
 export type ChampionshipSummary = {
   id: string;
   name: string;
   ownerId: string;
+  /** A classificação junta só o time desta região de cada membro. */
+  region: TeamRegion;
   memberCount: number;
 };
 

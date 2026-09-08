@@ -16,6 +16,7 @@ const player: Player = {
   active: true,
   availability: "available",
   availabilityNote: null,
+  region: "americas",
 };
 
 describe("PlayerRow", () => {
@@ -171,6 +172,41 @@ describe("PlayerRow", () => {
     expect(
       screen.queryByRole("button", { name: /vender/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it("sem warning, o selo de fora do escopo não aparece", () => {
+    render(
+      <ul>
+        <PlayerRow player={player} />
+      </ul>,
+    );
+
+    expect(
+      screen.queryByText(/joga em|fora do internacional/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("com warning 'out-of-region', mostra o selo com a região atual", () => {
+    render(
+      <ul>
+        <PlayerRow
+          player={player}
+          warning={{ kind: "out-of-region", region: "emea" }}
+        />
+      </ul>,
+    );
+
+    expect(screen.getByText("Joga em EMEA")).toBeInTheDocument();
+  });
+
+  it("com warning 'not-qualified', mostra o selo do internacional", () => {
+    render(
+      <ul>
+        <PlayerRow player={player} warning={{ kind: "not-qualified" }} />
+      </ul>,
+    );
+
+    expect(screen.getByText("Fora do internacional")).toBeInTheDocument();
   });
 
   it("com onSell, o botão Vender aparece e chama onSell ao clicar, sem disparar onSelect", async () => {

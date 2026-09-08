@@ -20,6 +20,83 @@ export const EVENT_REGIONS = [
 export type EventRegion = (typeof EVENT_REGIONS)[number];
 
 /**
+ * As cinco escalações de "um time por região" (`.claude/plans/10-time-por-regiao.md`).
+ * `"other"` não é time: é o limbo de quem não jogou liga nenhuma, e nunca
+ * aparece aqui — todo `fantasy_team` tem uma dessas cinco.
+ */
+export const TEAM_REGIONS = [
+  "americas",
+  "emea",
+  "pacific",
+  "china",
+  "international",
+] as const;
+
+export type TeamRegion = (typeof TEAM_REGIONS)[number];
+
+/** As quatro ligas regionais — o subconjunto de `TEAM_REGIONS` sem o internacional. */
+export const LEAGUE_REGIONS = ["americas", "emea", "pacific", "china"] as const;
+
+export type LeagueRegion = (typeof LEAGUE_REGIONS)[number];
+
+/**
+ * A região de um **jogador** (`player.region`). Nunca `"international"` —
+ * Masters e Champions não mudam a liga de ninguém (decisão 1 do plano). É
+ * `LEAGUE_REGIONS` mais o terminal da cascata de resolução.
+ */
+export const PLAYER_REGIONS = [...LEAGUE_REGIONS, "other"] as const;
+
+export type PlayerRegion = (typeof PLAYER_REGIONS)[number];
+
+/** A região do primeiro time de todo usuário novo — `ensureFantasyTeam`. */
+export const DEFAULT_TEAM_REGION: TeamRegion = "americas";
+
+/** Uma aparição em evento é "de liga" — a que conta para a região de um jogador? */
+export function isLeagueRegion(region: EventRegion): region is LeagueRegion {
+  return (LEAGUE_REGIONS as readonly EventRegion[]).includes(region);
+}
+
+/**
+ * `"americas"` → `"americas"`; lixo de `?region=` (`"xyz"`, `null`,
+ * `undefined`, array) → `null`. Único portão de entrada de uma string não
+ * confiável (query string, cookie) para `TeamRegion` — proxy e páginas usam
+ * esta função, nunca um cast direto.
+ */
+export function parseTeamRegion(value: unknown): TeamRegion | null {
+  if (typeof value !== "string") return null;
+  return (TEAM_REGIONS as readonly string[]).includes(value)
+    ? (value as TeamRegion)
+    : null;
+}
+
+/**
+ * Estreita o `event_region` **confiável** de uma linha do banco
+ * (`fantasy_team.region`, `championship.region`) para `TeamRegion` — a
+ * CHECK `..._region_is_team` garante em nível de banco que nunca é
+ * `"other"`. Lança se essa garantia for violada (bug de schema, não entrada
+ * do usuário) — diferente de `parseTeamRegion`, que trata entrada não
+ * confiável e devolve `null`.
+ */
+export function toTeamRegion(region: EventRegion): TeamRegion {
+  if (region === "other") {
+    throw new Error(`Região de time inválida: "${region}".`);
+  }
+  return region;
+}
+
+/**
+ * Estreita o `event_region` **confiável** de uma linha do banco
+ * (`player.region`) para `PlayerRegion` — a CHECK `player_region_not_international`
+ * garante que nunca é `"international"`.
+ */
+export function toPlayerRegion(region: EventRegion): PlayerRegion {
+  if (region === "international") {
+    throw new Error(`Região de jogador inválida: "${region}".`);
+  }
+  return region;
+}
+
+/**
  * A tabela como **dado**, avaliada de cima para baixo. A ordem importa: um
  * "Masters Toronto" não pode casar com `americas` só porque acontece no Canadá
  * — o que define a região de um evento é a liga que ele reúne, não a cidade.

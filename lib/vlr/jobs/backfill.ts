@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { player } from "@/db/schema";
 import { logInfo, logWarn } from "@/lib/vlr/http/log";
 import { refreshPlayerAggregates } from "@/lib/vlr/jobs/calculate-round";
+import { syncPlayerRegions } from "@/lib/vlr/jobs/sync-player-regions";
 import { syncResults } from "@/lib/vlr/jobs/sync-results";
 import { workQueue } from "@/lib/vlr/jobs/work";
 
@@ -32,6 +33,10 @@ export async function backfill(options: { pages?: number } = {}): Promise<{
   const work = await workQueue({ limit: results.enqueued });
 
   const aggregates = await db.transaction((tx) => refreshPlayerAggregates(tx));
+  // Depois dos agregados: o catálogo inteiro tem partida extraída agora, e
+  // esta é a chance de resolver a região de todo mundo de uma vez —
+  // `.claude/plans/10-time-por-regiao.md`.
+  await syncPlayerRegions();
   const needsReview = await countNeedsReview();
 
   if (needsReview > 0) {

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, lte, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lte, ne, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -11,6 +11,15 @@ import {
   roundTeamResult,
   vlrEvent,
 } from "@/db/schema";
+import {
+  INTERNATIONAL_LOOKAHEAD_DAYS,
+  INTERNATIONAL_LOOKBACK_DAYS,
+} from "@/lib/round/international";
+import {
+  eventRegion,
+  isLeagueRegion,
+  type LeagueRegion,
+} from "@/lib/round/regions";
 import type {
   LiveRoundScore,
   PriceMover,
@@ -298,6 +307,147 @@ export async function listMarketLockMatches(
 ): Promise<RoundMatch[]> {
   const from = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const to = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  return q
+    .select({
+      id: match.id,
+      teamA: match.teamA,
+      teamB: match.teamB,
+      event: match.event,
+      scheduledAt: match.scheduledAt,
+      status: match.status,
+      scoreA: match.scoreA,
+      scoreB: match.scoreB,
+      regionCode: vlrEvent.region,
+    })
+    .from(match)
+    .innerJoin(vlrEvent, eq(vlrEvent.id, match.eventId))
+    .where(
+      and(
+        eq(vlrEvent.tracked, true),
+        gte(match.scheduledAt, from),
+        lte(match.scheduledAt, to),
+      ),
+    )
+    .orderBy(asc(match.scheduledAt));
+}
+
+// --- Leituras da região do jogador (`.claude/plans/10-time-por-regiao.md`) ---
+// `eventRegion` é regex em TS, então o recorte de região nunca vai para o
+// `WHERE` — as três funções abaixo trazem `event` + `vlrEvent.region` crus, e
+// quem filtra por liga é `lib/player/region.ts`, no chamador.
+
+/**
+ * Uma linha por (jogador, partida de liga) — a matéria-prima da cascata de
+ * região (`resolvePlayerRegion`). Só entram aparições cuja região é uma das
+ * quatro ligas (`isLeagueRegion`) — um Masters ou um campeonato não
+ * reconhecido nunca decide a região de ninguém aqui.
+ */
+export async function listPlayerLeagueAppearances(
+  q: Querier = db,
+): Promise<{ playerId: string; region: LeagueRegion; at: Date }[]> {
+  const rows = await q
+    .selectDistinct({
+      playerId: playerMatchStat.playerId,
+      event: match.event,
+      regionCode: vlrEvent.region,
+      scheduledAt: match.scheduledAt,
+    })
+    .from(playerMatchStat)
+    .innerJoin(match, eq(match.id, playerMatchStat.matchId))
+    .innerJoin(vlrEvent, eq(vlrEvent.id, match.eventId))
+    .where(eq(vlrEvent.tracked, true));
+
+  const appearances: { playerId: string; region: LeagueRegion; at: Date }[] =
+    [];
+  for (const row of rows) {
+    const region = eventRegion(row.event, row.regionCode);
+    if (isLeagueRegion(region)) {
+      appearances.push({ playerId: row.playerId, region, at: row.scheduledAt });
+    }
+  }
+  return appearances;
+}
+
+/**
+ * Toda partida de evento seguido, com as duas organizações — o degrau 2 da
+ * cascata (`organizationRegions`, lib/player/region.ts): a liga de uma
+ * organização, para quem chega sem histórico próprio.
+ */
+export async function listOrganizationMatches(
+  q: Querier = db,
+): Promise<
+  {
+    teamA: string;
+    teamB: string;
+    event: string;
+    regionCode: string | null;
+    scheduledAt: Date;
+  }[]
+> {
+  return q
+    .select({
+      teamA: match.teamA,
+      teamB: match.teamB,
+      event: match.event,
+      regionCode: vlrEvent.region,
+      scheduledAt: match.scheduledAt,
+    })
+    .from(match)
+    .innerJoin(vlrEvent, eq(vlrEvent.id, match.eventId));
+}
+
+/**
+ * A liga de uma única organização — a partida de liga mais recente dela, dos
+ * dois lados. Versão pontual de `listOrganizationMatches`, usada no scrape de
+ * uma partida internacional para resolver a região provisória de quem chega
+ * sem histórico (`applyMatchPlayerRegions`, lib/vlr/persist/player-regions.ts).
+ * `null` sem nenhuma partida de liga conhecida para essa organização.
+ */
+export async function organizationLeague(
+  organization: string,
+  q: Querier = db,
+): Promise<LeagueRegion | null> {
+  const rows = await q
+    .select({
+      event: match.event,
+      regionCode: vlrEvent.region,
+      scheduledAt: match.scheduledAt,
+    })
+    .from(match)
+    .innerJoin(vlrEvent, eq(vlrEvent.id, match.eventId))
+    .where(
+      and(
+        eq(vlrEvent.tracked, true),
+        or(eq(match.teamA, organization), eq(match.teamB, organization)),
+      ),
+    )
+    .orderBy(desc(match.scheduledAt));
+
+  for (const row of rows) {
+    const region = eventRegion(row.event, row.regionCode);
+    if (isLeagueRegion(region)) return region;
+  }
+  return null;
+}
+
+/**
+ * As partidas da janela do time Internacional (`hasInternationalEvent`,
+ * `qualifiedOrganizations` — lib/round/international.ts): um pouco mais para
+ * trás e mais para frente que a janela de trava do mercado
+ * (`listMarketLockMatches`), porque aqui a pergunta não é "o que tranca hoje"
+ * e sim "existe torneio internacional para esta aba existir".
+ */
+export async function listInternationalWindowMatches(
+  now: Date = new Date(),
+  q: Querier = db,
+): Promise<RoundMatch[]> {
+  const from = new Date(
+    now.getTime() - INTERNATIONAL_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
+  );
+  const to = new Date(
+    now.getTime() + INTERNATIONAL_LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000,
+  );
 
   return q
     .select({

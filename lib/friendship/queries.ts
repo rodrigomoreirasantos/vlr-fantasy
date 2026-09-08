@@ -1,7 +1,7 @@
 import { and, asc, eq, ne, or } from "drizzle-orm";
 
 import { db } from "@/db";
-import { fantasyTeam, friendship, user } from "@/db/schema";
+import { fantasyIdentity, friendship, user } from "@/db/schema";
 import { parseCrest } from "@/lib/crest/crest";
 import type { CanonicalPair } from "@/lib/friendship/pair";
 import type { Friend, IncomingFriendRequest } from "@/lib/friendship/types";
@@ -38,11 +38,12 @@ function toFriend(row: FriendRow): Friend {
 }
 
 /**
- * Amigos aceitos do usuário, com o time (nome + brasão) do outro lado já
- * resolvido. Duas consultas, uma para cada lado do par (`userAId`/`userBId`)
- * — um `JOIN ... ON CASE WHEN` resolveria numa query só, mas exigiria `sql`
- * cru, proibido pelo CLAUDE.md fora de migrations. Concatena e ordena por
- * nome (pt-BR) em JS.
+ * Amigos aceitos do usuário, com a identidade (nome + brasão, uma por
+ * usuário desde "um time por região" — `.claude/plans/10-time-por-regiao.md`)
+ * do outro lado já resolvida. Duas consultas, uma para cada lado do par
+ * (`userAId`/`userBId`) — um `JOIN ... ON CASE WHEN` resolveria numa query
+ * só, mas exigiria `sql` cru, proibido pelo CLAUDE.md fora de migrations.
+ * Concatena e ordena por nome (pt-BR) em JS.
  */
 export async function listFriends(userId: string): Promise<Friend[]> {
   const columns = {
@@ -50,12 +51,12 @@ export async function listFriends(userId: string): Promise<Friend[]> {
     userId: user.id,
     userName: user.name,
     username: user.username,
-    teamName: fantasyTeam.name,
-    crestShape: fantasyTeam.crestShape,
-    crestSymbol: fantasyTeam.crestSymbol,
-    crestBg: fantasyTeam.crestBg,
-    crestFg: fantasyTeam.crestFg,
-    crestBorder: fantasyTeam.crestBorder,
+    teamName: fantasyIdentity.name,
+    crestShape: fantasyIdentity.crestShape,
+    crestSymbol: fantasyIdentity.crestSymbol,
+    crestBg: fantasyIdentity.crestBg,
+    crestFg: fantasyIdentity.crestFg,
+    crestBorder: fantasyIdentity.crestBorder,
   };
 
   const [asUserA, asUserB] = await Promise.all([
@@ -63,7 +64,7 @@ export async function listFriends(userId: string): Promise<Friend[]> {
       .select(columns)
       .from(friendship)
       .innerJoin(user, eq(user.id, friendship.userBId))
-      .leftJoin(fantasyTeam, eq(fantasyTeam.userId, user.id))
+      .leftJoin(fantasyIdentity, eq(fantasyIdentity.userId, user.id))
       .where(
         and(eq(friendship.userAId, userId), eq(friendship.status, "accepted")),
       ),
@@ -71,7 +72,7 @@ export async function listFriends(userId: string): Promise<Friend[]> {
       .select(columns)
       .from(friendship)
       .innerJoin(user, eq(user.id, friendship.userAId))
-      .leftJoin(fantasyTeam, eq(fantasyTeam.userId, user.id))
+      .leftJoin(fantasyIdentity, eq(fantasyIdentity.userId, user.id))
       .where(
         and(eq(friendship.userBId, userId), eq(friendship.status, "accepted")),
       ),

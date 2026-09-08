@@ -21,7 +21,7 @@ import type {
   RoundRecap,
 } from "@/lib/home/types";
 import { listRosterPerformances } from "@/lib/player/queries";
-import type { EventRegion } from "@/lib/round/regions";
+import type { EventRegion, TeamRegion } from "@/lib/round/regions";
 import { eventRegion } from "@/lib/round/regions";
 import {
   getLatestFinishedRound,
@@ -215,6 +215,7 @@ async function buildHighlights(
 export async function getHomeSummary(
   userId: string,
   userName: string,
+  region: TeamRegion,
 ): Promise<HomeSummary> {
   const [
     overview,
@@ -225,7 +226,7 @@ export async function getHomeSummary(
     upcomingMatches,
     lockMatches,
   ] = await Promise.all([
-    getTeamOverview(userId, userName),
+    getTeamOverview(userId, userName, region),
     listPendingInvites(userId),
     listUserChampionships(userId),
     getLatestFinishedRound(),

@@ -9,6 +9,7 @@ function slot(nickname: string, score: number, captain = false): RosterSlot {
   return {
     id: nickname.toLowerCase(),
     captain,
+    warning: null,
     player: {
       id: nickname.toLowerCase(),
       nickname,
@@ -20,6 +21,7 @@ function slot(nickname: string, score: number, captain = false): RosterSlot {
       active: true,
       availability: "available",
       availabilityNote: null,
+      region: "emea",
     },
   };
 }
@@ -48,7 +50,7 @@ describe("FormationBoard", () => {
     render(
       <FormationBoard
         roster={[
-          { id: null, player: null, captain: false },
+          { id: null, player: null, captain: false, warning: null },
           slot("TenZ", 18.2),
         ]}
       />,
@@ -101,7 +103,7 @@ describe("FormationBoard", () => {
     const onSelect = vi.fn();
     render(
       <FormationBoard
-        roster={[{ id: null, player: null, captain: false }]}
+        roster={[{ id: null, player: null, captain: false, warning: null }]}
         onSelect={onSelect}
       />,
     );

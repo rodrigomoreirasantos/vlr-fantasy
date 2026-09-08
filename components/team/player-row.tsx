@@ -1,7 +1,9 @@
 import { HandCoins, Plus } from "lucide-react";
 
 import { PlayerScore } from "@/components/team/player-score";
+import { PlayerWarningBadge } from "@/components/team/player-warning-badge";
 import { Button } from "@/components/ui/button";
+import type { SlotWarning } from "@/lib/market/scope";
 import type { Player } from "@/lib/team/types";
 import { cn } from "@/lib/utils";
 
@@ -123,6 +125,15 @@ export type PlayerIdentityProps = {
    * e `components/home/price-mover-list.tsx`.
    */
   trailing?: React.ReactNode;
+  /**
+   * O selo de "fora do escopo" (`PlayerWarningBadge`), numa linha própria
+   * abaixo de organização + função — onde "onde ele joga" já vive. Numa vaga
+   * estreita, org + função + selo não cabem juntos numa linha só sem
+   * empurrar o resto da linha (placar, botão "Vender"); separado, cada linha
+   * trunca sozinha, sem disputar espaço com as outras. Só `PlayerRow` passa
+   * algo aqui; `MarketPlayerRow` e `PriceMoverList` seguem sem badge.
+   */
+  badge?: React.ReactNode;
 };
 
 /**
@@ -141,7 +152,11 @@ export type PlayerIdentityProps = {
  * mancha solta atrás do nome do time, não como um rótulo. Clarear em vez de
  * escurecer garante contraste com qualquer superfície escura por trás.
  */
-export function PlayerIdentity({ player, trailing }: PlayerIdentityProps) {
+export function PlayerIdentity({
+  player,
+  trailing,
+  badge,
+}: PlayerIdentityProps) {
   return (
     <>
       <div className="min-w-0 flex-1">
@@ -156,6 +171,7 @@ export function PlayerIdentity({ player, trailing }: PlayerIdentityProps) {
             {player.role}
           </span>
         </p>
+        {badge && <div className="mt-[3px] min-w-0">{badge}</div>}
       </div>
 
       {trailing ?? (
@@ -184,6 +200,8 @@ export type PlayerRowProps = {
    * escondida atrás do painel de substituição.
    */
   onSell?: () => void;
+  /** O jogador saiu do escopo do time (mudou de liga, ou não está mais classificado). `null`/omitido quando está em casa. */
+  warning?: SlotWarning | null;
 };
 
 /**
@@ -201,8 +219,14 @@ export function PlayerRow({
   selected = false,
   onSetCaptain,
   onSell,
+  warning,
 }: PlayerRowProps) {
-  const identity = <PlayerIdentity player={player} />;
+  const identity = (
+    <PlayerIdentity
+      player={player}
+      badge={warning ? <PlayerWarningBadge warning={warning} /> : undefined}
+    />
+  );
 
   return (
     <li

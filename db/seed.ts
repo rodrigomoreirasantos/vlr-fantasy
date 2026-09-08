@@ -1,7 +1,7 @@
 import "dotenv/config";
 
 import dayjs from "dayjs";
-import { count, eq, isNull } from "drizzle-orm";
+import { and, count, eq, isNull } from "drizzle-orm";
 
 import { db, pool } from "@/db";
 import { closeActiveRound } from "@/db/close-round";
@@ -14,6 +14,7 @@ import {
   user,
 } from "@/db/schema";
 import { assignUniqueUsername } from "@/lib/auth/username";
+import type { LeagueRegion } from "@/lib/round/regions";
 import { ensureFantasyTeam } from "@/lib/team/queries";
 import type { PlayerAvailability, PlayerRole } from "@/lib/team/types";
 
@@ -30,12 +31,20 @@ import type { PlayerAvailability, PlayerRole } from "@/lib/team/types";
  * da Home (`lib/home/summary.ts`) aparecerem de verdade num ambiente de
  * desenvolvimento novo. `TenZ` e `Sacy` estão no `REFERENCE_ROSTER` abaixo,
  * então o alerta já aparece na escalação de qualquer conta nova.
+ *
+ * **`region`**: a liga de cada jogador (`.claude/plans/10-time-por-regiao.md`)
+ * — em produção ela nasce do scrap (`lib/vlr/persist/player-regions.ts`),
+ * mas o seed não tem partidas de liga para derivá-la, então é atribuída à
+ * mão, coerente com o `team` de cada um e com `MATCH_PAIRINGS` abaixo. Pelo
+ * menos 5 jogadores por liga — o mínimo para cada uma das 5 abas de
+ * escalação nascer montável num ambiente de desenvolvimento novo.
  */
 const PLAYERS: {
   nickname: string;
   team: string;
   agent: string;
   role: PlayerRole;
+  region: LeagueRegion;
   priceCents: number;
   score: number;
   availability?: PlayerAvailability;
@@ -47,6 +56,7 @@ const PLAYERS: {
     team: "SENTINELS",
     agent: "Jett",
     role: "Duelista",
+    region: "americas",
     priceCents: 18000,
     score: 18.2,
     availability: "injured",
@@ -57,6 +67,7 @@ const PLAYERS: {
     team: "FNATIC",
     agent: "Raze",
     role: "Duelista",
+    region: "emea",
     priceCents: 21000,
     score: 15.8,
   },
@@ -65,14 +76,16 @@ const PLAYERS: {
     team: "Team Liquid",
     agent: "Reyna",
     role: "Duelista",
+    region: "emea",
     priceCents: 9000,
     score: 11.5,
   },
   {
     nickname: "yay",
-    team: "SENTINELS",
+    team: "EDward Gaming",
     agent: "Neon",
     role: "Duelista",
+    region: "china",
     priceCents: 24500,
     score: 13.7,
   },
@@ -81,6 +94,7 @@ const PLAYERS: {
     team: "LEVIATÁN",
     agent: "Iso",
     role: "Duelista",
+    region: "americas",
     priceCents: 26000,
     score: 20.1,
   },
@@ -89,6 +103,7 @@ const PLAYERS: {
     team: "NRG",
     agent: "Yoru",
     role: "Duelista",
+    region: "americas",
     priceCents: 48000,
     score: 22.9,
   },
@@ -99,6 +114,7 @@ const PLAYERS: {
     team: "LOUD",
     agent: "Skye",
     role: "Iniciador",
+    region: "americas",
     priceCents: 12000,
     score: 9.4,
     availability: "bench",
@@ -109,14 +125,16 @@ const PLAYERS: {
     team: "DRX",
     agent: "Fade",
     role: "Iniciador",
+    region: "pacific",
     priceCents: 8000,
     score: 7.2,
   },
   {
     nickname: "Trent",
-    team: "100 Thieves",
+    team: "Bilibili Gaming",
     agent: "Breach",
     role: "Iniciador",
+    region: "china",
     priceCents: 6000,
     score: 5.8,
   },
@@ -125,6 +143,7 @@ const PLAYERS: {
     team: "DRX",
     agent: "KAY/O",
     role: "Iniciador",
+    region: "pacific",
     priceCents: 15500,
     score: 12.9,
   },
@@ -133,6 +152,7 @@ const PLAYERS: {
     team: "SENTINELS",
     agent: "Sova",
     role: "Iniciador",
+    region: "americas",
     priceCents: 40000,
     score: 19.6,
   },
@@ -141,6 +161,7 @@ const PLAYERS: {
     team: "Evil Geniuses",
     agent: "Gekko",
     role: "Iniciador",
+    region: "americas",
     priceCents: 5000,
     score: 4.3,
   },
@@ -151,6 +172,7 @@ const PLAYERS: {
     team: "FNATIC",
     agent: "Astra",
     role: "Controlador",
+    region: "emea",
     priceCents: 14000,
     score: 24.6,
   },
@@ -159,22 +181,25 @@ const PLAYERS: {
     team: "Cloud9",
     agent: "Omen",
     role: "Controlador",
+    region: "americas",
     priceCents: 9500,
     score: 9.1,
   },
   {
     nickname: "Marved",
-    team: "100 Thieves",
+    team: "Trace Esports",
     agent: "Viper",
     role: "Controlador",
+    region: "china",
     priceCents: 7000,
     score: 6.4,
   },
   {
     nickname: "Crashies",
-    team: "NRG",
+    team: "Gen.G",
     agent: "Harbor",
     role: "Controlador",
+    region: "pacific",
     priceCents: 13000,
     score: 10.2,
   },
@@ -183,6 +208,7 @@ const PLAYERS: {
     team: "FNATIC",
     agent: "Clove",
     role: "Controlador",
+    region: "emea",
     priceCents: 11000,
     score: 8.0,
     availability: "injured",
@@ -193,6 +219,7 @@ const PLAYERS: {
     team: "Team Heretics",
     agent: "Astra",
     role: "Controlador",
+    region: "emea",
     priceCents: 42000,
     score: 21.3,
     availability: "eliminated",
@@ -205,6 +232,7 @@ const PLAYERS: {
     team: "FNATIC",
     agent: "Cypher",
     role: "Sentinela",
+    region: "emea",
     priceCents: 10000,
     score: 6.1,
   },
@@ -213,6 +241,7 @@ const PLAYERS: {
     team: "SENTINELS",
     agent: "Killjoy",
     role: "Sentinela",
+    region: "americas",
     priceCents: 7000,
     score: 5.0,
     availability: "bench",
@@ -222,14 +251,16 @@ const PLAYERS: {
     team: "DRX",
     agent: "Sage",
     role: "Sentinela",
+    region: "pacific",
     priceCents: 6000,
     score: 4.8,
   },
   {
     nickname: "Munchables",
-    team: "Cloud9",
+    team: "Dragon Ranger Gaming",
     agent: "Chamber",
     role: "Sentinela",
+    region: "china",
     priceCents: 12500,
     score: 9.9,
     availability: "eliminated",
@@ -237,9 +268,10 @@ const PLAYERS: {
   },
   {
     nickname: "Kanpeki",
-    team: "Evil Geniuses",
+    team: "Titan Esports Club",
     agent: "Deadlock",
     role: "Sentinela",
+    region: "china",
     priceCents: 5000,
     score: 3.9,
   },
@@ -248,18 +280,24 @@ const PLAYERS: {
     team: "Gen.G",
     agent: "Vyse",
     role: "Sentinela",
+    region: "pacific",
     priceCents: 45000,
     score: 18.4,
   },
 ];
 
-/** Roster de referência: quem ocupa cada uma das cinco vagas no seed. */
+/**
+ * Roster de referência: quem ocupa cada uma das cinco vagas do time
+ * Americas no seed. Todo Americas de propósito (`.claude/plans/10-time-por-regiao.md`):
+ * é o único time que `seedExistingUsersTeams` preenche, e ele precisa ser um
+ * elenco válido para essa região.
+ */
 const REFERENCE_ROSTER: { nickname: string; captain: boolean }[] = [
-  { nickname: "Boaster", captain: true },
-  { nickname: "TenZ", captain: false },
-  { nickname: "Derke", captain: false },
+  { nickname: "TenZ", captain: true },
+  { nickname: "Demon1", captain: false },
   { nickname: "Sacy", captain: false },
-  { nickname: "Chronicle", captain: false },
+  { nickname: "Xeppaa", captain: false },
+  { nickname: "Zellsis", captain: false },
 ];
 
 async function seedPlayers() {
@@ -338,6 +376,7 @@ const MATCH_PAIRINGS: { teamA: string; teamB: string; event: string }[] = [
   { teamA: "FNATIC", teamB: "Team Liquid", event: "VCT EMEA" },
   { teamA: "Team Heretics", teamB: "FNATIC", event: "VCT EMEA" },
   { teamA: "DRX", teamB: "Gen.G", event: "VCT Pacific" },
+  { teamA: "EDward Gaming", teamB: "Bilibili Gaming", event: "VCT China" },
 ];
 
 /** Um horário por partida, espaçado uniformemente dentro da janela da rodada. */
@@ -455,10 +494,11 @@ async function restoreCatalogScores() {
 }
 
 /**
- * Para quem já tinha conta antes de o mercado existir: garante o time e, se
- * a escalação estiver totalmente vazia, preenche com o roster de referência
- * — só assim `/my-team` fica reconhecível sem passar pelo fluxo de
- * substituição (preencher vaga vazia está fora de escopo do produto).
+ * Para quem já tinha conta antes de o mercado existir: garante os 5 times
+ * (`ensureFantasyTeam`) e, se a escalação **do time Americas** estiver
+ * totalmente vazia, preenche com o roster de referência — só assim
+ * `/my-team?region=americas` fica reconhecível sem passar pelo fluxo de
+ * substituição. Os outros 4 times nascem vazios, como qualquer conta nova.
  */
 async function seedExistingUsersTeams() {
   const users = await db
@@ -483,7 +523,10 @@ async function seedExistingUsersTeams() {
     await ensureFantasyTeam(u.id, u.username ?? u.name);
 
     const team = await db.query.fantasyTeam.findFirst({
-      where: eq(fantasyTeam.userId, u.id),
+      where: and(
+        eq(fantasyTeam.userId, u.id),
+        eq(fantasyTeam.region, "americas"),
+      ),
       with: { slots: true },
     });
     if (!team) continue;

@@ -18,6 +18,7 @@
     "vlr:work": "tsx scripts/vlr/work.ts",
     "vlr:round": "tsx scripts/vlr/round.ts",
     "vlr:backfill": "tsx scripts/vlr/backfill.ts",
+    "vlr:regions": "tsx scripts/vlr/regions.ts",
     "vlr:reprocess": "tsx scripts/vlr/reprocess.ts",
     "vlr:doctor": "tsx scripts/vlr/doctor.ts",
     "test": "vitest run",

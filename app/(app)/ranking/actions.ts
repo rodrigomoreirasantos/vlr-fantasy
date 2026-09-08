@@ -32,6 +32,7 @@ export const createChampionship = authActionClient
       insertChampionshipWithOwner(tx, {
         name: parsedInput.name,
         ownerId: ctx.userId,
+        region: parsedInput.region,
       }),
     );
 

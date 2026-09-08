@@ -10,6 +10,7 @@ import {
 } from "@/lib/market/eligibility";
 import { isTeamLocked, lockedOrganizations } from "@/lib/market/lock";
 import { listMarketLockMatches } from "@/lib/round/queries";
+import { toTeamRegion } from "@/lib/round/regions";
 import { ActionError, authActionClient } from "@/lib/safe-action";
 import { toDomainPlayer } from "@/lib/team/mappers";
 import {
@@ -20,7 +21,8 @@ import {
   loadPlayersByIds,
   loadRosteredPlayerIds,
   lockSlotForUpdate,
-  lockTeamForUpdate,
+  lockTeamForSlot,
+  resolveMarketScope,
   setTeamCaptain,
 } from "@/lib/team/queries";
 import {
@@ -45,8 +47,10 @@ export const substitutePlayer = authActionClient
 
     await db.transaction(async (tx) => {
       // Ordem de lock sempre time → vaga, para não deadlockar com outra
-      // substituição concorrente do mesmo usuário.
-      const team = await lockTeamForUpdate(tx, ctx.userId);
+      // substituição concorrente do mesmo usuário. A região do time sai do
+      // banco, nunca do cliente — `lockTeamForSlot` já garante que `slotId`
+      // pertence a um dos 5 times do usuário.
+      const team = await lockTeamForSlot(tx, ctx.userId, slotId);
       if (!team) {
         throw new ActionError("Não encontramos seu time. Recarregue a página.");
       }
@@ -58,6 +62,7 @@ export const substitutePlayer = authActionClient
       const lockedTeams = lockedOrganizations(
         await listMarketLockMatches(new Date(), tx),
       );
+      const scope = await resolveMarketScope(toTeamRegion(team.region));
 
       const slot = await lockSlotForUpdate(tx, team.id, slotId);
       if (!slot || slot.playerId !== outgoingPlayerId) {
@@ -89,6 +94,7 @@ export const substitutePlayer = authActionClient
           balanceCents: team.balanceCents,
           outgoing: outgoing ? toDomainPlayer(outgoing) : null,
           rosteredPlayerIds,
+          scope,
         },
         toDomainPlayer(incoming),
       );
@@ -138,7 +144,7 @@ export const sellPlayer = authActionClient
     const { slotId, outgoingPlayerId } = parsedInput;
 
     await db.transaction(async (tx) => {
-      const team = await lockTeamForUpdate(tx, ctx.userId);
+      const team = await lockTeamForSlot(tx, ctx.userId, slotId);
       if (!team) {
         throw new ActionError("Não encontramos seu time. Recarregue a página.");
       }
@@ -201,7 +207,7 @@ export const setCaptain = authActionClient
     const { slotId } = parsedInput;
 
     await db.transaction(async (tx) => {
-      const team = await lockTeamForUpdate(tx, ctx.userId);
+      const team = await lockTeamForSlot(tx, ctx.userId, slotId);
       if (!team) {
         throw new ActionError("Não encontramos seu time. Recarregue a página.");
       }

@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   eventRegion,
+  isLeagueRegion,
+  parseTeamRegion,
   regionColor,
   regionFilterOptions,
   regionLabel,
@@ -112,5 +114,34 @@ describe("regionFilterOptions", () => {
 
   it("calendário vazio não oferece filtro nenhum", () => {
     expect(regionFilterOptions([])).toEqual([]);
+  });
+});
+
+describe("isLeagueRegion", () => {
+  it("as quatro ligas são de liga", () => {
+    expect(isLeagueRegion("americas")).toBe(true);
+    expect(isLeagueRegion("emea")).toBe(true);
+    expect(isLeagueRegion("pacific")).toBe(true);
+    expect(isLeagueRegion("china")).toBe(true);
+  });
+
+  it("internacional e outros não são", () => {
+    expect(isLeagueRegion("international")).toBe(false);
+    expect(isLeagueRegion("other")).toBe(false);
+  });
+});
+
+describe("parseTeamRegion", () => {
+  it("aceita as cinco regiões de time", () => {
+    expect(parseTeamRegion("americas")).toBe("americas");
+    expect(parseTeamRegion("international")).toBe("international");
+  });
+
+  it("rejeita lixo do ?region=: string desconhecida, null, undefined, array", () => {
+    expect(parseTeamRegion("xyz")).toBeNull();
+    expect(parseTeamRegion("other")).toBeNull(); // "other" não é TeamRegion
+    expect(parseTeamRegion(null)).toBeNull();
+    expect(parseTeamRegion(undefined)).toBeNull();
+    expect(parseTeamRegion(["americas"])).toBeNull();
   });
 });

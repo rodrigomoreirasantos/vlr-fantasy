@@ -105,7 +105,7 @@ describe("getHomeSummary — a fiação do portão de destaques", () => {
     // e mesmo assim os destaques dela têm que sair.
     mocks.listMarketLockMatches.mockResolvedValue([]);
 
-    const summary = await getHomeSummary("user-1", "Alfafa");
+    const summary = await getHomeSummary("user-1", "Alfafa", "americas");
 
     expect(summary.highlights?.pending).toEqual([]);
     expect(summary.highlights?.scorers.map((row) => row.nickname)).toEqual([
@@ -128,13 +128,13 @@ describe("getHomeSummary — a fiação do portão de destaques", () => {
       },
     ]);
 
-    const summary = await getHomeSummary("user-1", "Alfafa");
+    const summary = await getHomeSummary("user-1", "Alfafa", "americas");
 
     expect(summary.highlights?.pending).toEqual(["emea"]);
   });
 
   it("a região do pontuador vem do campeonato que ele disputou", async () => {
-    const summary = await getHomeSummary("user-1", "Alfafa");
+    const summary = await getHomeSummary("user-1", "Alfafa", "americas");
 
     expect(summary.highlights?.scorers[0]?.region).toBe("emea");
   });
@@ -142,13 +142,13 @@ describe("getHomeSummary — a fiação do portão de destaques", () => {
   it("pontuador sem partida extraída cai em 'other', não numa região inventada", async () => {
     mocks.getRoundPlayerEvents.mockResolvedValue(new Map());
 
-    const summary = await getHomeSummary("user-1", "Alfafa");
+    const summary = await getHomeSummary("user-1", "Alfafa", "americas");
 
     expect(summary.highlights?.scorers[0]?.region).toBe("other");
   });
 
   it("as partidas dos escalados são pedidas pelos ids da escalação", async () => {
-    await getHomeSummary("user-1", "Alfafa");
+    await getHomeSummary("user-1", "Alfafa", "americas");
 
     expect(mocks.listRosterPerformances).toHaveBeenCalledWith(["p1"]);
   });
@@ -156,7 +156,7 @@ describe("getHomeSummary — a fiação do portão de destaques", () => {
   it("sem rodada fechada nem rodada em curso, não há destaques", async () => {
     mocks.getLatestFinishedRound.mockResolvedValue(undefined);
 
-    const summary = await getHomeSummary("user-1", "Alfafa");
+    const summary = await getHomeSummary("user-1", "Alfafa", "americas");
 
     expect(summary.highlights).toBeNull();
     expect(summary.hasFinishedRound).toBe(false);

@@ -16,6 +16,7 @@ function makePlayer(overrides: Partial<Player> = {}): Player {
     active: true,
     availability: "available",
     availabilityNote: null,
+    region: "americas",
     ...overrides,
   };
 }
@@ -29,6 +30,7 @@ function makeContext(
     balanceCents: 10_000,
     outgoing: null,
     rosteredPlayerIds: [],
+    scope: { kind: "region", region: "americas" },
     ...overrides,
   };
 }

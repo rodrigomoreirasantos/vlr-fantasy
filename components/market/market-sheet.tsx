@@ -22,6 +22,7 @@ import {
 } from "@/lib/market/eligibility";
 import { formatCredits, formatCreditsDelta } from "@/lib/market/money";
 import { sortMarketCandidates } from "@/lib/market/ordering";
+import type { MarketScope } from "@/lib/market/scope";
 import { PLAYER_ROLES, type Player, type PlayerRole } from "@/lib/team/types";
 import { cn } from "@/lib/utils";
 
@@ -48,6 +49,8 @@ export type MarketSheetProps = {
   lockedTeams: readonly string[];
   closesIn: string;
   rosteredPlayerIds: readonly string[];
+  /** O escopo do time (região ou organizações classificadas) — quem entra tem de casar com ele. */
+  scope: MarketScope;
   onConfirm: (candidate: Player) => void;
   /** Ausente numa vaga vazia — não há ninguém para vender. */
   onSell?: (outgoing: Player) => void;
@@ -72,6 +75,7 @@ export function MarketSheet({
   lockedTeams,
   closesIn,
   rosteredPlayerIds,
+  scope,
   onConfirm,
   onSell,
   pending = false,
@@ -86,6 +90,7 @@ export function MarketSheet({
       balanceCents,
       outgoing,
       rosteredPlayerIds,
+      scope,
     };
   }, [
     selection,
@@ -94,6 +99,7 @@ export function MarketSheet({
     lockedTeams,
     balanceCents,
     rosteredPlayerIds,
+    scope,
   ]);
 
   const saleVerdict = useMemo(() => {

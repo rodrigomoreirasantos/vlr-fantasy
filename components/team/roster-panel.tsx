@@ -18,11 +18,14 @@ import {
   substitutePlayer,
 } from "@/app/(app)/my-team/actions";
 import { isTeamLocked } from "@/lib/market/lock";
+import type { MarketScope } from "@/lib/market/scope";
 import type { Player, PlayerRole, RosterSlot } from "@/lib/team/types";
 
 export type RosterPanelProps = {
   roster: RosterSlot[];
   market: Record<PlayerRole, Player[]>;
+  /** O escopo do time (região ou organizações classificadas) — repassado ao `MarketSheet`. */
+  scope: MarketScope;
   balanceCents: number;
   marketOpen: boolean;
   /** Organizações cujo mercado fechou hoje (`lockedOrganizations`). */
@@ -41,6 +44,7 @@ export type RosterPanelProps = {
 export function RosterPanel({
   roster,
   market,
+  scope,
   balanceCents,
   marketOpen,
   lockedTeams,
@@ -156,6 +160,7 @@ export function RosterPanel({
                   key={slot.player.id}
                   player={slot.player}
                   captain={slot.captain}
+                  warning={slot.warning}
                   selected={index === selectedIndex}
                   onSelect={
                     slotIsOpen(index) ? () => handleSelect(index) : undefined
@@ -200,6 +205,7 @@ export function RosterPanel({
         onOpenChange={handleOpenChange}
         selection={selection}
         market={market}
+        scope={scope}
         balanceCents={balanceCents}
         marketOpen={marketOpen}
         lockedTeams={lockedTeams}

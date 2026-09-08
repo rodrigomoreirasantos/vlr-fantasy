@@ -24,6 +24,7 @@ function renderHeader(
       crest={DEFAULT_CREST}
       points={78.5}
       userName="Rodrigo"
+      region="americas"
       {...overrides}
     />,
   );
@@ -100,5 +101,12 @@ describe("AppHeader", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("78.5")).toBeInTheDocument();
     expect(screen.getByText("Rodrigo")).toBeInTheDocument();
+  });
+
+  it("mostra a região do time exibido", () => {
+    usePathnameMock.mockReturnValue("/my-team");
+    renderHeader({ region: "emea" });
+
+    expect(screen.getByText("EMEA")).toBeInTheDocument();
   });
 });

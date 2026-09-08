@@ -9,7 +9,8 @@ const {
   txStub,
   getSessionMock,
   revalidatePathMock,
-  lockTeamForUpdateMock,
+  lockTeamForSlotMock,
+  resolveMarketScopeMock,
   getActiveRoundMock,
   lockSlotForUpdateMock,
   loadPlayersByIdsMock,
@@ -29,7 +30,8 @@ const {
     txStub,
     getSessionMock: vi.fn(),
     revalidatePathMock: vi.fn(),
-    lockTeamForUpdateMock: vi.fn(),
+    lockTeamForSlotMock: vi.fn(),
+    resolveMarketScopeMock: vi.fn(),
     getActiveRoundMock: vi.fn(),
     lockSlotForUpdateMock: vi.fn(),
     loadPlayersByIdsMock: vi.fn(),
@@ -52,7 +54,8 @@ vi.mock("@/lib/round/queries", () => ({
   listMarketLockMatches: listMarketLockMatchesMock,
 }));
 vi.mock("@/lib/team/queries", () => ({
-  lockTeamForUpdate: lockTeamForUpdateMock,
+  lockTeamForSlot: lockTeamForSlotMock,
+  resolveMarketScope: resolveMarketScopeMock,
   getActiveRound: getActiveRoundMock,
   lockSlotForUpdate: lockSlotForUpdateMock,
   loadPlayersByIds: loadPlayersByIdsMock,
@@ -73,7 +76,13 @@ const SLOT_ID = "11111111-1111-4111-8111-111111111111";
 const OUTGOING_ID = "22222222-2222-4222-8222-222222222222";
 const INCOMING_ID = "33333333-3333-4333-8333-333333333333";
 
-const TEAM = { id: "team-1", userId: "user-1", balanceCents: 10_000 };
+const TEAM = {
+  id: "team-1",
+  userId: "user-1",
+  region: "americas" as const,
+  balanceCents: 10_000,
+};
+const AMERICAS_SCOPE = { kind: "region" as const, region: "americas" as const };
 const OPEN_ROUND = {
   id: "round-1",
   marketOpensAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
@@ -97,6 +106,7 @@ const OUTGOING_ROW = {
   active: true,
   availability: "available" as const,
   availabilityNote: null,
+  region: "emea" as const,
 };
 const INCOMING_ROW = {
   id: INCOMING_ID,
@@ -109,6 +119,7 @@ const INCOMING_ROW = {
   active: true,
   availability: "available" as const,
   availabilityNote: null,
+  region: "americas" as const,
 };
 
 const VALID_INPUT = {
@@ -120,7 +131,8 @@ const VALID_INPUT = {
 /** Configura o caminho feliz; cada teste sobrescreve o que precisa bloquear. */
 function arrangeHappyPath() {
   getSessionMock.mockResolvedValue({ user: { id: "user-1" } });
-  lockTeamForUpdateMock.mockResolvedValue(TEAM);
+  lockTeamForSlotMock.mockResolvedValue(TEAM);
+  resolveMarketScopeMock.mockResolvedValue(AMERICAS_SCOPE);
   getActiveRoundMock.mockResolvedValue(OPEN_ROUND);
   lockSlotForUpdateMock.mockResolvedValue(SLOT);
   loadPlayersByIdsMock.mockResolvedValue([OUTGOING_ROW, INCOMING_ROW]);
@@ -181,7 +193,7 @@ describe("substitutePlayer", () => {
   });
 
   it("saldo insuficiente: bloqueia com a mensagem correspondente", async () => {
-    lockTeamForUpdateMock.mockResolvedValue({ ...TEAM, balanceCents: 0 });
+    lockTeamForSlotMock.mockResolvedValue({ ...TEAM, balanceCents: 0 });
     loadPlayersByIdsMock.mockResolvedValue([
       OUTGOING_ROW,
       { ...INCOMING_ROW, priceCents: 1_000_000 },
@@ -191,6 +203,23 @@ describe("substitutePlayer", () => {
 
     expect(result?.serverError).toBe(
       "Saldo insuficiente para esta contratação.",
+    );
+    expect(applySubstitutionMock).not.toHaveBeenCalled();
+  });
+
+  it("jogador de outra região: bloqueia mesmo com saldo sobrando", async () => {
+    // `outgoing` (FNATIC/EMEA) sai, mas quem entra também é de EMEA — o time
+    // é de Americas (`AMERICAS_SCOPE`), então o candidato é recusado mesmo
+    // sobrando saldo de sobra para a compra.
+    loadPlayersByIdsMock.mockResolvedValue([
+      OUTGOING_ROW,
+      { ...INCOMING_ROW, region: "emea" as const, priceCents: 100 },
+    ]);
+
+    const result = await substitutePlayer(VALID_INPUT);
+
+    expect(result?.serverError).toBe(
+      "Este jogador não atua na região deste time.",
     );
     expect(applySubstitutionMock).not.toHaveBeenCalled();
   });
@@ -373,7 +402,7 @@ describe("sellPlayer", () => {
   });
 
   it("sucesso mesmo com saldo zerado: credita o preço cheio e revalida a página", async () => {
-    lockTeamForUpdateMock.mockResolvedValue({ ...TEAM, balanceCents: 0 });
+    lockTeamForSlotMock.mockResolvedValue({ ...TEAM, balanceCents: 0 });
 
     const result = await sellPlayer(SELL_INPUT);
 
@@ -387,6 +416,14 @@ describe("sellPlayer", () => {
       balanceAfterCents: OUTGOING_ROW.priceCents,
     });
     expect(revalidatePathMock).toHaveBeenCalledWith("/my-team");
+  });
+
+  it("vende um jogador fora da região sem bloquear — decisão 7 do plano", async () => {
+    // OUTGOING_ROW já é EMEA e o time é Americas: a venda não olha `scope`.
+    const result = await sellPlayer(SELL_INPUT);
+
+    expect(result?.data).toEqual({ success: true });
+    expect(applySaleMock).toHaveBeenCalled();
   });
 });
 

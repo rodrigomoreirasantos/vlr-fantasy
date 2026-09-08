@@ -2,6 +2,7 @@ import { fetchHtml } from "@/lib/vlr/http/client";
 import { errorMessage, logError, logInfo } from "@/lib/vlr/http/log";
 import { countNeedsReview } from "@/lib/vlr/jobs/backfill";
 import { countScrapedMatches } from "@/lib/vlr/jobs/calculate-round";
+import { countPlayersOutOfRegion } from "@/lib/vlr/jobs/sync-player-regions";
 import { parseEventList } from "@/lib/vlr/scrapers/event-list";
 import { parseMatchDetail } from "@/lib/vlr/scrapers/match-detail";
 import { parseMatchList } from "@/lib/vlr/scrapers/match-list";
@@ -28,6 +29,7 @@ export async function runDoctor(): Promise<{
   healthy: boolean;
   needsReview: number;
   scrapedMatches: number;
+  playersOutOfRegion: number;
 }> {
   const checks: DoctorCheck[] = [];
 
@@ -83,9 +85,18 @@ export async function runDoctor(): Promise<{
   const healthy = checks.every((row) => row.status === "ok");
   const needsReview = await countNeedsReview();
   const scrapedMatches = await countScrapedMatches();
+  // Quantos jogadores `active` ainda estão fora das 5 abas de escalação —
+  // `.claude/plans/10-time-por-regiao.md`. Não entra em `healthy`: um
+  // catálogo novo começa assim, e cai conforme o scrap acumula histórico.
+  const playersOutOfRegion = await countPlayersOutOfRegion();
 
-  logInfo("vlr.doctor.finished", { healthy, needsReview, scrapedMatches });
-  return { checks, healthy, needsReview, scrapedMatches };
+  logInfo("vlr.doctor.finished", {
+    healthy,
+    needsReview,
+    scrapedMatches,
+    playersOutOfRegion,
+  });
+  return { checks, healthy, needsReview, scrapedMatches, playersOutOfRegion };
 }
 
 async function check(

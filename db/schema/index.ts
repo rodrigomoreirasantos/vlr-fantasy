@@ -6,6 +6,7 @@ export * from "./player-match-stats";
 export * from "./rounds";
 export * from "./matches";
 export * from "./round-results";
+export * from "./fantasy-identity";
 export * from "./fantasy-teams";
 export * from "./roster";
 export * from "./transfers";

@@ -1,11 +1,15 @@
-import type { fantasyTeam, player, round } from "@/db/schema";
+import type { fantasyIdentity, fantasyTeam, player, round } from "@/db/schema";
 import { parseCrest } from "@/lib/crest/crest";
+import type { MarketScope } from "@/lib/market/scope";
+import { slotWarning } from "@/lib/market/scope";
 import { formatTimeLeft } from "@/lib/market/window";
+import { toPlayerRegion, type TeamRegion } from "@/lib/round/regions";
 import type { Player, RosterSlot, TeamSummary } from "@/lib/team/types";
 
 // Tipos de linha via `$inferSelect` — nunca redeclarados.
 type PlayerRow = typeof player.$inferSelect;
 type FantasyTeamRow = typeof fantasyTeam.$inferSelect;
+type FantasyIdentityRow = typeof fantasyIdentity.$inferSelect;
 type RoundRow = typeof round.$inferSelect;
 type RosterSlotWithPlayerRow = {
   id: string;
@@ -26,6 +30,7 @@ export function toDomainPlayer(row: PlayerRow): Player {
     active: row.active,
     availability: row.availability,
     availabilityNote: row.availabilityNote,
+    region: toPlayerRegion(row.region),
   };
 }
 
@@ -33,46 +38,50 @@ export function toDomainPlayer(row: PlayerRow): Player {
  * Sempre devolve exatamente 5 vagas ordenadas por posição, completando com
  * vagas vazias quando faltar linha — assim nenhum componente de apresentação
  * (`PlayerRow`, `FormationBoard`) precisa saber que o dado agora vem do
- * banco.
+ * banco. `scope` decide o alerta de cada vaga ocupada (`slotWarning`,
+ * lib/market/scope.ts) — o escopo do **time**, não da vaga.
  */
 export function toRosterSlots(
   rows: readonly RosterSlotWithPlayerRow[],
+  scope: MarketScope,
 ): RosterSlot[] {
   const byPosition = new Map(rows.map((row) => [row.position, row]));
 
   return Array.from({ length: 5 }, (_, index) => {
     const row = byPosition.get(index + 1);
-    if (!row) return { id: null, player: null, captain: false };
+    if (!row) return { id: null, player: null, captain: false, warning: null };
+
+    const player = row.player ? toDomainPlayer(row.player) : null;
     return {
       id: row.id,
-      player: row.player ? toDomainPlayer(row.player) : null,
+      player,
       captain: row.captain,
+      warning: player ? slotWarning(scope, player) : null,
     };
   });
 }
 
 export function toTeamSummary(
   team: FantasyTeamRow,
+  identity: FantasyIdentityRow,
+  region: TeamRegion,
   activeRound: RoundRow | null,
   points: number,
   /** O próximo fechamento entre as partidas do circuito (`nextMarketClose`). */
   market: { closesAt: Date | null },
 ): TeamSummary {
   return {
-    name: team.name,
+    name: identity.name,
     crest: parseCrest({
-      shape: team.crestShape,
-      symbol: team.crestSymbol,
-      background: team.crestBg,
-      foreground: team.crestFg,
-      border: team.crestBorder,
+      shape: identity.crestShape,
+      symbol: identity.crestSymbol,
+      background: identity.crestBg,
+      foreground: identity.crestFg,
+      border: identity.crestBorder,
     }),
     points,
     balanceCents: team.balanceCents,
-    scoredMatches: {
-      played: activeRound?.scoredMatches ?? 0,
-      total: activeRound?.totalMatches ?? 0,
-    },
+    region,
     market: {
       // "Operando", não "aberto para todos": quem tranca é a regra do dia,
       // campeonato a campeonato (`lockedOrganizations`). Sem rodada ativa não
