@@ -14,6 +14,13 @@ export type RoundMatch = {
   status: MatchStatus;
   scoreA: number | null;
   scoreB: number | null;
+  /**
+   * A bandeira que o vlr põe no card do evento (`vlr_event.region`, um código
+   * de duas letras). Reforça a região quando o nome do campeonato não a
+   * revela — "THE POKAL 2026" não diz EMEA, a bandeira alemã diz. Opcional
+   * porque nem toda origem de `RoundMatch` a carrega.
+   */
+  regionCode?: string | null;
 };
 
 /** Uma das cinco vagas congeladas em `round_roster` no fechamento da rodada. */
@@ -50,6 +57,8 @@ export type LiveRoundScore = {
   /** Preço atual, base da projeção de valorização. */
   priceCents: number;
   gamesPlayed: number;
+  /** O campeonato em que ele jogou a rodada — de onde sai a região. */
+  event: string | null;
 };
 
 /** Um jogador que valorizou ou desvalorizou na rodada. */

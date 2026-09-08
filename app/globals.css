@@ -81,11 +81,16 @@
   --border: rgb(255 255 255 / 8%);
   --input: rgb(255 255 255 / 14%);
   --ring: #ff4655;
+  /* Séries de gráfico e regiões do circuito: cinco matizes que se distinguem
+     entre si sobre o fundo #0b0d0f — os quatro cinzas anteriores eram
+     indistinguíveis num gráfico de cinco linhas. Vermelho e ciano são os
+     mesmos de --primary e --info; os outros três completam a volta do círculo
+     sem sair da saturação alta que a identidade do Valorant pede. */
   --chart-1: #ff4655;
-  --chart-2: #b7b7b7;
-  --chart-3: #8b92a0;
-  --chart-4: #5a616d;
-  --chart-5: #2b2f36;
+  --chart-2: #4de3ee;
+  --chart-3: #3ddc84;
+  --chart-4: #ffb454;
+  --chart-5: #a78bfa;
   --radius: 0.375rem;
   --sidebar: #101215;
   --sidebar-foreground: #f2f3f4;

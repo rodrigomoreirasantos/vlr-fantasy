@@ -2,9 +2,16 @@
 
 import { useMemo, useState } from "react";
 
+import { FilterChip } from "@/components/home/filter-chip";
+import { EventOrigin } from "@/components/home/event-origin";
 import { MatchRow } from "@/components/home/match-row";
-import { eventFilterOptions } from "@/lib/round/events";
 import { formatKickoffTime, toIsoDate } from "@/lib/round/format";
+import type { EventRegion } from "@/lib/round/regions";
+import {
+  matchesInRegion,
+  regionColor,
+  regionFilterOptions,
+} from "@/lib/round/regions";
 import { groupMatchesByDay, nextMatchId } from "@/lib/round/schedule";
 import type { RoundMatch } from "@/lib/round/types";
 import { cn } from "@/lib/utils";
@@ -17,8 +24,8 @@ export type MatchScheduleProps = {
   /** Organizações dos seus 5 — destacam a partida deles na lista. */
   myOrganizations: readonly string[];
   /** `null` = "Todos". Controlado pelo painel, que também usa a escolha no topo. */
-  selectedEvent: string | null;
-  onSelectEvent: (event: string | null) => void;
+  selectedRegion: EventRegion | null;
+  onSelectRegion: (region: EventRegion | null) => void;
   /**
    * Quando o mercado de cada partida fecha (`marketClosesByMatch`). A linha
    * mostra o kickoff **e** esse horário: são as duas horas que o usuário
@@ -31,46 +38,50 @@ export type MatchScheduleProps = {
 };
 
 /**
- * A grade de partidas: filtro por campeonato, agrupamento por dia, uma linha
- * por jogo — com o kickoff à esquerda e o fechamento do mercado à direita.
+ * A grade de partidas: filtro por região, agrupamento por dia, uma linha por
+ * jogo — com o kickoff à esquerda e o fechamento do mercado à direita.
+ *
+ * O filtro era por campeonato e virou por região: é assim que quem joga lê o
+ * circuito ("os jogos da minha liga"), e uma liga pode ter mais de um
+ * campeonato acontecendo — VCT e Challengers da mesma região caíam em dois
+ * chips que o usuário tinha de alternar. O nome do campeonato não some, muda
+ * de lugar: passa a ser a linha de cada partida (§`MatchOrigin`).
  */
 export function MatchSchedule({
   matches,
   myOrganizations,
-  selectedEvent,
-  onSelectEvent,
+  selectedRegion,
+  onSelectRegion,
   closesBy,
   now = new Date(),
 }: MatchScheduleProps) {
-  const options = useMemo(() => eventFilterOptions(matches), [matches]);
+  const options = useMemo(() => regionFilterOptions(matches), [matches]);
 
-  const filtered = selectedEvent
-    ? matches.filter((match) => match.event === selectedEvent)
-    : matches;
+  const filtered = matchesInRegion(matches, selectedRegion);
 
   return (
     <div>
-      {/* Só há o que filtrar com mais de um campeonato na grade. */}
+      {/* Só há o que filtrar com mais de uma região na grade. */}
       {options.length > 1 && (
         <div
           role="group"
-          aria-label="Filtrar por campeonato"
+          aria-label="Filtrar por região"
           className="mb-4 flex flex-wrap gap-1.5"
         >
           <FilterChip
             label="Todos"
             count={matches.length}
-            active={selectedEvent === null}
-            onSelect={() => onSelectEvent(null)}
+            active={selectedRegion === null}
+            onSelect={() => onSelectRegion(null)}
           />
           {options.map((option) => (
             <FilterChip
-              key={option.event}
+              key={option.region}
               label={option.label}
-              title={option.event}
               count={option.count}
-              active={selectedEvent === option.event}
-              onSelect={() => onSelectEvent(option.event)}
+              accent={regionColor(option.region)}
+              active={selectedRegion === option.region}
+              onSelect={() => onSelectRegion(option.region)}
             />
           ))}
         </div>
@@ -79,7 +90,7 @@ export function MatchSchedule({
       {/* A `key` zera o "ver mais" a cada troca de filtro: a lista recomeça do
           topo, não no meio da anterior. */}
       <ScheduleDays
-        key={selectedEvent ?? "all"}
+        key={selectedRegion ?? "all"}
         matches={filtered}
         allMatches={matches}
         myOrganizations={myOrganizations}
@@ -158,15 +169,15 @@ function ScheduleDays({
                       </time>
                     }
                     trailing={
-                      <span className="flex flex-col items-end gap-0.5">
-                        <span className="text-xs text-muted-foreground">
-                          {match.event}
-                        </span>
+                      <EventOrigin
+                        event={match.event}
+                        regionCode={match.regionCode}
+                      >
                         <MarketCell
                           closesAt={closesBy.get(match.id)}
                           now={now}
                         />
-                      </span>
+                      </EventOrigin>
                     }
                   />
                 );
@@ -216,49 +227,5 @@ function MarketCell({ closesAt, now }: MarketCellProps) {
         ? "Mercado fechado"
         : `Mercado fecha ${formatKickoffTime(closesAt)}`}
     </time>
-  );
-}
-
-type FilterChipProps = {
-  label: string;
-  /** O nome longo do campeonato, quando `label` é a versão curta. */
-  title?: string;
-  count: number;
-  active: boolean;
-  onSelect: () => void;
-};
-
-/**
- * Um chip do filtro. `aria-pressed` em vez de uma `<ul>` de links: o estado
- * "este filtro está ligado" é o que o leitor de tela precisa ouvir, e é o que
- * o botão comunica sem inventar navegação que não existe.
- */
-function FilterChip({
-  label,
-  title,
-  count,
-  active,
-  onSelect,
-}: FilterChipProps) {
-  return (
-    <button
-      type="button"
-      title={title}
-      aria-pressed={active}
-      onClick={onSelect}
-      className={cn(
-        "clip-corner flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-bold tracking-[0.12em] uppercase ring-1 transition-colors [--clip:6px]",
-        active
-          ? "bg-primary text-primary-foreground ring-primary"
-          : "bg-secondary text-muted-foreground ring-border hover:text-foreground",
-      )}
-    >
-      {label}
-      <span
-        className={cn("tabular-nums", active ? "opacity-70" : "opacity-60")}
-      >
-        {count}
-      </span>
-    </button>
   );
 }

@@ -5,6 +5,13 @@ import type { Crest } from "@/lib/crest/types";
  * importa daqui para o `pgEnum`, e a UI itera sobre ela ao agrupar o mercado
  * por função (vaga vazia: `components/market/market-sheet.tsx`).
  */
+/**
+ * As cinco vagas fixas de toda escalação. Fonte única desta constante — o
+ * denominador de "3 dos seus 5 jogaram" é o tamanho do elenco, não a
+ * quantidade de vagas preenchidas.
+ */
+export const ROSTER_SIZE = 5;
+
 export const PLAYER_ROLES = [
   "Duelista",
   "Iniciador",

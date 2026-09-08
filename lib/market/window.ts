@@ -1,6 +1,7 @@
 import dayjs from "dayjs";
 import "dayjs/locale/pt-br";
 
+import { dayKey } from "@/lib/round/day";
 import type { RoundMatch } from "@/lib/round/types";
 
 // Nenhum componente formata data na mão — sempre via dayjs, aqui ou em
@@ -35,8 +36,10 @@ export function marketClosesAtFor(firstKickoff: Date): Date {
  * de Americas.
  */
 function marketGroupKey(match: RoundMatch): string {
-  const day = dayjs(match.scheduledAt).format("YYYY-MM-DD");
-  return `${match.event}@${day}`;
+  // O dia vem de `lib/round/day.ts`, com fuso explícito: é o mesmo "dia de
+  // jogo" que o portão dos destaques usa, e as duas regras não podem discordar
+  // sobre onde ele começa.
+  return `${match.event}@${dayKey(match.scheduledAt)}`;
 }
 
 /**

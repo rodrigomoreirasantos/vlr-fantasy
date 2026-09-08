@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, gte, lt, lte, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lte, ne, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -94,6 +94,7 @@ export async function listUpcomingMatches(
       status: match.status,
       scoreA: match.scoreA,
       scoreB: match.scoreB,
+      regionCode: vlrEvent.region,
     })
     .from(match)
     .innerJoin(vlrEvent, eq(vlrEvent.id, match.eventId))
@@ -160,10 +161,43 @@ export async function listRoundRoster(
   }));
 }
 
-/** Maiores pontuadores do jogo inteiro na rodada — usa `round_player_score_points_idx`. */
+/**
+ * O campeonato de cada jogador numa rodada: `player_match_stat ⋈ match`,
+ * agrupado por jogador.
+ *
+ * `round_player_score` congela pontos e preços, mas não guarda **onde** o
+ * jogador pontuou — e a Home passou a filtrar os destaques por região. Um
+ * jogador disputa um campeonato por rodada, então o `min` é exato na prática e
+ * determinístico no caso patológico.
+ */
+export async function getRoundPlayerEvents(
+  roundId: string,
+  q: Querier = db,
+): Promise<Map<string, string>> {
+  const rows = await q
+    .select({
+      playerId: playerMatchStat.playerId,
+      event: sql<string>`min(${match.event})`,
+    })
+    .from(playerMatchStat)
+    .innerJoin(match, eq(match.id, playerMatchStat.matchId))
+    .where(eq(match.roundId, roundId))
+    .groupBy(playerMatchStat.playerId);
+
+  return new Map(rows.map((row) => [row.playerId, row.event]));
+}
+
+/**
+ * Os pontuadores do jogo inteiro na rodada, do maior para o menor — usa
+ * `round_player_score_points_idx`.
+ *
+ * **Sem `limit`:** o corte é por região (`trimHighlights`), e cortar aqui
+ * deixaria uma liga inteira de fora só por não ter ninguém entre os maiores do
+ * circuito. Uma rodada tem dezenas de linhas, não milhares — e o que chega ao
+ * cliente já vem cortado.
+ */
 export async function getTopRoundScorers(
   roundId: string,
-  limit: number,
   q: Querier = db,
 ): Promise<RoundScorer[]> {
   return q
@@ -177,56 +211,38 @@ export async function getTopRoundScorers(
     .from(roundPlayerScore)
     .innerJoin(player, eq(player.id, roundPlayerScore.playerId))
     .where(eq(roundPlayerScore.roundId, roundId))
-    .orderBy(desc(roundPlayerScore.points))
-    .limit(limit);
+    .orderBy(desc(roundPlayerScore.points));
 }
 
-/** Maiores valorizações e desvalorizações da rodada — usa `round_player_score_delta_idx`. */
+/**
+ * As variações de preço da rodada — usa `round_player_score_delta_idx`.
+ *
+ * Uma consulta só, com as duas pontas: quem separa altas de quedas é
+ * `highlightsFor`, depois de escolhida a região. O filtro de sinal continua no
+ * SQL — delta zero não é valorização nem queda, e trazê-lo faria o mesmo
+ * jogador aparecer nas duas listas.
+ */
 export async function getRoundPriceMovers(
   roundId: string,
-  limit: number,
   q: Querier = db,
-): Promise<{ risers: PriceMover[]; fallers: PriceMover[] }> {
-  const columns = {
-    playerId: player.id,
-    nickname: player.nickname,
-    team: player.team,
-    role: player.role,
-    priceDeltaCents: roundPlayerScore.priceDeltaCents,
-  };
-
-  // O filtro de sinal não é cosmético: sem ele, uma rodada com pouca
-  // movimentação lista jogadores com delta `0` (ou até negativo) como
-  // "maiores valorizações", e o mesmo jogador pode aparecer nas duas listas.
-  // O estado vazio de `<PriceMoverList>` é a resposta certa nesse caso.
-  const [risers, fallers] = await Promise.all([
-    q
-      .select(columns)
-      .from(roundPlayerScore)
-      .innerJoin(player, eq(player.id, roundPlayerScore.playerId))
-      .where(
-        and(
-          eq(roundPlayerScore.roundId, roundId),
-          gt(roundPlayerScore.priceDeltaCents, 0),
-        ),
-      )
-      .orderBy(desc(roundPlayerScore.priceDeltaCents))
-      .limit(limit),
-    q
-      .select(columns)
-      .from(roundPlayerScore)
-      .innerJoin(player, eq(player.id, roundPlayerScore.playerId))
-      .where(
-        and(
-          eq(roundPlayerScore.roundId, roundId),
-          lt(roundPlayerScore.priceDeltaCents, 0),
-        ),
-      )
-      .orderBy(asc(roundPlayerScore.priceDeltaCents))
-      .limit(limit),
-  ]);
-
-  return { risers, fallers };
+): Promise<PriceMover[]> {
+  return q
+    .select({
+      playerId: player.id,
+      nickname: player.nickname,
+      team: player.team,
+      role: player.role,
+      priceDeltaCents: roundPlayerScore.priceDeltaCents,
+    })
+    .from(roundPlayerScore)
+    .innerJoin(player, eq(player.id, roundPlayerScore.playerId))
+    .where(
+      and(
+        eq(roundPlayerScore.roundId, roundId),
+        ne(roundPlayerScore.priceDeltaCents, 0),
+      ),
+    )
+    .orderBy(desc(roundPlayerScore.priceDeltaCents));
 }
 
 /**
@@ -253,6 +269,10 @@ export async function listLiveRoundScores(
       points: sql<number>`sum(${playerMatchStat.fantasyPoints})::float8`,
       priceCents: player.priceCents,
       gamesPlayed: player.gamesPlayed,
+      // De onde sai a região dos destaques. Um jogador disputa um campeonato
+      // por rodada, então o `min` é exato na prática — e determinístico se um
+      // dia deixar de ser.
+      event: sql<string>`min(${match.event})`,
     })
     .from(playerMatchStat)
     .innerJoin(match, eq(match.id, playerMatchStat.matchId))
@@ -289,6 +309,7 @@ export async function listMarketLockMatches(
       status: match.status,
       scoreA: match.scoreA,
       scoreB: match.scoreB,
+      regionCode: vlrEvent.region,
     })
     .from(match)
     .innerJoin(vlrEvent, eq(vlrEvent.id, match.eventId))

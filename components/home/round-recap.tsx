@@ -1,4 +1,3 @@
-import { Panel } from "@/components/layout/panel";
 import { ChampionshipPlacements } from "@/components/profile/championship-placements";
 import type { RoundRecap as RoundRecapData } from "@/lib/home/types";
 import { formatCredits, formatCreditsDelta } from "@/lib/market/money";
@@ -16,30 +15,29 @@ export type RoundRecapProps = {
   hasFinishedRound: boolean;
 };
 
-/** "O que aconteceu": pontos do time, variação de patrimônio e colocações — a última rodada fechada. */
+/**
+ * A faixa de números da última rodada fechada: pontos do time, variação de
+ * patrimônio e colocações.
+ *
+ * **Sem `<Panel>` de propósito.** Ela é o primeiro bloco de
+ * `<TeamPerformance>`, que é quem tem o título e os filtros — dois painéis
+ * aninhados dariam dois `<h2>` para uma seção só.
+ */
 export function RoundRecap({ recap, hasFinishedRound }: RoundRecapProps) {
   if (!recap) {
     return (
-      <Panel title="O que aconteceu">
-        <p className="text-sm text-muted-foreground">
-          {hasFinishedRound
-            ? "Seu time ainda não disputou uma rodada fechada. A próxima já conta."
-            : "A primeira rodada ainda não foi fechada."}
-        </p>
-      </Panel>
+      <p className="text-sm text-muted-foreground">
+        {hasFinishedRound
+          ? "Seu time ainda não disputou uma rodada fechada. A próxima já conta."
+          : "A primeira rodada ainda não foi fechada."}
+      </p>
     );
   }
 
-  const {
-    roundNumber,
-    points,
-    patrimonyCents,
-    patrimonyDeltaCents,
-    placements,
-  } = recap;
+  const { points, patrimonyCents, patrimonyDeltaCents, placements } = recap;
 
   return (
-    <Panel title={`O que aconteceu — Rodada ${roundNumber}`}>
+    <div>
       <div className="flex flex-wrap items-baseline gap-x-8 gap-y-3">
         <div>
           <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
@@ -75,6 +73,6 @@ export function RoundRecap({ recap, hasFinishedRound }: RoundRecapProps) {
       <div className="mt-4">
         <ChampionshipPlacements placements={placements} />
       </div>
-    </Panel>
+    </div>
   );
 }

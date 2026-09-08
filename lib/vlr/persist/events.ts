@@ -9,6 +9,14 @@ import type { ScrapedEvent } from "@/lib/vlr/schemas";
  * uma decisão do operador, e um scraper que a sobrescrevesse tiraria do ar,
  * sozinho, o campeonato inteiro do jogo.
  *
+ * **E nunca apaga o que já sabe.** `scrapeMatch` chama este mesmo upsert com
+ * o evento que veio na página da partida — que traz só `vlrId` e `name`, e
+ * portanto `region: null`, `status: "unknown"` e datas vazias. Sem os
+ * `coalesce` abaixo, cada partida extraída zerava a região que `vlr:events`
+ * tinha preenchido, e era exatamente por isso que os eventos seguidos ficavam
+ * sem região enquanto os não seguidos a mantinham. Mesmo padrão de
+ * `upsertTeams`.
+ *
  * Devolve `vlrId → id` para quem precisa ligar partidas ao evento.
  */
 export async function upsertEvents(
@@ -33,10 +41,13 @@ export async function upsertEvents(
       target: vlrEvent.vlrId,
       set: {
         name: sql`excluded.name`,
-        region: sql`excluded.region`,
-        startsAt: sql`excluded.starts_at`,
-        endsAt: sql`excluded.ends_at`,
-        status: sql`excluded.status`,
+        region: sql`coalesce(excluded.region, ${vlrEvent.region})`,
+        startsAt: sql`coalesce(excluded.starts_at, ${vlrEvent.startsAt})`,
+        endsAt: sql`coalesce(excluded.ends_at, ${vlrEvent.endsAt})`,
+        // `unknown` é o que a página da partida sabe dizer sobre o evento:
+        // ausência de informação, não um status novo.
+        status: sql`case when excluded.status = 'unknown'
+          then ${vlrEvent.status} else excluded.status end`,
         updatedAt: new Date(),
       },
     })

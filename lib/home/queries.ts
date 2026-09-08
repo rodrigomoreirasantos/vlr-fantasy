@@ -11,29 +11,33 @@ import {
   patrimonyDeltaCents,
   placementChanges,
   projectRoundHighlights,
+  pendingRegions,
+  trimHighlights,
+  PRICE_MOVER_LIMIT,
 } from "@/lib/home/summary";
 import type {
   HomeSummary,
   RoundHighlights,
   RoundRecap,
 } from "@/lib/home/types";
-import { formatMarketClose, nextMarketClose } from "@/lib/market/window";
+import { listRosterPerformances } from "@/lib/player/queries";
+import type { EventRegion } from "@/lib/round/regions";
+import { eventRegion } from "@/lib/round/regions";
 import {
   getLatestFinishedRound,
   getNextRound,
   getRoundByNumber,
+  getRoundPlayerEvents,
   getRoundPriceMovers,
   getTeamRoundResult,
   getTopRoundScorers,
   listLiveRoundScores,
+  listMarketLockMatches,
   listUpcomingMatches,
 } from "@/lib/round/queries";
 import type { RoundTeamResult } from "@/lib/round/types";
 import { getTeamOverview } from "@/lib/team/queries";
 import type { RosterSlot } from "@/lib/team/types";
-
-/** Quantos destaques listar em cada lado (maiores altas / maiores quedas). */
-const PRICE_MOVER_LIMIT = 5;
 
 /**
  * Quantos jogos do circuito a Home carrega. Maior que o que cabe na tela de
@@ -144,35 +148,59 @@ async function buildRecap(
  * passada enquanto a atual acontecia. Sem nenhum jogo pontuado ainda, cai no
  * snapshot congelado da última rodada fechada — e só é `null` quando não
  * existe nem um nem outro.
+ *
+ * As listas saem inteiras e com a região de cada jogador; quem corta é
+ * `highlightsFor`, no cliente, depois de escolhida a região.
  */
 async function buildHighlights(
   latestFinishedRound: RoundRow | null,
   currentRound: RoundRow | null,
+  pending: EventRegion[],
 ): Promise<RoundHighlights | null> {
   if (currentRound) {
     const liveScores = await listLiveRoundScores(currentRound.id);
     if (liveScores.length > 0) {
       return {
-        roundNumber: currentRound.number,
         partial: true,
-        ...projectRoundHighlights(liveScores, PRICE_MOVER_LIMIT),
+        pending,
+        ...trimHighlights(
+          projectRoundHighlights(liveScores),
+          PRICE_MOVER_LIMIT,
+        ),
       };
     }
   }
 
   if (!latestFinishedRound) return null;
 
-  const [topScorers, movers] = await Promise.all([
-    getTopRoundScorers(latestFinishedRound.id, 1),
-    getRoundPriceMovers(latestFinishedRound.id, PRICE_MOVER_LIMIT),
+  // Uma consulta só para o campeonato de cada jogador, compartilhada pelas
+  // duas listas — antes cada uma refazia a mesma agregação sobre
+  // `player_match_stat ⋈ match` para a mesma rodada.
+  const [scorers, movers, events] = await Promise.all([
+    getTopRoundScorers(latestFinishedRound.id),
+    getRoundPriceMovers(latestFinishedRound.id),
+    getRoundPlayerEvents(latestFinishedRound.id),
   ]);
 
   return {
-    roundNumber: latestFinishedRound.number,
     partial: false,
-    topScorer: topScorers[0] ?? null,
-    risers: movers.risers,
-    fallers: movers.fallers,
+    pending,
+    // `event` é `null` quando a linha congelada não tem partida extraída
+    // correspondente (jogador de uma rodada de seed): vira "other", nunca uma
+    // região inventada.
+    ...trimHighlights(
+      {
+        scorers: scorers.map((scorer) => ({
+          ...scorer,
+          region: eventRegion(events.get(scorer.playerId) ?? ""),
+        })),
+        movers: movers.map((mover) => ({
+          ...mover,
+          region: eventRegion(events.get(mover.playerId) ?? ""),
+        })),
+      },
+      PRICE_MOVER_LIMIT,
+    ),
   };
 }
 
@@ -195,6 +223,7 @@ export async function getHomeSummary(
     latestFinishedRound,
     nextRound,
     upcomingMatches,
+    lockMatches,
   ] = await Promise.all([
     getTeamOverview(userId, userName),
     listPendingInvites(userId),
@@ -202,35 +231,43 @@ export async function getHomeSummary(
     getLatestFinishedRound(),
     getNextRound(),
     listUpcomingMatches(UPCOMING_MATCH_LIMIT),
+    // A janela larga (ontem → +7d) é a única que inclui partidas já
+    // encerradas — e é justamente delas que sai "o último jogo do dia desta
+    // região já acabou".
+    listMarketLockMatches(),
   ]);
 
   if (!overview) {
     throw new Error("Não foi possível carregar o seu time.");
   }
 
-  const [recap, highlights] = await Promise.all([
+  const rosterPlayerIds = overview.roster.flatMap((slot) =>
+    slot.player ? [slot.player.id] : [],
+  );
+
+  const [recap, highlights, performances] = await Promise.all([
     buildRecap(
       overview.teamId,
       userId,
       championships,
       latestFinishedRound ?? null,
     ),
-    buildHighlights(latestFinishedRound ?? null, nextRound ?? null),
+    buildHighlights(
+      latestFinishedRound ?? null,
+      nextRound ?? null,
+      pendingRegions(lockMatches),
+    ),
+    listRosterPerformances(rosterPlayerIds),
   ]);
-
-  const marketClosesAt = nextMarketClose(upcomingMatches);
 
   return {
     pendingInvites,
     hasFinishedRound: latestFinishedRound !== undefined,
     recap,
+    performances,
     upcoming: {
       matches: upcomingMatches,
       myOrganizations: organizationsOf(overview.roster),
-      marketClosesAt,
-      marketCountdown: marketClosesAt
-        ? formatMarketClose(marketClosesAt)
-        : null,
     },
     highlights,
   };

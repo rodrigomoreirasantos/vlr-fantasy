@@ -3,7 +3,6 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { UpcomingMatches } from "@/components/home/upcoming-matches";
-import { formatMarketClose, nextMarketClose } from "@/lib/market/window";
 import type { RoundMatch } from "@/lib/round/types";
 
 const NOW = new Date("2026-09-03T12:00:00Z");
@@ -26,20 +25,8 @@ function renderPanel(
   matches: RoundMatch[],
   myOrganizations: readonly string[] = [],
 ) {
-  const marketClosesAt = nextMarketClose(matches, NOW);
-
   return render(
-    <UpcomingMatches
-      upcoming={{
-        matches,
-        myOrganizations,
-        marketClosesAt,
-        marketCountdown: marketClosesAt
-          ? formatMarketClose(marketClosesAt, NOW)
-          : null,
-      }}
-      now={NOW}
-    />,
+    <UpcomingMatches upcoming={{ matches, myOrganizations }} now={NOW} />,
   );
 }
 
@@ -52,12 +39,23 @@ describe("UpcomingMatches", () => {
     ).toBeInTheDocument();
   });
 
-  it("lista os jogos com times, campeonato e horário", () => {
+  it("lista os jogos com times, região, campeonato e horário", () => {
     renderPanel([match()]);
 
     expect(screen.getByText(/NRG/)).toBeInTheDocument();
-    expect(screen.getByText("VCT 2026: Americas Stage 2")).toBeInTheDocument();
     expect(screen.getByText("17:00")).toBeInTheDocument();
+    // A origem do jogo, evidente: a liga em destaque e o nome curto embaixo.
+    expect(screen.getByText("Americas")).toBeInTheDocument();
+    expect(screen.getByText("Americas Stage 2")).toBeInTheDocument();
+  });
+
+  it("o nome longo do campeonato continua ao alcance, no title", () => {
+    renderPanel([match()]);
+
+    expect(screen.getByText("Americas Stage 2")).toHaveAttribute(
+      "title",
+      "VCT 2026: Americas Stage 2",
+    );
   });
 
   it("agrupa por dia, com 'Hoje' e 'Amanhã' por nome", () => {
@@ -158,27 +156,63 @@ describe("UpcomingMatches", () => {
     expect(screen.queryByText("Mercado fecha 19:00")).not.toBeInTheDocument();
   });
 
-  it("o countdown do mercado abre a lista", () => {
+  it("em 'Todos', não há relógio de mercado — só a regra", () => {
     renderPanel([match()]);
 
-    // NOW é 03/09 12:00Z; o mercado fecha 04/09 16:00Z.
-    expect(screen.getByText("Mercado fecha em 28h 0m")).toBeInTheDocument();
+    expect(screen.queryByText(/Mercado fecha em/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Escolha uma região para ver quando o dela fecha/),
+    ).toBeInTheDocument();
   });
 
-  it("o countdown segue o campeonato escolhido", async () => {
+  it("escolher uma região traz o relógio dela", async () => {
     const user = userEvent.setup();
     renderPanel([
       match({ id: "a", event: "VCT 2026: Americas Stage 2" }),
       match({
         id: "b",
-        event: "Valorant Champions 2026",
+        event: "VCT 2026: EMEA Stage 2",
         scheduledAt: new Date("2026-09-05T17:00:00Z"),
       }),
     ]);
 
-    await user.click(screen.getByRole("button", { name: /Champions/ }));
+    await user.click(screen.getByRole("button", { name: /Americas/ }));
+
+    // NOW é 03/09 12:00Z; o mercado de Americas fecha 04/09 16:00Z.
+    expect(screen.getByText("Mercado fecha em 28h 0m")).toBeInTheDocument();
+  });
+
+  it("o relógio segue a região escolhida, não o circuito inteiro", async () => {
+    const user = userEvent.setup();
+    renderPanel([
+      match({ id: "a", event: "VCT 2026: Americas Stage 2" }),
+      match({
+        id: "b",
+        event: "VCT 2026: EMEA Stage 2",
+        scheduledAt: new Date("2026-09-05T17:00:00Z"),
+      }),
+    ]);
+
+    await user.click(screen.getByRole("button", { name: /EMEA/ }));
 
     expect(screen.getByText("Mercado fecha em 52h 0m")).toBeInTheDocument();
+  });
+
+  it("voltar para 'Todos' tira o relógio de novo", async () => {
+    const user = userEvent.setup();
+    renderPanel([
+      match({ id: "a", event: "VCT 2026: Americas Stage 2" }),
+      match({
+        id: "b",
+        event: "VCT 2026: EMEA Stage 2",
+        scheduledAt: new Date("2026-09-05T17:00:00Z"),
+      }),
+    ]);
+
+    await user.click(screen.getByRole("button", { name: /Americas/ }));
+    await user.click(screen.getByRole("button", { name: /Todos/ }));
+
+    expect(screen.queryByText(/Mercado fecha em/)).not.toBeInTheDocument();
   });
 
   it("cada dia lista suas próprias partidas", () => {
@@ -203,37 +237,47 @@ describe("UpcomingMatches", () => {
     expect(within(hoje).queryByText(/LOUD/)).not.toBeInTheDocument();
   });
 
-  it("um único campeonato na grade não merece filtro", () => {
+  it("uma única região na grade não merece filtro", () => {
     renderPanel([match({ id: "a" }), match({ id: "b" })]);
 
     expect(
-      screen.queryByRole("group", { name: "Filtrar por campeonato" }),
+      screen.queryByRole("group", { name: "Filtrar por região" }),
     ).not.toBeInTheDocument();
   });
 
-  it("oferece os campeonatos com Champions e Masters à frente", () => {
+  it("oferece as regiões com a internacional à frente", () => {
     renderPanel([
       match({ id: "a", event: "VCT 2026: Americas Stage 2" }),
-      match({ id: "b", event: "VCT 2026: Masters Toronto" }),
+      match({ id: "b", event: "VCT 2026: EMEA Stage 2" }),
       match({ id: "c", event: "Valorant Champions 2026" }),
     ]);
 
-    const filters = screen.getByRole("group", {
-      name: "Filtrar por campeonato",
-    });
+    const filters = screen.getByRole("group", { name: "Filtrar por região" });
     const labels = within(filters)
       .getAllByRole("button")
       .map((button) => button.textContent);
 
-    expect(labels).toEqual([
-      "Todos3",
-      "Champions1",
-      "Masters Toronto1",
-      "Americas Stage 21",
-    ]);
+    expect(labels).toEqual(["Todos3", "Internacional1", "Americas1", "EMEA1"]);
   });
 
-  it("escolher um campeonato deixa só os jogos dele na lista", async () => {
+  it("duas ligas da mesma região caem num chip só", () => {
+    renderPanel([
+      match({ id: "a", event: "VCT 2026: Americas Stage 2" }),
+      match({ id: "b", event: "Challengers 2026: Brazil Split 2" }),
+      match({ id: "c", event: "VCT 2026: EMEA Stage 2" }),
+    ]);
+
+    const filters = screen.getByRole("group", { name: "Filtrar por região" });
+    const labels = within(filters)
+      .getAllByRole("button")
+      .map((button) => button.textContent);
+
+    // VCT Americas e Challengers Brazil somam no mesmo chip: era isso que
+    // obrigava o usuário a alternar dois filtros para ver a própria liga.
+    expect(labels).toEqual(["Todos3", "Americas2", "EMEA1"]);
+  });
+
+  it("escolher uma região deixa só os jogos dela na lista", async () => {
     const user = userEvent.setup();
     renderPanel([
       match({ id: "a", teamA: "NRG", event: "VCT 2026: Americas Stage 2" }),
@@ -241,15 +285,15 @@ describe("UpcomingMatches", () => {
         id: "b",
         teamA: "FNATIC",
         teamB: "Team Heretics",
-        event: "Valorant Champions 2026",
+        event: "VCT 2026: EMEA Stage 2",
       }),
     ]);
 
-    await user.click(screen.getByRole("button", { name: /Champions/ }));
+    await user.click(screen.getByRole("button", { name: /EMEA/ }));
 
     expect(screen.getByText(/FNATIC/)).toBeInTheDocument();
     expect(screen.queryByText(/NRG/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Champions/ })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: /EMEA/ })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -263,11 +307,11 @@ describe("UpcomingMatches", () => {
         id: "b",
         teamA: "FNATIC",
         teamB: "Team Heretics",
-        event: "Valorant Champions 2026",
+        event: "VCT 2026: EMEA Stage 2",
       }),
     ]);
 
-    await user.click(screen.getByRole("button", { name: /Champions/ }));
+    await user.click(screen.getByRole("button", { name: /EMEA/ }));
     await user.click(screen.getByRole("button", { name: /Todos/ }));
 
     expect(screen.getByText(/NRG/)).toBeInTheDocument();

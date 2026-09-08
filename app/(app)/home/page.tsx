@@ -4,12 +4,13 @@ import { redirect } from "next/navigation";
 
 import { LiveRefresh } from "@/components/home/live-refresh";
 import { RoundHighlights } from "@/components/home/round-highlights";
-import { RoundRecap } from "@/components/home/round-recap";
+import { TeamPerformance } from "@/components/home/team-performance";
 import { UpcomingMatches } from "@/components/home/upcoming-matches";
 import { PendingInvites } from "@/components/championship/pending-invites";
 import { auth } from "@/lib/auth";
 import { getHomeSummary } from "@/lib/home/queries";
 import { refreshIntervalMs } from "@/lib/home/summary";
+import { getTeamOverview } from "@/lib/team/queries";
 
 export const metadata: Metadata = {
   title: "Início | VLR Fantasy",
@@ -24,9 +25,18 @@ export default async function HomePage() {
   // Mesmos argumentos do layout logado (`app/(app)/layout.tsx`): a
   // memoização por request de `getTeamOverview` evita uma segunda consulta
   // ao time.
-  const summary = await getHomeSummary(
-    session.user.id,
-    session.user.username ?? session.user.name,
+  const userName = session.user.username ?? session.user.name;
+  // Os dois leem `getTeamOverview` com os mesmos argumentos do layout logado:
+  // a memoização por request (`cache()`) resolve tudo numa consulta só.
+  const [summary, overview] = await Promise.all([
+    getHomeSummary(session.user.id, userName),
+    getTeamOverview(session.user.id, userName),
+  ]);
+
+  const roster = (overview?.roster ?? []).flatMap((slot) =>
+    slot.player
+      ? [{ playerId: slot.player.id, nickname: slot.player.nickname }]
+      : [],
   );
 
   return (
@@ -41,9 +51,11 @@ export default async function HomePage() {
       <LiveRefresh intervalMs={refreshIntervalMs(summary)} />
 
       <PendingInvites invites={summary.pendingInvites} />
-      <RoundRecap
+      <TeamPerformance
         recap={summary.recap}
         hasFinishedRound={summary.hasFinishedRound}
+        performances={summary.performances}
+        roster={roster}
       />
       {/* O `now` vem do servidor para o primeiro paint e a hidratação
           usarem exatamente o mesmo instante — mesmo motivo do

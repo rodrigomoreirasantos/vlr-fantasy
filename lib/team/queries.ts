@@ -19,6 +19,7 @@ import {
   toRosterSlots,
   toTeamSummary,
 } from "@/lib/team/mappers";
+import { ROSTER_SIZE } from "@/lib/team/types";
 import type {
   PlayerRole,
   RosterSlot,
@@ -30,9 +31,6 @@ export type Database = typeof db;
 export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 /** Aceita o client ou uma transação — sem `any`. */
 export type Querier = Database | Transaction;
-
-/** As cinco vagas fixas de toda escalação. */
-const ROSTER_SIZE = 5;
 
 /** Tentativas de nome em caso de colisão — ver `ensureFantasyTeam`. */
 const MAX_TEAM_NAME_ATTEMPTS = 5;
