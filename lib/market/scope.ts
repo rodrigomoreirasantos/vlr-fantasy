@@ -1,8 +1,4 @@
-import type {
-  LeagueRegion,
-  PlayerRegion,
-  TeamRegion,
-} from "@/lib/round/regions";
+import type { LeagueRegion, TeamRegion } from "@/lib/round/regions";
 import type { Player } from "@/lib/team/types";
 
 /**
@@ -46,19 +42,32 @@ export function matchesScope(
 }
 
 export type SlotWarning =
-  { kind: "out-of-region"; region: PlayerRegion } | { kind: "not-qualified" };
+  /** Mudou de liga: hoje ele atua noutra região. */
+  | { kind: "out-of-region"; region: LeagueRegion }
+  /** O scrap ainda não resolveu a liga dele (`player.region === "other"`). */
+  | { kind: "unknown-region" }
+  /** No time Internacional: a organização dele não está classificada. */
+  | { kind: "not-qualified" };
 
 /**
  * O selo de alerta para um jogador já escalado que não pertence mais ao
  * escopo do time (decisão 7: ele fica na vaga, nunca é vendido sozinho).
  * `null` quando ele está em casa.
+ *
+ * `"other"` ganha um motivo próprio: ele é o **terminal da cascata**
+ * (`resolvePlayerRegion`), ou seja "ainda não sei onde ele joga" — não "ele
+ * se mudou para a liga Outros". Dizer "Joga em Outros" para quem o scrap
+ * ainda não resolveu é afirmar uma transferência que não aconteceu, e esse
+ * é o estado do catálogo inteiro logo após a migração, antes de
+ * `pnpm vlr:regions` rodar.
  */
 export function slotWarning(
   scope: MarketScope,
   player: Pick<Player, "team" | "region">,
 ): SlotWarning | null {
   if (matchesScope(scope, player)) return null;
-  return scope.kind === "region"
-    ? { kind: "out-of-region", region: player.region }
-    : { kind: "not-qualified" };
+  if (scope.kind === "organizations") return { kind: "not-qualified" };
+  return player.region === "other"
+    ? { kind: "unknown-region" }
+    : { kind: "out-of-region", region: player.region };
 }

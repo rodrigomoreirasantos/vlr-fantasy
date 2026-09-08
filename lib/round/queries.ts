@@ -356,7 +356,13 @@ export async function listPlayerLeagueAppearances(
     .from(playerMatchStat)
     .innerJoin(match, eq(match.id, playerMatchStat.matchId))
     .innerJoin(vlrEvent, eq(vlrEvent.id, match.eventId))
-    .where(eq(vlrEvent.tracked, true));
+    .where(eq(vlrEvent.tracked, true))
+    // A ordem **é** o contrato: `latestLeagueAppearance` (lib/player/region.ts)
+    // desempata instantes iguais com `>=`, ficando com a última da lista —
+    // determinístico só se a entrada vier em ordem crescente de `at`. Sem este
+    // `orderBy`, dois jogos do mesmo minuto em ligas diferentes davam a região
+    // que o Postgres devolvesse primeiro, e ela podia trocar entre execuções.
+    .orderBy(asc(match.scheduledAt));
 
   const appearances: { playerId: string; region: LeagueRegion; at: Date }[] =
     [];
@@ -370,13 +376,19 @@ export async function listPlayerLeagueAppearances(
 }
 
 /**
- * Toda partida de evento seguido, com as duas organizações — o degrau 2 da
- * cascata (`organizationRegions`, lib/player/region.ts): a liga de uma
+ * Toda partida de evento **seguido**, com as duas organizações — o degrau 2
+ * da cascata (`organizationRegions`, lib/player/region.ts): a liga de uma
  * organização, para quem chega sem histórico próprio.
+ *
+ * O `tracked` não é opcional: `syncSchedule` grava em `match` toda partida
+ * de `/matches`, seguida ou não. Sem o filtro, o backfill
+ * (`syncPlayerRegions`) deduziria a liga de uma organização a partir de um
+ * evento que o operador tirou da allowlist de propósito, enquanto o caminho
+ * incremental (`organizationLeague`, abaixo) nunca faria isso — e o mesmo
+ * jogador acabaria em abas diferentes conforme qual dos dois rodou por
+ * último.
  */
-export async function listOrganizationMatches(
-  q: Querier = db,
-): Promise<
+export async function listOrganizationMatches(q: Querier = db): Promise<
   {
     teamA: string;
     teamB: string;
@@ -394,7 +406,8 @@ export async function listOrganizationMatches(
       scheduledAt: match.scheduledAt,
     })
     .from(match)
-    .innerJoin(vlrEvent, eq(vlrEvent.id, match.eventId));
+    .innerJoin(vlrEvent, eq(vlrEvent.id, match.eventId))
+    .where(eq(vlrEvent.tracked, true));
 }
 
 /**

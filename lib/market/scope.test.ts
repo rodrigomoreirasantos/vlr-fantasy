@@ -83,6 +83,27 @@ describe("slotWarning", () => {
     });
   });
 
+  it("região ainda não resolvida ('other') não é 'mudou de liga'", () => {
+    const scope: MarketScope = { kind: "region", region: "americas" };
+
+    // "other" é o terminal da cascata — "não sei onde ele joga" —, e dizer
+    // "Joga em Outros" afirmaria uma transferência que não aconteceu.
+    expect(slotWarning(scope, makePlayer({ region: "other" }))).toEqual({
+      kind: "unknown-region",
+    });
+  });
+
+  it("no escopo por organizações, 'other' continua sendo 'não classificado'", () => {
+    const scope: MarketScope = {
+      kind: "organizations",
+      organizations: ["LOUD"],
+    };
+
+    expect(
+      slotWarning(scope, makePlayer({ team: "FNATIC", region: "other" })),
+    ).toEqual({ kind: "not-qualified" });
+  });
+
   it("fora das organizações classificadas, alerta 'not-qualified'", () => {
     const scope: MarketScope = {
       kind: "organizations",

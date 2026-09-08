@@ -69,11 +69,36 @@ function applyRegionSelection(request: NextRequest) {
   return response;
 }
 
+/**
+ * As rotas logadas — **menos as requisições de prefetch**.
+ *
+ * O `missing` não é otimização, é correção: o `<Link>` de cada aba de região
+ * (`RegionTabs`) aponta para `/my-team?region=…`, e o Next prefetcha esses
+ * links (hover em dev, viewport em produção). Como o prefetch é um `fetch`
+ * same-origin comum, o navegador guarda o `Set-Cookie` da resposta — então
+ * só passar o mouse pelas abas gravava `vlr.region` com a região do último
+ * prefetch a responder, e a Home/Perfil/header passavam a mostrar uma região
+ * que o usuário nunca escolheu.
+ *
+ * Tem de ser aqui, no matcher, e não dentro da função: durante requisições
+ * RSC o Next **remove** os headers de Flight do `request` visto pelo proxy
+ * (`next-router-prefetch` entre eles — ver `next/dist/docs/.../proxy.md`),
+ * então uma checagem de header dentro de `proxy()` nunca veria o prefetch.
+ *
+ * A guarda de sessão também deixa de rodar no prefetch, e tudo bem: ela é
+ * uma checagem otimista de UX; quem barra de verdade é `auth.api.getSession`
+ * no Server Component, que roda na navegação real.
+ */
+const PREFETCH_HEADERS = [
+  { type: "header", key: "next-router-prefetch" },
+  { type: "header", key: "purpose", value: "prefetch" },
+] as const;
+
 export const config = {
   matcher: [
-    "/my-team/:path*",
-    "/ranking/:path*",
-    "/profile/:path*",
-    "/home/:path*",
+    { source: "/my-team/:path*", missing: PREFETCH_HEADERS },
+    { source: "/ranking/:path*", missing: PREFETCH_HEADERS },
+    { source: "/profile/:path*", missing: PREFETCH_HEADERS },
+    { source: "/home/:path*", missing: PREFETCH_HEADERS },
   ],
 };

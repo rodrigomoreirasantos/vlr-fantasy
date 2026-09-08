@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { LiveRefresh } from "@/components/home/live-refresh";
+import { RegionDisplaySync } from "@/components/layout/region-display";
 import { RoundHighlights } from "@/components/home/round-highlights";
 import { TeamPerformance } from "@/components/home/team-performance";
 import { UpcomingMatches } from "@/components/home/upcoming-matches";
@@ -47,6 +48,15 @@ export default async function HomePage() {
       {/* A tela é uma coluna de painéis com `<h2>` cada; o `<h1>` dá o nível
           que faltava para a navegação por leitor de tela. */}
       <h1 className="sr-only">Início</h1>
+
+      {/* Mantém o header na região desta navegação — ver
+          `components/layout/region-display.tsx`. */}
+      {overview && (
+        <RegionDisplaySync
+          region={overview.region}
+          points={overview.summary.points}
+        />
+      )}
 
       {/* A Home se atualiza sozinha enquanto a aba estiver aberta: os placares
           chegam pelo pipeline do vlr.gg ao longo da semana, e ninguém deveria

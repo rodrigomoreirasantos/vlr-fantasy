@@ -34,7 +34,7 @@ import {
 } from "@/lib/validations/profile";
 
 /**
- * Renomeia o time do usuário. O banco (`fantasy_team_name_uidx`) é a
+ * Renomeia o time do usuário. O banco (`fantasy_identity_name_uidx`) é a
  * autoridade sobre a unicidade — checar antes com um `SELECT` deixaria
  * brecha entre abas; a violação é capturada aqui e traduzida.
  */

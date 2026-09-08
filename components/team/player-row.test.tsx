@@ -199,6 +199,17 @@ describe("PlayerRow", () => {
     expect(screen.getByText("Joga em EMEA")).toBeInTheDocument();
   });
 
+  it("com warning 'unknown-region', não afirma que ele mudou de liga", () => {
+    render(
+      <ul>
+        <PlayerRow player={player} warning={{ kind: "unknown-region" }} />
+      </ul>,
+    );
+
+    expect(screen.getByText("Região indefinida")).toBeInTheDocument();
+    expect(screen.queryByText(/joga em/i)).not.toBeInTheDocument();
+  });
+
   it("com warning 'not-qualified', mostra o selo do internacional", () => {
     render(
       <ul>

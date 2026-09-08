@@ -13,8 +13,9 @@ import { usePathname } from "next/navigation";
 
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { TeamCrest } from "@/components/crest/team-crest";
+import { useRegionDisplay } from "@/components/layout/region-display";
 import type { Crest } from "@/lib/crest/types";
-import { regionColor, regionLabel, type TeamRegion } from "@/lib/round/regions";
+import { regionColor, regionLabel } from "@/lib/round/regions";
 import { formatScore } from "@/lib/team/score";
 import { cn } from "@/lib/utils";
 
@@ -36,20 +37,19 @@ const SECTIONS: Section[] = [
 export type AppHeaderProps = {
   teamName: string;
   crest: Crest;
-  points: number;
   userName: string;
-  /** A região do time exibido — necessário, não cosmético: sem ele o usuário vê os pontos mudarem ao trocar de aba e acha que perdeu pontuação. */
-  region: TeamRegion;
 };
 
-export function AppHeader({
-  teamName,
-  crest,
-  points,
-  userName,
-  region,
-}: AppHeaderProps) {
+/**
+ * Região e pontuação **não** são props: elas mudam a cada troca de aba de
+ * região, e o layout que renderiza este header não re-renderiza na
+ * navegação (ver `components/layout/region-display.tsx`). Vêm do contexto,
+ * que a página republica a cada navegação — é o que impede o header de
+ * mostrar os pontos de uma região e a tela ao lado os de outra.
+ */
+export function AppHeader({ teamName, crest, userName }: AppHeaderProps) {
   const pathname = usePathname();
+  const { region, points } = useRegionDisplay();
 
   return (
     <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border bg-sidebar px-6 py-3">

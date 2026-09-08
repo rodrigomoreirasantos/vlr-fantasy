@@ -28,6 +28,21 @@ describe("RegionTabs", () => {
     );
   });
 
+  it("preserva os demais parâmetros da URL e troca só a região", () => {
+    render(
+      <RegionTabs
+        current="americas"
+        available={LEAGUE_REGIONS}
+        params={{ region: "americas", ordem: "preco" }}
+      />,
+    );
+
+    expect(screen.getByText("EMEA").closest("a")).toHaveAttribute(
+      "href",
+      "/my-team?ordem=preco&region=emea",
+    );
+  });
+
   it("aria-current='page' só na região atual", () => {
     render(<RegionTabs current="emea" available={LEAGUE_REGIONS} />);
 

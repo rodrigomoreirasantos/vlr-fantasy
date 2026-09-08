@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { RegionDisplaySync } from "@/components/layout/region-display";
 import { RegionTabs } from "@/components/team/region-tabs";
 import { RosterPanel } from "@/components/team/roster-panel";
 import { ScorerHighlight } from "@/components/team/scorer-highlight";
@@ -48,7 +49,15 @@ export default async function MyTeamPage(props: PageProps<"/my-team">) {
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-9">
-      <RegionTabs current={region} available={available} />
+      {/* Publica para o header a região desta navegação — o layout não
+          re-renderiza ao trocar de aba. */}
+      <RegionDisplaySync region={region} points={summary.points} />
+
+      <RegionTabs
+        current={region}
+        available={available}
+        params={searchParams}
+      />
 
       <RosterPanel
         roster={roster}

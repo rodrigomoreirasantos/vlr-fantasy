@@ -1,3 +1,9 @@
+-- ATENÇÃO: `player.region` nasce toda em 'other' — a região sai de
+-- `eventRegion()` (regex em TS sobre o nome do campeonato), que não tem como
+-- rodar em SQL sem duplicar a regra. Num banco que já tem catálogo, o mercado
+-- das 5 abas fica VAZIO até o recálculo rodar. Por isso `pnpm db:migrate`
+-- encadeia `scripts/vlr/regions.ts` (idempotente) logo depois das migrations
+-- — ver package.json.
 CREATE TYPE "public"."event_region" AS ENUM('international', 'americas', 'emea', 'pacific', 'china', 'other');--> statement-breakpoint
 CREATE TABLE "fantasy_identity" (
 	"user_id" text PRIMARY KEY NOT NULL,

@@ -13,20 +13,30 @@ vi.mock("@/lib/auth-client", () => ({
 }));
 
 import { AppHeader } from "@/components/layout/app-header";
+import {
+  RegionDisplayProvider,
+  type RegionDisplay,
+} from "@/components/layout/region-display";
 import { DEFAULT_CREST } from "@/lib/crest/crest";
 
+/**
+ * Região e pontuação vêm do contexto, não de props — é o que mantém o header
+ * em dia numa navegação que não re-renderiza o layout (ver
+ * `components/layout/region-display.tsx`).
+ */
 function renderHeader(
   overrides: Partial<React.ComponentProps<typeof AppHeader>> = {},
+  display: RegionDisplay = { region: "americas", points: 78.5 },
 ) {
   return render(
-    <AppHeader
-      teamName="Rodrigo FC"
-      crest={DEFAULT_CREST}
-      points={78.5}
-      userName="Rodrigo"
-      region="americas"
-      {...overrides}
-    />,
+    <RegionDisplayProvider initial={display}>
+      <AppHeader
+        teamName="Rodrigo FC"
+        crest={DEFAULT_CREST}
+        userName="Rodrigo"
+        {...overrides}
+      />
+    </RegionDisplayProvider>,
   );
 }
 
@@ -103,10 +113,11 @@ describe("AppHeader", () => {
     expect(screen.getByText("Rodrigo")).toBeInTheDocument();
   });
 
-  it("mostra a região do time exibido", () => {
+  it("mostra a região e a pontuação do time em exibição", () => {
     usePathnameMock.mockReturnValue("/my-team");
-    renderHeader({ region: "emea" });
+    renderHeader({}, { region: "emea", points: 12.5 });
 
     expect(screen.getByText("EMEA")).toBeInTheDocument();
+    expect(screen.getByText("12.5")).toBeInTheDocument();
   });
 });

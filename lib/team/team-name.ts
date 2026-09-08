@@ -11,7 +11,7 @@ export function normalizeTeamName(raw: string): string {
 /**
  * Chave de unicidade em memória: `normalizeTeamName` + minúsculas, **sem**
  * remover acentos — precisa bater exatamente com `lower(btrim(name))` do
- * índice do banco (`fantasy_team_name_uidx`), senão a checagem em TS e a do
+ * índice do banco (`fantasy_identity_name_uidx`), senão a checagem em TS e a do
  * banco divergem.
  */
 export function teamNameKey(name: string): string {

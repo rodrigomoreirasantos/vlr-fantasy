@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { AppHeader } from "@/components/layout/app-header";
+import { RegionDisplayProvider } from "@/components/layout/region-display";
 import { auth } from "@/lib/auth";
 import { resolveRegion } from "@/lib/team/region-selection";
 import { getTeamOverview } from "@/lib/team/queries";
@@ -38,14 +39,26 @@ export default async function AppLayout({
 
   return (
     <div className="min-h-screen bg-background">
-      <AppHeader
-        teamName={overview.summary.name}
-        crest={overview.summary.crest}
-        points={overview.summary.points}
-        userName={session.user.name}
-        region={overview.region}
-      />
-      {children}
+      {/*
+        O layout só **semeia** região e pontuação: ele não re-renderiza na
+        navegação, então quem as mantém em dia é cada página, via
+        `<RegionDisplaySync>` (components/layout/region-display.tsx). Nome e
+        brasão continuam props normais — são do usuário (`fantasy_identity`),
+        iguais nas cinco regiões.
+      */}
+      <RegionDisplayProvider
+        initial={{
+          region: overview.region,
+          points: overview.summary.points,
+        }}
+      >
+        <AppHeader
+          teamName={overview.summary.name}
+          crest={overview.summary.crest}
+          userName={session.user.name}
+        />
+        {children}
+      </RegionDisplayProvider>
     </div>
   );
 }

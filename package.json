@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "drizzle-kit migrate && tsx scripts/vlr/regions.ts",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx db/seed.ts",
     "db:round:close": "tsx db/close-round.ts",

@@ -62,7 +62,9 @@ export const substitutePlayer = authActionClient
       const lockedTeams = lockedOrganizations(
         await listMarketLockMatches(new Date(), tx),
       );
-      const scope = await resolveMarketScope(toTeamRegion(team.region));
+      // `tx` explícito: `resolveMarketScope` sem querier usa o client global
+      // e tiraria uma segunda conexão do pool com esta transação aberta.
+      const scope = await resolveMarketScope(toTeamRegion(team.region), tx);
 
       const slot = await lockSlotForUpdate(tx, team.id, slotId);
       if (!slot || slot.playerId !== outgoingPlayerId) {

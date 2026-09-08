@@ -224,6 +224,15 @@ describe("substitutePlayer", () => {
     expect(applySubstitutionMock).not.toHaveBeenCalled();
   });
 
+  it("resolve o escopo do mercado **dentro** da transação", async () => {
+    // Sem o `tx`, `resolveMarketScope` cairia no client global e tiraria uma
+    // segunda conexão do pool com esta transação aberta — com concorrência
+    // suficiente, o pool trava inteiro.
+    await substitutePlayer(VALID_INPUT);
+
+    expect(resolveMarketScopeMock).toHaveBeenCalledWith(TEAM.region, txStub);
+  });
+
   it("sucesso: aplica a substituição com o saldo correto e revalida a página", async () => {
     const result = await substitutePlayer(VALID_INPUT);
 

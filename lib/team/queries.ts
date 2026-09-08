@@ -86,14 +86,29 @@ export const getInternationalWindow = cache(
 
 /**
  * O escopo do mercado de um time, a partir da região dele. Só o time
- * Internacional precisa de uma consulta a mais (`getInternationalWindow`) —
- * os quatro regionais resolvem sem tocar o banco.
+ * Internacional precisa de uma consulta a mais — os quatro regionais
+ * resolvem sem tocar o banco.
+ *
+ * `q` **tem de ser passado dentro de uma transação**: sem ele a leitura cai
+ * na versão memoizada (`getInternationalWindow`), que usa o client global e
+ * portanto tira uma **segunda** conexão do pool enquanto a transação já
+ * segura a primeira. Com substituições concorrentes suficientes, todas as
+ * conexões ficam presas em transações abertas esperando por uma conexão
+ * extra que nunca vem — o pool trava inteiro. Fora de transação (leitura de
+ * página), o default memoizado é o certo: uma consulta por request.
  */
 export async function resolveMarketScope(
   region: TeamRegion,
+  q?: Querier,
 ): Promise<MarketScope> {
   if (region !== "international") return marketScopeFor(region, []);
-  const { organizations } = await getInternationalWindow();
+
+  const organizations = q
+    ? qualifiedOrganizations(
+        await listInternationalWindowMatches(new Date(), q),
+      )
+    : (await getInternationalWindow()).organizations;
+
   return marketScopeFor(region, organizations);
 }
 
