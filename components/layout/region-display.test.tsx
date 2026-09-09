@@ -10,10 +10,10 @@ import { regionLabel } from "@/lib/round/regions";
 
 /** Um consumidor mínimo, no lugar do `AppHeader`. */
 function Display() {
-  const { region, points } = useRegionDisplay();
+  const { region, balanceCents } = useRegionDisplay();
   return (
     <p>
-      {regionLabel(region)} · {points}
+      {regionLabel(region)} · {balanceCents}
     </p>
   );
 }
@@ -21,7 +21,7 @@ function Display() {
 describe("RegionDisplay", () => {
   it("sem sync, mostra o valor semeado pelo layout", () => {
     render(
-      <RegionDisplayProvider initial={{ region: "americas", points: 10 }}>
+      <RegionDisplayProvider initial={{ region: "americas", balanceCents: 10 }}>
         <Display />
       </RegionDisplayProvider>,
     );
@@ -31,9 +31,9 @@ describe("RegionDisplay", () => {
 
   it("a página publica a região da navegação e o header acompanha", () => {
     render(
-      <RegionDisplayProvider initial={{ region: "americas", points: 10 }}>
+      <RegionDisplayProvider initial={{ region: "americas", balanceCents: 10 }}>
         <Display />
-        <RegionDisplaySync region="emea" points={42} />
+        <RegionDisplaySync region="emea" balanceCents={42} />
       </RegionDisplayProvider>,
     );
 
@@ -44,20 +44,40 @@ describe("RegionDisplay", () => {
 
   it("re-publicar o mesmo valor não muda nada", () => {
     const { rerender } = render(
-      <RegionDisplayProvider initial={{ region: "americas", points: 10 }}>
+      <RegionDisplayProvider initial={{ region: "americas", balanceCents: 10 }}>
         <Display />
-        <RegionDisplaySync region="emea" points={42} />
+        <RegionDisplaySync region="emea" balanceCents={42} />
       </RegionDisplayProvider>,
     );
 
     rerender(
-      <RegionDisplayProvider initial={{ region: "americas", points: 10 }}>
+      <RegionDisplayProvider initial={{ region: "americas", balanceCents: 10 }}>
         <Display />
-        <RegionDisplaySync region="emea" points={42} />
+        <RegionDisplaySync region="emea" balanceCents={42} />
       </RegionDisplayProvider>,
     );
 
     expect(screen.getByText("EMEA · 42")).toBeInTheDocument();
+  });
+
+  it("publicar outro saldo na mesma região atualiza o header", () => {
+    const { rerender } = render(
+      <RegionDisplayProvider initial={{ region: "americas", balanceCents: 10 }}>
+        <Display />
+        <RegionDisplaySync region="americas" balanceCents={10} />
+      </RegionDisplayProvider>,
+    );
+
+    // O cenário de compra/venda: a mesma região, mas `revalidatePath`
+    // re-renderiza a página com um saldo novo, e o sync republica.
+    rerender(
+      <RegionDisplayProvider initial={{ region: "americas", balanceCents: 10 }}>
+        <Display />
+        <RegionDisplaySync region="americas" balanceCents={7_500} />
+      </RegionDisplayProvider>,
+    );
+
+    expect(screen.getByText("Americas · 7500")).toBeInTheDocument();
   });
 
   it("fora do provider, o consumidor falha alto em vez de inventar uma região", () => {

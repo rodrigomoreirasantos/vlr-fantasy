@@ -51,7 +51,7 @@ export default async function MyTeamPage(props: PageProps<"/my-team">) {
     <main className="mx-auto max-w-7xl px-6 py-9">
       {/* Publica para o header a região desta navegação — o layout não
           re-renderiza ao trocar de aba. */}
-      <RegionDisplaySync region={region} points={summary.points} />
+      <RegionDisplaySync region={region} balanceCents={summary.balanceCents} />
 
       <RegionTabs
         current={region}

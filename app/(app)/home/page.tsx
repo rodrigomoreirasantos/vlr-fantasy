@@ -54,7 +54,7 @@ export default async function HomePage() {
       {overview && (
         <RegionDisplaySync
           region={overview.region}
-          points={overview.summary.points}
+          balanceCents={overview.summary.balanceCents}
         />
       )}
 

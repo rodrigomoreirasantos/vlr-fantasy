@@ -27,7 +27,7 @@ export default async function AppLayout({
     redirect("/login");
   }
 
-  const { region } = await resolveRegion();
+  const { region, available } = await resolveRegion();
   const overview = await getTeamOverview(
     session.user.id,
     session.user.username ?? session.user.name,
@@ -40,8 +40,8 @@ export default async function AppLayout({
   return (
     <div className="min-h-screen bg-background">
       {/*
-        O layout só **semeia** região e pontuação: ele não re-renderiza na
-        navegação, então quem as mantém em dia é cada página, via
+        O layout só **semeia** região e saldo: ele não re-renderiza na
+        navegação, então quem os mantém em dia é cada página, via
         `<RegionDisplaySync>` (components/layout/region-display.tsx). Nome e
         brasão continuam props normais — são do usuário (`fantasy_identity`),
         iguais nas cinco regiões.
@@ -49,13 +49,14 @@ export default async function AppLayout({
       <RegionDisplayProvider
         initial={{
           region: overview.region,
-          points: overview.summary.points,
+          balanceCents: overview.summary.balanceCents,
         }}
       >
         <AppHeader
           teamName={overview.summary.name}
           crest={overview.summary.crest}
           userName={session.user.name}
+          available={available}
         />
         {children}
       </RegionDisplayProvider>

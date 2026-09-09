@@ -14,8 +14,8 @@ import type { TeamRegion } from "@/lib/round/regions";
 /** O que o header mostra do time em exibição — os dois campos que mudam com a região. */
 export type RegionDisplay = {
   region: TeamRegion;
-  /** Pontuação do time **daquela** região, já com o ×2 do capitão. */
-  points: number;
+  /** Saldo do time **daquela** região, em centavos (`fantasy_team.balance_cents`). */
+  balanceCents: number;
 };
 
 /**
@@ -27,13 +27,17 @@ export type RegionDisplay = {
  * become stale"* (`next/dist/docs/.../layout.md`). `app/(app)/layout.tsx` é
  * compartilhado por `/my-team`, `/home`, `/profile` e `/ranking`, então
  * trocar de aba de região (`?region=`) re-renderiza só o segmento da página
- * — o layout fica com a região e a pontuação da primeira renderização, e o
+ * — o layout fica com a região e o saldo da primeira renderização, e o
  * header passaria a contradizer a tela ao lado.
  *
  * A saída é inverter a direção: o layout só semeia o valor inicial (a
  * renderização do servidor, que acerta em cheio no carregamento completo), e
  * cada página que resolve uma região publica a sua com `<RegionDisplaySync>`.
  * Client Components **re-renderizam** na navegação, então o header acompanha.
+ *
+ * O saldo mora aqui pelo mesmo motivo que a pontuação morava antes dele: o
+ * time é um por região (`fantasy_team.balance_cents`), então trocar de
+ * região troca o saldo exatamente como troca a pontuação.
  */
 const ValueContext = createContext<RegionDisplay | null>(null);
 // Contexto separado para o setter: `setState` do `useState` é estável, então
@@ -73,7 +77,7 @@ export function useRegionDisplay(): RegionDisplay {
  * para carregar o efeito, do jeito que uma página (Server Component) tem de
  * falar com um Client Component acima dela na árvore.
  */
-export function RegionDisplaySync({ region, points }: RegionDisplay) {
+export function RegionDisplaySync({ region, balanceCents }: RegionDisplay) {
   const setDisplay = useContext(SetterContext);
 
   useEffect(() => {
@@ -81,11 +85,11 @@ export function RegionDisplaySync({ region, points }: RegionDisplay) {
     // re-render (`Object.is`) — sem isso, cada render publicaria um objeto
     // novo e o provider re-renderizaria para sempre.
     setDisplay?.((current) =>
-      current.region === region && current.points === points
+      current.region === region && current.balanceCents === balanceCents
         ? current
-        : { region, points },
+        : { region, balanceCents },
     );
-  }, [setDisplay, region, points]);
+  }, [setDisplay, region, balanceCents]);
 
   return null;
 }
