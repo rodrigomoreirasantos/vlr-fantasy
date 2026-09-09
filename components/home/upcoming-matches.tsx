@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { MarketCountdown } from "@/components/home/market-countdown";
+import { MarketCountdown } from "@/components/market/market-countdown";
 import { MatchSchedule } from "@/components/home/match-schedule";
 import { Panel } from "@/components/layout/panel";
 import type { UpcomingMatches as UpcomingMatchesData } from "@/lib/home/types";

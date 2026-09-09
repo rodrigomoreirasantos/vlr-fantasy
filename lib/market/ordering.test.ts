@@ -90,4 +90,31 @@ describe("sortMarketCandidates", () => {
 
     expect(sorted.map((p) => p.nickname)).toEqual(["Alfa", "Zeta"]);
   });
+
+  it("ordem alfabética: ignora o preço, ordena por nickname (A-Z)", () => {
+    const candidates = [
+      makePlayer({ id: "z", nickname: "Zeta", priceCents: 1000 }),
+      makePlayer({ id: "c", nickname: "Caro", priceCents: 3000 }),
+      makePlayer({ id: "a", nickname: "Alfa", priceCents: 2000 }),
+    ];
+
+    const sorted = sortMarketCandidates(candidates, makeContext(), "alphabetical");
+
+    expect(sorted.map((p) => p.nickname)).toEqual(["Alfa", "Caro", "Zeta"]);
+  });
+
+  it("ordem alfabética: bloqueados continuam empurrados para o fim", () => {
+    const candidates = [
+      makePlayer({
+        id: "bloqueado",
+        nickname: "Abloqueado",
+        active: false, // bloqueado: player-inactive
+      }),
+      makePlayer({ id: "zeta", nickname: "Zeta" }),
+    ];
+
+    const sorted = sortMarketCandidates(candidates, makeContext(), "alphabetical");
+
+    expect(sorted.map((p) => p.nickname)).toEqual(["Zeta", "Abloqueado"]);
+  });
 });

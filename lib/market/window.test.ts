@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  IDLE_REFRESH_MS,
+  LIVE_REFRESH_MS,
   MARKET_CLOSE_LEAD_MS,
   formatClosesAt,
   formatMarketClose,
   formatTimeLeft,
   isMarketOpen,
   marketClosesByMatch,
+  marketMatchesFor,
+  myTeamRefreshMs,
   nextMarketClose,
 } from "@/lib/market/window";
 import type { RoundMatch } from "@/lib/round/types";
@@ -176,5 +180,101 @@ describe("nextMarketClose", () => {
 
   it("sem jogo marcado, não há fechamento a anunciar", () => {
     expect(nextMarketClose([], new Date())).toBeNull();
+  });
+});
+
+describe("marketMatchesFor", () => {
+  function match(
+    id: string,
+    event: string,
+    teams: [string, string],
+    regionCode?: string,
+  ): RoundMatch {
+    return {
+      id,
+      teamA: teams[0],
+      teamB: teams[1],
+      event,
+      scheduledAt: new Date("2026-09-04T17:00:00Z"),
+      status: "upcoming",
+      scoreA: null,
+      scoreB: null,
+      regionCode,
+    };
+  }
+
+  // Organizações distintas por partida: é o que faz o recorte por
+  // organização (o time Internacional) ser de fato testado, em vez de passar
+  // por acidente porque todas as linhas têm o mesmo time.
+  const grade = [
+    match("americas", "VCT 2026: Americas Stage 2", ["NRG", "100 Thieves"]),
+    match("emea", "VCT 2026: EMEA Stage 2", ["FNATIC", "Team Heretics"]),
+    match("masters", "Valorant Masters Toronto", ["NRG", "FNATIC"]),
+  ];
+
+  it("time de liga: mantém a própria região e o internacional, descarta as outras", () => {
+    const matches = marketMatchesFor(grade, "americas");
+
+    expect(matches.map((m) => m.id).sort()).toEqual(["americas", "masters"]);
+  });
+
+  it("time Internacional: só as partidas internacionais", () => {
+    const matches = marketMatchesFor(grade, "international");
+
+    expect(matches.map((m) => m.id)).toEqual(["masters"]);
+  });
+
+  it("time Internacional: a liga de uma organização classificada também conta", () => {
+    // A trava é por organização e olha o circuito inteiro: se NRG joga
+    // Americas hoje, quem tem NRG no time Internacional está travado desde o
+    // fechamento de Americas — o relógio não pode ignorar esse jogo e
+    // anunciar só o Masters. A partida de EMEA fica de fora: nenhuma das
+    // organizações dela está classificada.
+    const matches = marketMatchesFor(grade, "international", ["NRG"]);
+
+    expect(matches.map((m) => m.id).sort()).toEqual(["americas", "masters"]);
+  });
+
+  it("time de liga ignora a lista de organizações — quem recorta lá é a região", () => {
+    const matches = marketMatchesFor(grade, "americas", ["FNATIC"]);
+
+    expect(matches.map((m) => m.id).sort()).toEqual(["americas", "masters"]);
+  });
+
+  it("sem partida nenhuma da região nem internacional: lista vazia", () => {
+    const matches = marketMatchesFor(
+      [match("pacific", "VCT 2026: Pacific Stage 2", ["DRX", "Gen.G"])],
+      "americas",
+    );
+
+    expect(matches).toEqual([]);
+  });
+});
+
+describe("myTeamRefreshMs", () => {
+  const now = new Date("2026-09-04T12:00:00Z");
+
+  it("sem fechamento (null): ritmo parado", () => {
+    expect(myTeamRefreshMs(null, now)).toBe(IDLE_REFRESH_MS);
+  });
+
+  it("fechamento a mais de uma hora: ritmo parado", () => {
+    const closesAt = new Date(now.getTime() + 2 * 60 * 60_000);
+    expect(myTeamRefreshMs(closesAt, now)).toBe(IDLE_REFRESH_MS);
+  });
+
+  it("fechamento dentro de uma hora: ritmo rápido", () => {
+    const closesAt = new Date(now.getTime() + 30 * 60_000);
+    expect(myTeamRefreshMs(closesAt, now)).toBe(LIVE_REFRESH_MS);
+  });
+
+  it("fechamento no instante exato do limite: ainda ritmo rápido", () => {
+    const closesAt = new Date(now.getTime() + MARKET_CLOSE_LEAD_MS);
+    expect(myTeamRefreshMs(closesAt, now)).toBe(LIVE_REFRESH_MS);
+  });
+
+  it("fechamento já passado: ritmo rápido — a trava pode estar mudando agora", () => {
+    const closesAt = new Date(now.getTime() - 5 * 60_000);
+    expect(myTeamRefreshMs(closesAt, now)).toBe(LIVE_REFRESH_MS);
   });
 });

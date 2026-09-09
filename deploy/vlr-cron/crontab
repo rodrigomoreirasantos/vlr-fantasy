@@ -1,0 +1,40 @@
+# Cron do pipeline do vlr.gg (docs/SCRAPING.md) — instalado em
+# /etc/cron.d/vlr-cron pelo Dockerfile deste diretório.
+#
+# Formato de crontab de sistema: min hora dia mês dia-da-semana USUÁRIO comando.
+# `flock -n` em cada linha: sem ele, uma execução que atrasa (rede lenta,
+# `vlr:work` com fila grande) poderia se sobrepor à próxima do mesmo job —
+# `vlr_job_run` (FOR UPDATE SKIP LOCKED) só protege a fila de `scrapeMatch`,
+# os outros scripts não têm proteção nenhuma contra rodar em dobro.
+#
+# `>> /var/log/vlr-cron.log 2>&1`: o `entrypoint.sh` faz `tail -F` desse
+# arquivo para stdout, então `docker logs` mostra tudo — cron por si só não
+# imprime saída nenhuma no console do container.
+
+SHELL=/bin/sh
+PATH=/usr/local/bin:/usr/bin:/bin
+
+# vlr:events — semanal (domingo às 03:00). Não mexe em `tracked`.
+0 3 * * 0 root cd /app && flock -n /tmp/vlr-events.lock pnpm vlr:events >> /var/log/vlr-cron.log 2>&1
+
+# vlr:schedule — diário às 06:00. Calendário + rodadas semanais (marketClosesAt).
+0 6 * * * root cd /app && flock -n /tmp/vlr-schedule.lock pnpm vlr:schedule >> /var/log/vlr-cron.log 2>&1
+
+# vlr:results — a cada 5 minutos. Passa pelo portão de cadência
+# (lib/vlr/jobs/cadence.ts): fora de janela de partida, só uma consulta ao
+# banco, nenhuma requisição.
+*/5 * * * * root cd /app && flock -n /tmp/vlr-results.lock pnpm vlr:results >> /var/log/vlr-cron.log 2>&1
+
+# vlr:results --force — uma vez por dia, varre o que ficou fora da janela de
+# cadência (partida cancelada/W.O. que o vlr nunca fechou).
+30 6 * * * root cd /app && flock -n /tmp/vlr-results-force.lock pnpm vlr:results --force --pages=3 >> /var/log/vlr-cron.log 2>&1
+
+# vlr:work — a cada 2 minutos. Consome a fila; falha isolada não derruba o lote.
+*/2 * * * * root cd /app && flock -n /tmp/vlr-work.lock pnpm vlr:work >> /var/log/vlr-cron.log 2>&1
+
+# vlr:round — a cada 15 minutos. Rodada toda extraída → calculateRound + closeActiveRound.
+*/15 * * * * root cd /app && flock -n /tmp/vlr-round.lock pnpm vlr:round >> /var/log/vlr-cron.log 2>&1
+
+# vlr:doctor — diário às 07:00. Roda os parsers contra a rede; exit ≠ 0 se
+# algum seletor quebrou — é o que um alerta externo (ex. monitor do log) vigia.
+0 7 * * * root cd /app && flock -n /tmp/vlr-doctor.lock pnpm vlr:doctor >> /var/log/vlr-cron.log 2>&1

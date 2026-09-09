@@ -2,6 +2,7 @@ import dayjs from "dayjs";
 import "dayjs/locale/pt-br";
 
 import { dayKey } from "@/lib/round/day";
+import { matchRegion, type TeamRegion } from "@/lib/round/regions";
 import type { RoundMatch } from "@/lib/round/types";
 
 // Nenhum componente formata data na mão — sempre via dayjs, aqui ou em
@@ -68,6 +69,43 @@ export function marketClosesByMatch(
 }
 
 /**
+ * As partidas que decidem o fechamento do mercado de um **time** (região de
+ * liga, ou o time Internacional): as dele mesmo, mais as internacionais —
+ * porque um Masters/Champions que fecha hoje tranca `lockedOrganizations`
+ * pela organização, região incluída, e o número exibido tem de ser o mesmo
+ * que vai travar.
+ *
+ * `organizations` é o escopo do time Internacional (as classificadas,
+ * `MarketScope`) e existe para fechar exatamente essa discordância. A trava
+ * é **por organização** e olha o circuito inteiro; um recorte só por
+ * `eventRegion` deixaria o time Internacional contando para o Masters das
+ * 20h enquanto suas organizações já estão travadas desde as 12h por jogarem
+ * a própria liga hoje — o relógio anunciando um mercado que, na prática, já
+ * fechou. Vazio para os times de liga: lá `eventRegion` já cobre as
+ * organizações da região.
+ *
+ * Diferente de `matchesInRegion` (`lib/round/regions.ts`), que devolve o
+ * recorte exato de uma única `EventRegion` para a grade da Home.
+ */
+export function marketMatchesFor(
+  matches: readonly RoundMatch[],
+  region: TeamRegion,
+  organizations: readonly string[] = [],
+): RoundMatch[] {
+  return matches.filter((match) => {
+    const eventReg = matchRegion(match);
+    if (region === "international") {
+      return (
+        eventReg === "international" ||
+        organizations.includes(match.teamA) ||
+        organizations.includes(match.teamB)
+      );
+    }
+    return eventReg === region || eventReg === "international";
+  });
+}
+
+/**
  * O próximo fechamento entre as partidas dadas — o primeiro que ainda não
  * passou. `null` quando todos já passaram (ou não há partida).
  */
@@ -111,7 +149,7 @@ export function formatClosesAt(closesAt: Date): string {
  * "abre em" — o mercado está aberto até o próximo dia de jogo trancar.
  *
  * `now` injetável: o servidor formata a frase no primeiro paint e o cliente
- * recalcula a mesma função a cada tick (`components/home/market-countdown.tsx`).
+ * recalcula a mesma função a cada tick (`components/market/market-countdown.tsx`).
  */
 export function formatMarketClose(
   closesAt: Date,
@@ -119,4 +157,37 @@ export function formatMarketClose(
 ): string {
   const left = formatTimeLeft(closesAt, now);
   return left === "Encerrado" ? "Mercado fechado" : `Mercado fecha em ${left}`;
+}
+
+/**
+ * De quanto em quanto tempo uma tela com mercado se atualiza sozinha.
+ *
+ * `LIVE_REFRESH_MS` é de minuto em minuto — placar de partida ao vivo ou
+ * rodada em curso pontuando, na Home (`refreshIntervalMs`,
+ * `lib/home/summary.ts`). `IDLE_REFRESH_MS` é o ritmo parado: fora dessas
+ * janelas, o que muda é o calendário (em horas) ou a trava do dia — e ela só
+ * tem chance de mudar perto do próprio fechamento, daí `myTeamRefreshMs`
+ * escalar para o ritmo rápido só na última hora antes de `closesAt`.
+ */
+export const LIVE_REFRESH_MS = 60_000;
+export const IDLE_REFRESH_MS = 5 * 60_000;
+
+/**
+ * O ritmo de atualização automática da `/my-team` (`<LiveRefresh>`).
+ *
+ * Sem partida ao vivo para vigiar (isso é a Home) — aqui o que envelhece com
+ * o relógio é a trava do dia (`lockedOrganizations`): perto do fechamento,
+ * clicar numa vaga pode devolver um bloqueio que a tela ainda não mostrava.
+ * `MARKET_CLOSE_LEAD_MS` (a mesma hora de antecedência da regra em si) é o
+ * raio dentro do qual vale apertar o ritmo; fora dele o ritmo parado basta.
+ */
+export function myTeamRefreshMs(
+  closesAt: Date | null,
+  now: Date = new Date(),
+): number {
+  if (!closesAt) return IDLE_REFRESH_MS;
+  const msUntilClose = closesAt.getTime() - now.getTime();
+  return msUntilClose <= MARKET_CLOSE_LEAD_MS
+    ? LIVE_REFRESH_MS
+    : IDLE_REFRESH_MS;
 }

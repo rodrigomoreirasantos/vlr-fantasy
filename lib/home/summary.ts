@@ -5,6 +5,7 @@ import type {
   RegionalScorer,
   RoundHighlights,
 } from "@/lib/home/types";
+import { IDLE_REFRESH_MS, LIVE_REFRESH_MS } from "@/lib/market/window";
 import { isSameDay } from "@/lib/round/day";
 import type { EventRegion } from "@/lib/round/regions";
 import { eventRegion, matchRegion } from "@/lib/round/regions";
@@ -243,11 +244,10 @@ export function pendingRegions(
   return [...pending];
 }
 
-/** De quanto em quanto tempo a Home se atualiza sozinha, com jogo acontecendo. */
-export const LIVE_REFRESH_MS = 60_000;
-
-/** E quando não há nada em andamento — o calendário muda em horas, não em minutos. */
-export const IDLE_REFRESH_MS = 5 * 60_000;
+// `LIVE_REFRESH_MS`/`IDLE_REFRESH_MS` moram em `lib/market/window.ts` — é lá
+// que `myTeamRefreshMs` (o mesmo ritmo, para a `/my-team`) também vive.
+// Reexportadas daqui para não quebrar quem já importa os dois nomes da Home.
+export { IDLE_REFRESH_MS, LIVE_REFRESH_MS };
 
 /**
  * O ritmo de atualização automática da Home (`<LiveRefresh>`).

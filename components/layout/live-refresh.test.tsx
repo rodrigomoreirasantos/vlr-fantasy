@@ -1,7 +1,7 @@
 import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { LiveRefresh } from "@/components/home/live-refresh";
+import { LiveRefresh } from "@/components/layout/live-refresh";
 
 const refresh = vi.fn();
 

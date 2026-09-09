@@ -37,16 +37,16 @@ não conhece HTTP; o motor de pontuação não conhece nem um nem outro.
 
 ## Comandos
 
-| Comando              | Cron sugerido | O que faz                                                        |
-| -------------------- | ------------- | ---------------------------------------------------------------- |
-| `pnpm vlr:events`    | semanal       | `/events` → `vlr_event`. **Não** mexe em `tracked`               |
-| `pnpm vlr:schedule`  | 06:00         | `/matches` → calendário → rodadas semanais (`marketClosesAt`)    |
-| `pnpm vlr:results`   | \*/5min       | `/matches/results` → marca encerradas e enfileira a extração     |
-| `pnpm vlr:work`      | \*/2min       | Consome a fila; falha isolada não derruba o lote                 |
-| `pnpm vlr:round`     | \*/15min      | Rodada toda extraída → `calculateRound` + `closeActiveRound`     |
-| `pnpm vlr:doctor`    | diário        | Roda os parsers contra a rede; exit ≠ 0 se algum seletor quebrou |
-| `pnpm vlr:backfill`  | manual        | Carga histórica (`--pages=20`)                                   |
-| `pnpm vlr:reprocess` | manual        | `--match=<vlrId>` — reparsa do HTML salvo, **sem rede**          |
+| Comando              | Cron     | O que faz                                                        |
+| -------------------- | -------- | ---------------------------------------------------------------- |
+| `pnpm vlr:events`    | semanal  | `/events` → `vlr_event`. **Não** mexe em `tracked`               |
+| `pnpm vlr:schedule`  | 06:00    | `/matches` → calendário → rodadas semanais (`marketClosesAt`)    |
+| `pnpm vlr:results`   | \*/5min  | `/matches/results` → marca encerradas e enfileira a extração     |
+| `pnpm vlr:work`      | \*/2min  | Consome a fila; falha isolada não derruba o lote                 |
+| `pnpm vlr:round`     | \*/15min | Rodada toda extraída → `calculateRound` + `closeActiveRound`     |
+| `pnpm vlr:doctor`    | diário   | Roda os parsers contra a rede; exit ≠ 0 se algum seletor quebrou |
+| `pnpm vlr:backfill`  | manual   | Carga histórica (`--pages=20`)                                   |
+| `pnpm vlr:reprocess` | manual   | `--match=<vlrId>` — reparsa do HTML salvo, **sem rede**          |
 
 Mais uma linha, essa só uma vez por dia:
 
@@ -56,6 +56,24 @@ pnpm vlr:results --force --pages=3    # varre o que ficou fora da janela
 
 Sem processo de longa duração: a fila vive no próprio Postgres (`vlr_job_run`,
 com `FOR UPDATE SKIP LOCKED`) e os scripts saem quando terminam.
+
+### Onde o cron roda
+
+**Fora do serverless, sempre.** `deploy/vlr-cron/` tem o agendador pronto
+(Docker + crontab, ou crontab de sistema puro para quem não usa Docker) —
+`deploy/vlr-cron/README.md` tem o passo a passo. Duas razões, as duas
+verificadas neste projeto, não hipotéticas:
+
+1. **O disco importa.** `VLR_STORAGE_DIR` (`lib/vlr/http/raw-store.ts`) é o
+   HTML bruto — "o dado é o HTML, tudo depois é recomputável", o princípio
+   norteador deste documento. Um disco efêmero (o de toda função serverless,
+   Vercel incluída) apaga isso a cada execução, e `pnpm vlr:reprocess` para
+   de servir para algo.
+2. **O tempo importa.** `vlr:work` processa até 10 partidas por chamada, a
+   ~1,1s de rate limit cada — ≥11s, acima do teto de 10s de uma função
+   Hobby da Vercel. E mesmo num plano que aceitasse a duração, o ritmo
+   `*/5min`/`*/2min` da tabela acima é mais apertado do que um cron de
+   plataforma serverless costuma oferecer fora do plano pago.
 
 ## Ritmo em dia de jogo
 

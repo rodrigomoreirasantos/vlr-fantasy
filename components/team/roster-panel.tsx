@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
 
@@ -13,24 +14,23 @@ import { LineupProgress } from "@/components/team/lineup-progress";
 import { Panel } from "@/components/layout/panel";
 import { EmptyPlayerRow, PlayerRow } from "@/components/team/player-row";
 import {
+  loadMarket,
   sellPlayer,
   setCaptain,
   substitutePlayer,
 } from "@/app/(app)/my-team/actions";
 import { isTeamLocked } from "@/lib/market/lock";
-import type { MarketScope } from "@/lib/market/scope";
-import type { Player, PlayerRole, RosterSlot } from "@/lib/team/types";
+import type { MarketData, Player, RosterSlot } from "@/lib/team/types";
 
 export type RosterPanelProps = {
   roster: RosterSlot[];
-  market: Record<PlayerRole, Player[]>;
-  /** O escopo do time (região ou organizações classificadas) — repassado ao `MarketSheet`. */
-  scope: MarketScope;
   balanceCents: number;
   marketOpen: boolean;
   /** Organizações cujo mercado fechou hoje (`lockedOrganizations`). */
   lockedTeams: readonly string[];
   closesIn: string;
+  /** O instante de fechamento, recortado pela região do time — `summary.market.closesAt`. */
+  closesAt: Date | null;
 };
 
 /**
@@ -40,17 +40,27 @@ export type RosterPanelProps = {
  * seleciona a mesma vaga e abre o mesmo `MarketSheet`; vaga vazia entra em
  * modo "nova contratação" (`outgoingPlayerId: null`), vaga ocupada em modo
  * substituição.
+ *
+ * O catálogo do mercado nunca chega por prop: a página não o carrega mais
+ * (`prompts/11_maket_players.md` — o modal sempre com o scrap mais
+ * atualizado). Selecionar uma vaga dispara `loadMarket`, que relê tudo —
+ * catálogo, saldo, trava do dia e fechamento — no instante do clique; até a
+ * resposta voltar, o `MarketSheet` mostra o resto normalmente (com o dado da
+ * página) e só a lista de candidatos fica em skeleton.
  */
 export function RosterPanel({
   roster,
-  market,
-  scope,
   balanceCents,
   marketOpen,
   lockedTeams,
   closesIn,
+  closesAt,
 }: RosterPanelProps) {
+  const router = useRouter();
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  // Nunca reaproveitado entre vagas: toda seleção nova zera este estado antes
+  // de disparar `loadMarket` de novo (ver `handleSelect`).
+  const [marketData, setMarketData] = useState<MarketData | null>(null);
 
   const rosteredPlayerIds = useMemo(
     () => roster.flatMap((slot) => (slot.player ? [slot.player.id] : [])),
@@ -70,6 +80,7 @@ export function RosterPanel({
     onSuccess: () => {
       toast.success("Time atualizado!");
       setSelectedIndex(null);
+      setMarketData(null);
     },
     onError: ({ error }) => {
       toast.error(error.serverError ?? "Não foi possível concluir a operação.");
@@ -91,12 +102,23 @@ export function RosterPanel({
       onSuccess: () => {
         toast.success("Jogador vendido!");
         setSelectedIndex(null);
+        setMarketData(null);
       },
       onError: ({ error }) => {
         toast.error(error.serverError ?? "Não foi possível vender o jogador.");
       },
     },
   );
+
+  const { execute: executeLoadMarket } = useAction(loadMarket, {
+    onSuccess: ({ data }) => {
+      if (data) setMarketData(data);
+    },
+    onError: ({ error }) => {
+      toast.error(error.serverError ?? "Não foi possível carregar o mercado.");
+      setSelectedIndex(null);
+    },
+  });
 
   /**
    * A vaga é negociável agora? Vaga vazia sempre é — não há jogador travado
@@ -111,10 +133,21 @@ export function RosterPanel({
   function handleSelect(index: number) {
     if (!slotIsOpen(index)) return;
     setSelectedIndex(index);
+    // Zera antes de buscar de novo: reabrir uma vaga (mesma ou outra) nunca
+    // reaproveita o catálogo da seleção anterior.
+    setMarketData(null);
+    const slot = roster[index];
+    if (slot?.id) executeLoadMarket({ slotId: slot.id });
+    // Mantém "Resumo"/"Time Montado" em dia — o catálogo em si só viaja pela
+    // action acima, nunca de novo pelo HTML da página.
+    router.refresh();
   }
 
   function handleOpenChange(open: boolean) {
-    if (!open) setSelectedIndex(null);
+    if (!open) {
+      setSelectedIndex(null);
+      setMarketData(null);
+    }
   }
 
   function handleConfirm(candidate: Player) {
@@ -144,6 +177,16 @@ export function RosterPanel({
     if (!slot?.id || !slot.player) return;
     executeSell({ slotId: slot.id, outgoingPlayerId: slot.player.id });
   }
+
+  /**
+   * Ternário, e não `??` como os vizinhos: `closesAt: null` é resposta
+   * **válida** de `loadMarket` ("nenhum jogo marcado"), e o `??` cairia de
+   * volta no valor da página — o resumo mostraria "Nenhum jogo marcado" e,
+   * 30s depois, tickaria uma contagem para um fechamento que o servidor já
+   * não reconhece. Saldo, trava e frase podem usar `??`: nenhum deles tem
+   * `null`/`undefined` como valor legítimo.
+   */
+  const sheetClosesAt = marketData ? marketData.closesAt : closesAt;
 
   return (
     <>
@@ -204,12 +247,13 @@ export function RosterPanel({
         open={selection !== null}
         onOpenChange={handleOpenChange}
         selection={selection}
-        market={market}
-        scope={scope}
-        balanceCents={balanceCents}
-        marketOpen={marketOpen}
-        lockedTeams={lockedTeams}
-        closesIn={closesIn}
+        market={marketData?.market ?? null}
+        scope={marketData?.scope ?? null}
+        balanceCents={marketData?.balanceCents ?? balanceCents}
+        marketOpen={marketData?.marketOpen ?? marketOpen}
+        lockedTeams={marketData?.lockedTeams ?? lockedTeams}
+        closesIn={marketData?.closesIn ?? closesIn}
+        closesAt={sheetClosesAt}
         rosteredPlayerIds={rosteredPlayerIds}
         onConfirm={handleConfirm}
         onSell={handleSell}

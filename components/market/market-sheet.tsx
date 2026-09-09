@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { TriangleAlert } from "lucide-react";
 
 import { MarketPlayerRow } from "@/components/market/market-player-row";
@@ -16,12 +16,16 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   evaluateSale,
   type SubstitutionContext,
 } from "@/lib/market/eligibility";
 import { formatCredits, formatCreditsDelta } from "@/lib/market/money";
-import { sortMarketCandidates } from "@/lib/market/ordering";
+import {
+  sortMarketCandidates,
+  type MarketSortOrder,
+} from "@/lib/market/ordering";
 import type { MarketScope } from "@/lib/market/scope";
 import { PLAYER_ROLES, type Player, type PlayerRole } from "@/lib/team/types";
 import { cn } from "@/lib/utils";
@@ -42,15 +46,23 @@ export type MarketSheetProps = {
   onOpenChange: (open: boolean) => void;
   /** Vaga selecionada — `null` enquanto nada está selecionado. */
   selection: MarketSelection | null;
-  market: Record<PlayerRole, Player[]>;
+  /**
+   * `null` enquanto `loadMarket` ainda não voltou para esta vaga — a área da
+   * lista mostra um skeleton nesse meio-tempo. O resto do Sheet (saldo, quem
+   * sai, o fechamento e o botão de vender) não depende disso e renderiza na
+   * hora, com o dado que a página já tinha.
+   */
+  market: Record<PlayerRole, Player[]> | null;
   balanceCents: number;
   marketOpen: boolean;
   /** Organizações cujo mercado fechou hoje (`lockedOrganizations`). */
   lockedTeams: readonly string[];
   closesIn: string;
+  /** O instante de fechamento, recortado pela região do time — para o `<MarketCountdown>` do resumo. */
+  closesAt: Date | null;
   rosteredPlayerIds: readonly string[];
-  /** O escopo do time (região ou organizações classificadas) — quem entra tem de casar com ele. */
-  scope: MarketScope;
+  /** O escopo do time (região ou organizações classificadas) — quem entra tem de casar com ele. `null` junto com `market`. */
+  scope: MarketScope | null;
   onConfirm: (candidate: Player) => void;
   /** Ausente numa vaga vazia — não há ninguém para vender. */
   onSell?: (outgoing: Player) => void;
@@ -62,8 +74,10 @@ export type MarketSheetProps = {
  * (substituição) ou vazia (nova contratação). As quatro funções aparecem
  * sempre como abas, nos dois modos. A filtragem, o preço e o bloqueio de
  * cada linha vêm de `evaluateSubstitution` (lib/market/eligibility.ts),
- * nunca reescritos aqui; a ordem (mais barato → mais caro, bloqueados por
- * último) vem de `sortMarketCandidates` (lib/market/ordering.ts).
+ * nunca reescritos aqui; a ordem (preço ou alfabética, bloqueados sempre por
+ * último) vem de `sortMarketCandidates` (lib/market/ordering.ts) — o
+ * `<ToggleGroup>` troca só o critério, o estado vive aqui e não persiste
+ * entre aberturas do Sheet.
  */
 export function MarketSheet({
   open,
@@ -74,6 +88,7 @@ export function MarketSheet({
   marketOpen,
   lockedTeams,
   closesIn,
+  closesAt,
   rosteredPlayerIds,
   scope,
   onConfirm,
@@ -81,9 +96,14 @@ export function MarketSheet({
   pending = false,
 }: MarketSheetProps) {
   const outgoing = selection?.outgoing ?? null;
+  const [sortOrder, setSortOrder] = useState<MarketSortOrder>("price");
 
+  // `scope` chega `null` enquanto `loadMarket` não voltou para esta vaga —
+  // sem ele não há como montar o contexto (`SubstitutionContext.scope` não é
+  // opcional), então `ctx` também fica `null` até lá. O bloco de venda não
+  // depende disso: `evaluateSale` (abaixo) nunca olha `scope`.
   const ctx: SubstitutionContext | null = useMemo(() => {
-    if (!selection) return null;
+    if (!selection || !scope) return null;
     return {
       marketOpen,
       lockedTeams,
@@ -108,14 +128,14 @@ export function MarketSheet({
   }, [outgoing, marketOpen, lockedTeams, balanceCents]);
 
   const candidatesByRole = useMemo(() => {
-    if (!ctx) return null;
+    if (!ctx || !market) return null;
     return Object.fromEntries(
       PLAYER_ROLES.map((role) => [
         role,
-        sortMarketCandidates(market[role] ?? [], ctx),
+        sortMarketCandidates(market[role] ?? [], ctx, sortOrder),
       ]),
     ) as Record<PlayerRole, Player[]>;
-  }, [ctx, market]);
+  }, [ctx, market, sortOrder]);
 
   // Aba inicial: a função de quem sai, numa substituição — mesmo que ela não
   // tenha candidatos, é a mais relevante para o usuário ver primeiro. Numa
@@ -131,7 +151,7 @@ export function MarketSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="flex w-full flex-col gap-0 data-[side=right]:w-full data-[side=right]:sm:max-w-lg">
-        {selection && ctx && candidatesByRole && (
+        {selection && (
           <>
             <SheetHeader>
               <SheetTitle>
@@ -154,6 +174,7 @@ export function MarketSheet({
                 position={selection.position}
                 marketOpen={marketOpen}
                 closesIn={closesIn}
+                closesAt={closesAt}
               />
 
               {outgoing && saleVerdict && (
@@ -194,13 +215,61 @@ export function MarketSheet({
                 </Alert>
               )}
 
+              {/* Só faz sentido depois que `loadMarket` volta — antes disso
+                  não há lista para reordenar. */}
+              {candidatesByRole && (
+                <div className="flex items-center justify-end gap-2">
+                  <span className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                    Ordenar por
+                  </span>
+                  <ToggleGroup
+                    type="single"
+                    variant="outline"
+                    size="sm"
+                    value={sortOrder}
+                    onValueChange={(value) => {
+                      // Radix devolve "" ao clicar no item já pressionado —
+                      // ignorado, para sempre haver um critério selecionado.
+                      if (value) setSortOrder(value as MarketSortOrder);
+                    }}
+                    aria-label="Ordenar mercado"
+                  >
+                    <ToggleGroupItem
+                      value="price"
+                      aria-label="Ordenar por preço"
+                      className="cursor-pointer text-xs"
+                    >
+                      Preço
+                    </ToggleGroupItem>
+                    <ToggleGroupItem
+                      value="alphabetical"
+                      aria-label="Ordenar alfabeticamente"
+                      className="cursor-pointer text-xs"
+                    >
+                      A-Z
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+                </div>
+              )}
+
               {/*
                 `key` força o Tabs a remontar (e reavaliar `defaultValue`)
                 sempre que a vaga selecionada muda — trocar de vaga sem
                 fechar o Sheet não deve manter a aba da vaga anterior.
+
+                O `market !== null` no fim da chave não é detalhe: o Sheet
+                agora **abre** sem catálogo, e `Tabs` é não-controlado — lê
+                `defaultValue` só ao montar. Sem remontar quando o mercado
+                chega, uma vaga vazia ficaria presa na primeira função
+                (`PLAYER_ROLES[0]`, o fallback de `initialRole` sem
+                candidatos) mesmo que ela não tenha ninguém e outra tenha:
+                aba selecionada, desabilitada e anunciando "Nenhum Duelista
+                disponível". Remontar aqui é seguro porque, enquanto carrega,
+                todas as abas estão desabilitadas — não há escolha do usuário
+                para perder.
               */}
               <Tabs
-                key={`${selection.position}-${outgoing?.id ?? "empty"}`}
+                key={`${selection.position}-${outgoing?.id ?? "empty"}-${market !== null}`}
                 defaultValue={initialRole}
                 className="flex min-h-0 flex-1 flex-col gap-3"
               >
@@ -209,50 +278,73 @@ export function MarketSheet({
                     <TabsTrigger
                       key={role}
                       value={role}
-                      disabled={candidatesByRole[role].length === 0}
+                      disabled={
+                        !candidatesByRole || candidatesByRole[role].length === 0
+                      }
                     >
                       {role}
                     </TabsTrigger>
                   ))}
                 </TabsList>
 
-                {PLAYER_ROLES.map((role) => {
-                  const candidates = candidatesByRole[role];
-                  return (
-                    <TabsContent key={role} value={role} className="min-h-0">
-                      {/*
-                        min-h-0 é o que faz o flex-1 valer: sem ele, um flex
-                        item sem overflow próprio assume min-height:auto e
-                        cresce para caber todo o conteúdo (o `<ul>` inteiro),
-                        em vez de ser limitado pelo espaço disponível no
-                        Sheet — daí a lista cortar sem barra de rolagem.
-                      */}
-                      <ScrollArea className="-mx-1 h-full px-1">
-                        {candidates.length === 0 ? (
-                          <p className="py-6 text-center text-xs text-muted-foreground">
-                            Nenhum {role} disponível no mercado.
-                          </p>
-                        ) : (
-                          <ul
-                            className={cn(
-                              "flex flex-col gap-2",
-                              pending && "pointer-events-none opacity-70",
-                            )}
-                          >
-                            {candidates.map((candidate) => (
-                              <MarketPlayerRow
-                                key={candidate.id}
-                                ctx={ctx}
-                                candidate={candidate}
-                                onConfirm={onConfirm}
-                              />
-                            ))}
-                          </ul>
-                        )}
-                      </ScrollArea>
-                    </TabsContent>
-                  );
-                })}
+                {candidatesByRole && ctx ? (
+                  PLAYER_ROLES.map((role) => {
+                    const candidates = candidatesByRole[role];
+                    return (
+                      <TabsContent key={role} value={role} className="min-h-0">
+                        {/*
+                          min-h-0 é o que faz o flex-1 valer: sem ele, um flex
+                          item sem overflow próprio assume min-height:auto e
+                          cresce para caber todo o conteúdo (o `<ul>`
+                          inteiro), em vez de ser limitado pelo espaço
+                          disponível no Sheet — daí a lista cortar sem barra
+                          de rolagem.
+                        */}
+                        <ScrollArea className="-mx-1 h-full px-1">
+                          {candidates.length === 0 ? (
+                            <p className="py-6 text-center text-xs text-muted-foreground">
+                              Nenhum {role} disponível no mercado.
+                            </p>
+                          ) : (
+                            <ul
+                              className={cn(
+                                "flex flex-col gap-2",
+                                pending && "pointer-events-none opacity-70",
+                              )}
+                            >
+                              {candidates.map((candidate) => (
+                                <MarketPlayerRow
+                                  key={candidate.id}
+                                  ctx={ctx}
+                                  candidate={candidate}
+                                  onConfirm={onConfirm}
+                                />
+                              ))}
+                            </ul>
+                          )}
+                        </ScrollArea>
+                      </TabsContent>
+                    );
+                  })
+                ) : (
+                  // `loadMarket` ainda não voltou para esta vaga — as abas
+                  // acima já nascem desabilitadas (`!candidatesByRole`).
+                  <div
+                    aria-busy="true"
+                    aria-live="polite"
+                    className="flex flex-1 flex-col gap-2 px-1"
+                  >
+                    <p className="py-2 text-center text-xs text-muted-foreground">
+                      Carregando o mercado…
+                    </p>
+                    {Array.from({ length: 3 }, (_, index) => (
+                      <div
+                        key={index}
+                        className="h-14 shrink-0 animate-pulse rounded-md bg-secondary"
+                      />
+                    ))}
+                  </div>
+                )}
               </Tabs>
             </div>
           </>

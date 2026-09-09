@@ -1,6 +1,6 @@
 import type { Crest } from "@/lib/crest/types";
 import type { PlayerRegion, TeamRegion } from "@/lib/round/regions";
-import type { SlotWarning } from "@/lib/market/scope";
+import type { MarketScope, SlotWarning } from "@/lib/market/scope";
 
 /**
  * As quatro funções de Valorant. Fonte única desta lista — `db/schema/players.ts`
@@ -102,7 +102,28 @@ export type TeamSummary = {
     open: boolean;
     /** Tempo restante já formatado, ex. "36h 12m" (lib/market/window.ts). */
     closesIn: string;
-    /** Instante de fechamento, para um futuro countdown ao vivo no cliente. */
+    /** Instante de fechamento, alimenta o countdown ao vivo no cliente. */
     closesAt: Date | null;
   };
+};
+
+/**
+ * O que a Server Action `loadMarket` (app/(app)/my-team/actions.ts) devolve
+ * ao `MarketSheet`: o catálogo e tudo que decide a elegibilidade, relido do
+ * banco no instante em que o usuário abre uma vaga.
+ *
+ * Mora **aqui**, e não junto da action, porque um módulo `"use server"` só
+ * deve exportar Server Actions — é a regra do Next, e é o que todo
+ * `actions.ts` deste projeto já faz. `loadMarket` anota este tipo como
+ * retorno, então os dois não têm como divergir em silêncio.
+ */
+export type MarketData = {
+  market: Record<PlayerRole, Player[]>;
+  scope: MarketScope;
+  balanceCents: number;
+  marketOpen: boolean;
+  /** Organizações cujo mercado fechou hoje (`lockedOrganizations`). */
+  lockedTeams: string[];
+  closesAt: Date | null;
+  closesIn: string;
 };

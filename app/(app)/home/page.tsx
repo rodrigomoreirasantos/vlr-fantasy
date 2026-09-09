@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { LiveRefresh } from "@/components/home/live-refresh";
+import { LiveRefresh } from "@/components/layout/live-refresh";
 import { RegionDisplaySync } from "@/components/layout/region-display";
 import { RoundHighlights } from "@/components/home/round-highlights";
 import { TeamPerformance } from "@/components/home/team-performance";

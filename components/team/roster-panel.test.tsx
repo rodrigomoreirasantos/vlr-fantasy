@@ -6,36 +6,72 @@ const {
   executeSubstituteMock,
   executeSetCaptainMock,
   executeSellMock,
+  executeLoadMarketMock,
+  refreshMock,
   substitutePlayerToken,
   setCaptainToken,
   sellPlayerToken,
+  loadMarketToken,
+  marketFixtureBox,
 } = vi.hoisted(() => ({
   executeSubstituteMock: vi.fn(),
   executeSetCaptainMock: vi.fn(),
   executeSellMock: vi.fn(),
+  executeLoadMarketMock: vi.fn(),
+  refreshMock: vi.fn(),
   substitutePlayerToken: Symbol("substitutePlayer"),
   setCaptainToken: Symbol("setCaptain"),
   sellPlayerToken: Symbol("sellPlayer"),
+  loadMarketToken: Symbol("loadMarket"),
+  // Caixa mutável: a fábrica do mock de `next-safe-action/hooks` é içada
+  // acima do resto do módulo, então não pode fechar sobre um `let` comum
+  // declarado depois — só sobre algo também içado.
+  marketFixtureBox: { current: null as unknown },
 }));
 
 vi.mock("@/app/(app)/my-team/actions", () => ({
   substitutePlayer: substitutePlayerToken,
   setCaptain: setCaptainToken,
   sellPlayer: sellPlayerToken,
+  loadMarket: loadMarketToken,
+}));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: refreshMock }),
 }));
 vi.mock("next-safe-action/hooks", () => ({
-  useAction: (action: unknown) => {
+  useAction: (
+    action: unknown,
+    options?: { onSuccess?: (args: { data: unknown }) => void },
+  ) => {
     if (action === setCaptainToken)
       return { execute: executeSetCaptainMock, isExecuting: false };
     if (action === sellPlayerToken)
       return { execute: executeSellMock, isExecuting: false };
+    if (action === loadMarketToken) {
+      return {
+        execute: (input: unknown) => {
+          executeLoadMarketMock(input);
+          // Simula o `loadMarket` voltando na hora: o `MarketSheet` recebe o
+          // catálogo já resolvido, sem precisar de `waitFor` em cada teste.
+          if (marketFixtureBox.current) {
+            options?.onSuccess?.({ data: marketFixtureBox.current });
+          }
+        },
+        isExecuting: false,
+      };
+    }
     return { execute: executeSubstituteMock, isExecuting: false };
   },
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { RosterPanel } from "@/components/team/roster-panel";
-import type { Player, PlayerRole, RosterSlot } from "@/lib/team/types";
+import type {
+  MarketData,
+  Player,
+  PlayerRole,
+  RosterSlot,
+} from "@/lib/team/types";
 
 function makePlayer(overrides: Partial<Player> = {}): Player {
   return {
@@ -82,11 +118,27 @@ function emptyMarket(): Record<PlayerRole, Player[]> {
 
 const AMERICAS_SCOPE = { kind: "region" as const, region: "americas" as const };
 
+function makeMarketData(overrides: Partial<MarketData> = {}): MarketData {
+  return {
+    market: emptyMarket(),
+    scope: AMERICAS_SCOPE,
+    balanceCents: 10_000,
+    marketOpen: true,
+    lockedTeams: [],
+    closesAt: null,
+    closesIn: "36h 12m",
+    ...overrides,
+  };
+}
+
 describe("RosterPanel", () => {
   beforeEach(() => {
     executeSubstituteMock.mockClear();
     executeSetCaptainMock.mockClear();
     executeSellMock.mockClear();
+    executeLoadMarketMock.mockClear();
+    refreshMock.mockClear();
+    marketFixtureBox.current = makeMarketData();
   });
 
   it("clicar na linha da lista abre o mercado para aquela vaga", async () => {
@@ -94,12 +146,11 @@ describe("RosterPanel", () => {
     render(
       <RosterPanel
         roster={makeRoster()}
-        market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
-        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
+        closesAt={null}
       />,
     );
 
@@ -109,17 +160,62 @@ describe("RosterPanel", () => {
     expect(screen.getByText(/Substituindo TenZ\./)).toBeInTheDocument();
   });
 
+  it("loadMarket sem jogo marcado: adota o `null` do servidor em vez do fechamento velho da página", async () => {
+    // Regressão de `??`: `closesAt: null` é resposta válida ("nenhum jogo
+    // marcado"). Caindo de volta no `closesAt` da página, o resumo tickaria
+    // uma contagem para um fechamento que o servidor já não reconhece.
+    marketFixtureBox.current = makeMarketData({
+      closesAt: null,
+      closesIn: "Nenhum jogo marcado",
+    });
+
+    const user = userEvent.setup();
+    render(
+      <RosterPanel
+        roster={makeRoster()}
+        balanceCents={10_000}
+        marketOpen
+        lockedTeams={[]}
+        closesIn="36h 12m"
+        closesAt={new Date("2026-03-14T18:00:00Z")}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /substituir tenz$/i }));
+
+    expect(screen.getByText("Nenhum jogo marcado")).toBeInTheDocument();
+    expect(screen.queryByText("36h 12m")).not.toBeInTheDocument();
+  });
+
+  it("clicar numa vaga dispara loadMarket com o slotId daquela vaga, e mantém a página em dia", async () => {
+    const user = userEvent.setup();
+    render(
+      <RosterPanel
+        roster={makeRoster()}
+        balanceCents={10_000}
+        marketOpen
+        lockedTeams={[]}
+        closesIn="36h 12m"
+        closesAt={null}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /substituir tenz$/i }));
+
+    expect(executeLoadMarketMock).toHaveBeenCalledWith({ slotId: "slot-2" });
+    expect(refreshMock).toHaveBeenCalled();
+  });
+
   it("clicar no marcador do campo abre o mesmo mercado, para o mesmo jogador", async () => {
     const user = userEvent.setup();
     render(
       <RosterPanel
         roster={makeRoster()}
-        market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
-        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
+        closesAt={null}
       />,
     );
 
@@ -135,12 +231,11 @@ describe("RosterPanel", () => {
     render(
       <RosterPanel
         roster={makeRoster()}
-        market={emptyMarket()}
         balanceCents={10_000}
         marketOpen={false}
         lockedTeams={[]}
-        scope={AMERICAS_SCOPE}
         closesIn="Encerrado"
+        closesAt={null}
       />,
     );
 
@@ -163,12 +258,11 @@ describe("RosterPanel", () => {
     render(
       <RosterPanel
         roster={makeRoster()}
-        market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
-        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
+        closesAt={null}
       />,
     );
 
@@ -184,12 +278,11 @@ describe("RosterPanel", () => {
     render(
       <RosterPanel
         roster={makeRoster()}
-        market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
-        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
+        closesAt={null}
       />,
     );
 
@@ -205,12 +298,11 @@ describe("RosterPanel", () => {
     render(
       <RosterPanel
         roster={makeRoster()}
-        market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
-        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
+        closesAt={null}
       />,
     );
 
@@ -226,12 +318,11 @@ describe("RosterPanel", () => {
     render(
       <RosterPanel
         roster={makeRoster()}
-        market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
-        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
+        closesAt={null}
       />,
     );
 
@@ -249,12 +340,11 @@ describe("RosterPanel", () => {
     render(
       <RosterPanel
         roster={makeRoster()}
-        market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
-        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
+        closesAt={null}
       />,
     );
 
@@ -266,6 +356,7 @@ describe("RosterPanel", () => {
     });
     // Vender na linha não abre o Sheet.
     expect(screen.queryByText(/Mercado ·/)).not.toBeInTheDocument();
+    expect(executeLoadMarketMock).not.toHaveBeenCalled();
   });
 
   it("vaga travada pela regra do dia: só ela sai de circulação", async () => {
@@ -273,12 +364,11 @@ describe("RosterPanel", () => {
     render(
       <RosterPanel
         roster={makeRoster()}
-        market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
         lockedTeams={["FNATIC"]}
-        scope={AMERICAS_SCOPE}
         closesIn="2h 0m"
+        closesAt={null}
       />,
     );
 
@@ -293,18 +383,35 @@ describe("RosterPanel", () => {
     // TenZ é de outro campeonato e continua negociável.
     await user.click(screen.getByRole("button", { name: /substituir tenz$/i }));
     expect(screen.getByText(/Mercado ·/)).toBeInTheDocument();
+    expect(executeLoadMarketMock).toHaveBeenCalledWith({ slotId: "slot-2" });
+  });
+
+  it("vaga travada pela regra do dia: não dispara loadMarket nenhum", () => {
+    render(
+      <RosterPanel
+        roster={makeRoster()}
+        balanceCents={10_000}
+        marketOpen
+        lockedTeams={["FNATIC"]}
+        closesIn="2h 0m"
+        closesAt={null}
+      />,
+    );
+
+    // Sem botão nenhum para a vaga do Boaster: não há como disparar nada
+    // para ela, e nenhuma outra vaga foi clicada.
+    expect(executeLoadMarketMock).not.toHaveBeenCalled();
   });
 
   it("mercado fechado: o botão Vender da linha não aparece", () => {
     render(
       <RosterPanel
         roster={makeRoster()}
-        market={emptyMarket()}
         balanceCents={10_000}
         marketOpen={false}
         lockedTeams={[]}
-        scope={AMERICAS_SCOPE}
         closesIn="Encerrado"
+        closesAt={null}
       />,
     );
 
@@ -319,18 +426,20 @@ describe("RosterPanel — vaga vazia", () => {
     executeSubstituteMock.mockClear();
     executeSetCaptainMock.mockClear();
     executeSellMock.mockClear();
+    executeLoadMarketMock.mockClear();
+    refreshMock.mockClear();
+    marketFixtureBox.current = makeMarketData();
   });
 
   it("mostra a faixa de progresso quando a escalação não está completa", () => {
     render(
       <RosterPanel
         roster={makeRoster()}
-        market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
-        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
+        closesAt={null}
       />,
     );
 
@@ -347,12 +456,11 @@ describe("RosterPanel — vaga vazia", () => {
     render(
       <RosterPanel
         roster={roster}
-        market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
-        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
+        closesAt={null}
       />,
     );
 
@@ -364,12 +472,11 @@ describe("RosterPanel — vaga vazia", () => {
     render(
       <RosterPanel
         roster={makeRoster()}
-        market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
-        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
+        closesAt={null}
       />,
     );
 
@@ -381,6 +488,7 @@ describe("RosterPanel — vaga vazia", () => {
     expect(
       screen.getByText("Escolha um jogador para a vaga 3."),
     ).toBeInTheDocument();
+    expect(executeLoadMarketMock).toHaveBeenCalledWith({ slotId: "slot-3" });
   });
 
   it("clicar no marcador vazio do campo abre o mesmo mercado, para a mesma vaga", async () => {
@@ -388,12 +496,11 @@ describe("RosterPanel — vaga vazia", () => {
     render(
       <RosterPanel
         roster={makeRoster()}
-        market={emptyMarket()}
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
-        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
+        closesAt={null}
       />,
     );
 
@@ -407,19 +514,22 @@ describe("RosterPanel — vaga vazia", () => {
   });
 
   it("confirmar a contratação chama a action com outgoingPlayerId nulo", async () => {
-    const user = userEvent.setup();
-    const market = emptyMarket();
-    market.Duelista = [makePlayer({ id: "yay", nickname: "yay" })];
+    marketFixtureBox.current = makeMarketData({
+      market: {
+        ...emptyMarket(),
+        Duelista: [makePlayer({ id: "yay", nickname: "yay" })],
+      },
+    });
 
+    const user = userEvent.setup();
     render(
       <RosterPanel
         roster={makeRoster()}
-        market={market}
         balanceCents={10_000}
         marketOpen
         lockedTeams={[]}
-        scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
+        closesAt={null}
       />,
     );
 
@@ -439,12 +549,11 @@ describe("RosterPanel — vaga vazia", () => {
     render(
       <RosterPanel
         roster={makeRoster()}
-        market={emptyMarket()}
         balanceCents={10_000}
         marketOpen={false}
         lockedTeams={[]}
-        scope={AMERICAS_SCOPE}
         closesIn="Encerrado"
+        closesAt={null}
       />,
     );
 

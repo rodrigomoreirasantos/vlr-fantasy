@@ -9,6 +9,12 @@ import {
   blockReasonMessage,
 } from "@/lib/market/eligibility";
 import { isTeamLocked, lockedOrganizations } from "@/lib/market/lock";
+import { scopeOrganizations } from "@/lib/market/scope";
+import {
+  formatTimeLeft,
+  marketMatchesFor,
+  nextMarketClose,
+} from "@/lib/market/window";
 import { listMarketLockMatches } from "@/lib/round/queries";
 import { toTeamRegion } from "@/lib/round/regions";
 import { ActionError, authActionClient } from "@/lib/safe-action";
@@ -17,6 +23,7 @@ import {
   applySale,
   applySubstitution,
   getActiveRound,
+  getMarketByRole,
   hasCaptain,
   loadPlayersByIds,
   loadRosteredPlayerIds,
@@ -25,7 +32,9 @@ import {
   resolveMarketScope,
   setTeamCaptain,
 } from "@/lib/team/queries";
+import { PLAYER_ROLES, type MarketData } from "@/lib/team/types";
 import {
+  loadMarketSchema,
   sellPlayerSchema,
   setCaptainSchema,
   substitutePlayerSchema,
@@ -240,4 +249,66 @@ export const setCaptain = authActionClient
     // A Home mostra a escalação (alertas dos seus 5) e o patrimônio.
     revalidatePath("/home");
     return { success: true as const };
+  });
+
+/**
+ * O mercado, o saldo, a trava do dia e o fechamento — tudo relido do banco no
+ * instante em que o usuário abre uma vaga (`prompts/11_maket_players.md`: o
+ * modal **sempre** com o scrap mais atualizado). A página nunca carrega o
+ * catálogo inteiro no HTML — só quando esta action é chamada, ao clicar.
+ *
+ * Só leitura: sem `db.transaction` nem lock retido. `lockTeamForSlot` é
+ * reaproveitada pelo `WHERE` (o time dono da vaga), não pela trava em si —
+ * `SELECT … FOR UPDATE` fora de uma transação libera o lock ao final da
+ * própria consulta.
+ */
+export const loadMarket = authActionClient
+  .inputSchema(loadMarketSchema)
+  // Tipo de retorno explícito: `MarketData` (lib/team/types.ts) é o que o
+  // `RosterPanel` guarda em estado, e anotá-lo aqui é o que impede os dois
+  // de divergirem em silêncio.
+  .action(async ({ parsedInput, ctx }): Promise<MarketData> => {
+    const { slotId } = parsedInput;
+
+    const team = await lockTeamForSlot(db, ctx.userId, slotId);
+    if (!team) {
+      throw new ActionError("Não encontramos seu time. Recarregue a página.");
+    }
+
+    // A região sai do banco (o time dono da vaga), nunca do cliente — mesma
+    // regra de `substitutePlayer`.
+    const region = toTeamRegion(team.region);
+
+    const [round, lockMatches, scope] = await Promise.all([
+      getActiveRound(),
+      listMarketLockMatches(),
+      resolveMarketScope(region),
+    ]);
+    // `?? null` como em `loadTeamOverview`: `getActiveRound` devolve
+    // `undefined` quando não há rodada (`findFirst` do Drizzle), e
+    // `undefined !== null` seria `true` — o mercado apareceria aberto
+    // justamente quando não há rodada nenhuma para registrar a transferência.
+    const activeRound = round ?? null;
+    const marketOpen = activeRound !== null;
+    const lockedTeams = lockedOrganizations(lockMatches);
+    const market = await getMarketByRole(PLAYER_ROLES, scope);
+    // Recortado pelo time — o mesmo fechamento que `MarketSummaryBar` já
+    // mostra na página, relido no instante do clique.
+    const closesAt = nextMarketClose(
+      marketMatchesFor(lockMatches, region, scopeOrganizations(scope)),
+    );
+
+    return {
+      market,
+      scope,
+      balanceCents: team.balanceCents,
+      marketOpen,
+      lockedTeams,
+      closesAt,
+      closesIn: closesAt
+        ? formatTimeLeft(closesAt)
+        : marketOpen
+          ? "Nenhum jogo marcado"
+          : "Nenhuma rodada ativa",
+    };
   });

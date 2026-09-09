@@ -2,16 +2,17 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { LiveRefresh } from "@/components/layout/live-refresh";
 import { RegionDisplaySync } from "@/components/layout/region-display";
 import { RegionTabs } from "@/components/team/region-tabs";
 import { RosterPanel } from "@/components/team/roster-panel";
 import { ScorerHighlight } from "@/components/team/scorer-highlight";
 import { TeamStats } from "@/components/team/team-stats";
 import { auth } from "@/lib/auth";
+import { myTeamRefreshMs } from "@/lib/market/window";
 import { resolveRegion } from "@/lib/team/region-selection";
-import { getMarketByRole, getTeamOverview } from "@/lib/team/queries";
+import { getTeamOverview } from "@/lib/team/queries";
 import { highestScorer, lowestScorer } from "@/lib/team/score";
-import { PLAYER_ROLES } from "@/lib/team/types";
 
 export const metadata: Metadata = {
   title: "Meu Time | VLR Fantasy",
@@ -39,10 +40,7 @@ export default async function MyTeamPage(props: PageProps<"/my-team">) {
     throw new Error("Não foi possível carregar o seu time.");
   }
 
-  const { summary, roster, lockedTeams, scope } = overview;
-  // Qualquer função pode ocupar qualquer vaga — o mercado sempre traz as
-  // quatro (lib/market/eligibility.ts), recortado ao escopo do time.
-  const market = await getMarketByRole(PLAYER_ROLES, scope);
+  const { summary, roster, lockedTeams } = overview;
 
   const best = highestScorer(roster);
   const worst = lowestScorer(roster);
@@ -59,14 +57,20 @@ export default async function MyTeamPage(props: PageProps<"/my-team">) {
         params={searchParams}
       />
 
+      {/* O catálogo do mercado não vem mais no HTML da página — só quando o
+          usuário abre uma vaga (`loadMarket`, Server Action). O que se
+          atualiza sozinho aqui é o resto: saldo, trava do dia e o
+          fechamento, no ritmo de `myTeamRefreshMs` (rápido perto do
+          fechamento, parado longe dele). */}
+      <LiveRefresh intervalMs={myTeamRefreshMs(summary.market.closesAt)} />
+
       <RosterPanel
         roster={roster}
-        market={market}
-        scope={scope}
         balanceCents={summary.balanceCents}
         marketOpen={summary.market.open}
         lockedTeams={lockedTeams}
         closesIn={summary.market.closesIn}
+        closesAt={summary.market.closesAt}
       />
 
       <TeamStats summary={summary} />

@@ -1,5 +1,7 @@
+import { MarketCountdown } from "@/components/market/market-countdown";
 import { PlayerPrice } from "@/components/team/player-price";
 import { formatCreditsDelta } from "@/lib/market/money";
+import { formatTimeLeft } from "@/lib/market/window";
 import type { Player } from "@/lib/team/types";
 import { cn } from "@/lib/utils";
 
@@ -29,7 +31,16 @@ export type MarketSummaryBarProps = {
   /** Número da vaga (1-5), usado no lugar do nickname quando `outgoing` é `null`. */
   position: number;
   marketOpen: boolean;
+  /** A frase já formatada no servidor — usada como `initialCountdown` do `<MarketCountdown>`. */
   closesIn: string;
+  /**
+   * O instante de fechamento — recortado pela região do time
+   * (`marketMatchesFor`, `lib/market/window.ts`), nunca o de outro
+   * campeonato. `null` sem jogo marcado ou sem rodada ativa: aí `closesIn`
+   * já traz a frase certa ("Nenhum jogo marcado" / "Nenhuma rodada ativa"),
+   * e não há o que tickar.
+   */
+  closesAt: Date | null;
 };
 
 /**
@@ -44,6 +55,7 @@ export function MarketSummaryBar({
   position,
   marketOpen,
   closesIn,
+  closesAt,
 }: MarketSummaryBarProps) {
   return (
     <div className="clip-corner grid grid-cols-3 ring-1 ring-border [--clip:10px]">
@@ -66,14 +78,23 @@ export function MarketSummaryBar({
       </Stat>
 
       <Stat label="Mercado">
-        <p
-          className={cn(
-            "text-sm font-bold uppercase",
-            marketOpen ? "text-primary" : "text-muted-foreground",
-          )}
-        >
-          {marketOpen ? closesIn : "Fechado"}
-        </p>
+        {marketOpen && closesAt ? (
+          <MarketCountdown
+            closesAt={closesAt}
+            initialCountdown={closesIn}
+            formatter={formatTimeLeft}
+            className="text-sm font-bold text-primary"
+          />
+        ) : (
+          <p
+            className={cn(
+              "text-sm font-bold uppercase",
+              marketOpen ? "text-primary" : "text-muted-foreground",
+            )}
+          >
+            {marketOpen ? closesIn : "Fechado"}
+          </p>
+        )}
       </Stat>
     </div>
   );

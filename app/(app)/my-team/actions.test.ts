@@ -19,6 +19,7 @@ const {
   applySaleMock,
   setTeamCaptainMock,
   hasCaptainMock,
+  getMarketByRoleMock,
   listMarketLockMatchesMock,
 } = vi.hoisted(() => {
   const txStub = Symbol("tx");
@@ -40,6 +41,7 @@ const {
     applySaleMock: vi.fn(),
     setTeamCaptainMock: vi.fn(),
     hasCaptainMock: vi.fn(),
+    getMarketByRoleMock: vi.fn(),
     listMarketLockMatchesMock: vi.fn(),
   };
 });
@@ -64,13 +66,16 @@ vi.mock("@/lib/team/queries", () => ({
   applySale: applySaleMock,
   setTeamCaptain: setTeamCaptainMock,
   hasCaptain: hasCaptainMock,
+  getMarketByRole: getMarketByRoleMock,
 }));
 
 import {
+  loadMarket,
   sellPlayer,
   setCaptain,
   substitutePlayer,
 } from "@/app/(app)/my-team/actions";
+import { MARKET_CLOSE_LEAD_MS } from "@/lib/market/window";
 
 const SLOT_ID = "11111111-1111-4111-8111-111111111111";
 const OUTGOING_ID = "22222222-2222-4222-8222-222222222222";
@@ -140,6 +145,12 @@ function arrangeHappyPath() {
   hasCaptainMock.mockResolvedValue(true);
   // Nenhum jogo hoje: a trava do dia não fecha nada.
   listMarketLockMatchesMock.mockResolvedValue([]);
+  getMarketByRoleMock.mockResolvedValue({
+    Duelista: [],
+    Iniciador: [],
+    Controlador: [],
+    Sentinela: [],
+  });
 }
 
 beforeEach(() => {
@@ -512,5 +523,101 @@ describe("a trava do dia", () => {
       "O mercado deste campeonato já fechou — ele joga hoje.",
     );
     expect(setTeamCaptainMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("loadMarket", () => {
+  const LOAD_INPUT = { slotId: SLOT_ID };
+
+  it("sem sessão: recusa antes de consultar o time", async () => {
+    getSessionMock.mockResolvedValue(null);
+
+    const result = await loadMarket(LOAD_INPUT);
+
+    expect(result?.serverError).toBe("Sua sessão expirou. Entre novamente.");
+    expect(lockTeamForSlotMock).not.toHaveBeenCalled();
+  });
+
+  it("vaga de outro usuário (ou inexistente): recusa", async () => {
+    lockTeamForSlotMock.mockResolvedValue(null);
+
+    const result = await loadMarket(LOAD_INPUT);
+
+    expect(result?.serverError).toBe(
+      "Não encontramos seu time. Recarregue a página.",
+    );
+    expect(getActiveRoundMock).not.toHaveBeenCalled();
+  });
+
+  it("deriva a região do time dono da vaga — nunca de um valor do cliente", async () => {
+    await loadMarket(LOAD_INPUT);
+
+    expect(resolveMarketScopeMock).toHaveBeenCalledWith(TEAM.region);
+  });
+
+  it("sem rodada ativa: marketOpen false, mas o catálogo ainda vem", async () => {
+    getActiveRoundMock.mockResolvedValue(undefined);
+    const market = { Duelista: [INCOMING_ROW] };
+    getMarketByRoleMock.mockResolvedValue(market);
+
+    const result = await loadMarket(LOAD_INPUT);
+
+    expect(result?.data?.marketOpen).toBe(false);
+    expect(result?.data?.market).toBe(market);
+  });
+
+  it("sucesso: devolve catálogo, escopo e saldo relidos do banco", async () => {
+    const market = { Duelista: [INCOMING_ROW] };
+    getMarketByRoleMock.mockResolvedValue(market);
+
+    const result = await loadMarket(LOAD_INPUT);
+
+    expect(result?.data).toMatchObject({
+      market,
+      scope: AMERICAS_SCOPE,
+      balanceCents: TEAM.balanceCents,
+      marketOpen: true,
+      lockedTeams: [],
+    });
+  });
+
+  it("nunca abre transação nem lock retido — é só leitura", async () => {
+    await loadMarket(LOAD_INPUT);
+
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("o fechamento é recortado pela região do time — só a dela e o internacional contam", async () => {
+    const americasKickoff = new Date(Date.now() + 5 * 60 * 60 * 1000);
+    listMarketLockMatchesMock.mockResolvedValue([
+      {
+        id: "m-americas",
+        teamA: "NRG",
+        teamB: "100 Thieves",
+        event: "VCT 2026: Americas Stage 2",
+        scheduledAt: americasKickoff,
+        status: "upcoming" as const,
+        scoreA: null,
+        scoreB: null,
+      },
+      {
+        id: "m-pacific",
+        teamA: "DRX",
+        teamB: "Gen.G",
+        event: "VCT 2026: Pacific Stage 2",
+        // Mais cedo que o de Americas — se entrasse no recorte (o time é
+        // Americas), venceria e o teste pegaria o horário errado.
+        scheduledAt: new Date(Date.now() + 60 * 60 * 1000),
+        status: "upcoming" as const,
+        scoreA: null,
+        scoreB: null,
+      },
+    ]);
+
+    const result = await loadMarket(LOAD_INPUT);
+
+    expect(result?.data?.closesAt).toEqual(
+      new Date(americasKickoff.getTime() - MARKET_CLOSE_LEAD_MS),
+    );
   });
 });

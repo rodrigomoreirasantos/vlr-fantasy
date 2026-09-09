@@ -21,3 +21,9 @@ export const sellPlayerSchema = z.object({
 });
 
 export type SellPlayerInput = z.infer<typeof sellPlayerSchema>;
+
+export const loadMarketSchema = z.object({
+  slotId: z.uuid("Vaga inválida."),
+});
+
+export type LoadMarketInput = z.infer<typeof loadMarketSchema>;

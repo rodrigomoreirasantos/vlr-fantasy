@@ -27,6 +27,9 @@ function makePlayer(overrides: Partial<Player> = {}): Player {
 
 const AMERICAS_SCOPE = { kind: "region" as const, region: "americas" as const };
 
+/** Um fechamento qualquer — os testes não avançam o relógio, então o texto exibido é sempre `closesIn`. */
+const CLOSES_AT = new Date("2026-03-14T18:00:00Z");
+
 const outgoing = makePlayer({
   id: "derke",
   nickname: "Derke",
@@ -52,6 +55,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
         lockedTeams={[]}
         scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
+        closesAt={CLOSES_AT}
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
       />,
@@ -82,6 +86,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
         lockedTeams={[]}
         scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
+        closesAt={CLOSES_AT}
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
       />,
@@ -117,6 +122,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
         lockedTeams={[]}
         scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
+        closesAt={CLOSES_AT}
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
       />,
@@ -139,6 +145,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
         lockedTeams={[]}
         scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
+        closesAt={CLOSES_AT}
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
       />,
@@ -167,6 +174,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
         lockedTeams={[]}
         scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
+        closesAt={CLOSES_AT}
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
       />,
@@ -193,6 +201,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
         lockedTeams={[]}
         scope={AMERICAS_SCOPE}
         closesIn="Encerrado"
+        closesAt={null}
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
       />,
@@ -227,6 +236,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
         lockedTeams={[]}
         scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
+        closesAt={CLOSES_AT}
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
       />,
@@ -240,6 +250,70 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
       );
 
     expect(names).toEqual(["BaratoA", "BaratoB", "Caro"]);
+  });
+
+  it("alterna para ordem alfabética ao clicar em 'A-Z'", async () => {
+    const user = userEvent.setup();
+    const market = emptyMarket();
+    market.Duelista = [
+      makePlayer({ id: "zeta", nickname: "Zeta", priceCents: 1000 }),
+      makePlayer({ id: "alfa", nickname: "Alfa", priceCents: 3000 }),
+    ];
+
+    render(
+      <MarketSheet
+        open
+        onOpenChange={vi.fn()}
+        selection={substituting}
+        market={market}
+        balanceCents={10_000}
+        marketOpen
+        lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
+        closesIn="36h 12m"
+        closesAt={CLOSES_AT}
+        rosteredPlayerIds={["derke"]}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    // Padrão é por preço: Zeta (mais barato) antes de Alfa.
+    const namesBefore = screen
+      .getAllByRole("listitem")
+      .map((item) => within(item).getByText(/^(Zeta|Alfa)$/).textContent);
+    expect(namesBefore).toEqual(["Zeta", "Alfa"]);
+
+    await user.click(
+      screen.getByRole("radio", { name: "Ordenar alfabeticamente" }),
+    );
+
+    const namesAfter = screen
+      .getAllByRole("listitem")
+      .map((item) => within(item).getByText(/^(Zeta|Alfa)$/).textContent);
+    expect(namesAfter).toEqual(["Alfa", "Zeta"]);
+  });
+
+  it("não mostra o controle de ordenação enquanto o mercado ainda carrega", () => {
+    render(
+      <MarketSheet
+        open
+        onOpenChange={vi.fn()}
+        selection={substituting}
+        market={null}
+        balanceCents={10_000}
+        marketOpen
+        lockedTeams={[]}
+        scope={null}
+        closesIn="36h 12m"
+        closesAt={CLOSES_AT}
+        rosteredPlayerIds={["derke"]}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("radio", { name: "Ordenar alfabeticamente" }),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -259,6 +333,7 @@ describe("MarketSheet — vender sem substituir", () => {
         lockedTeams={[]}
         scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
+        closesAt={CLOSES_AT}
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
         onSell={onSell}
@@ -283,6 +358,7 @@ describe("MarketSheet — vender sem substituir", () => {
         lockedTeams={[]}
         scope={AMERICAS_SCOPE}
         closesIn="Encerrado"
+        closesAt={null}
         rosteredPlayerIds={["derke"]}
         onConfirm={vi.fn()}
         onSell={vi.fn()}
@@ -306,6 +382,7 @@ describe("MarketSheet — vender sem substituir", () => {
         lockedTeams={[]}
         scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
+        closesAt={CLOSES_AT}
         rosteredPlayerIds={[]}
         onConfirm={vi.fn()}
         onSell={vi.fn()}
@@ -331,6 +408,7 @@ describe("MarketSheet — nova contratação (vaga vazia)", () => {
         lockedTeams={[]}
         scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
+        closesAt={CLOSES_AT}
         rosteredPlayerIds={[]}
         onConfirm={vi.fn()}
       />,
@@ -361,6 +439,7 @@ describe("MarketSheet — nova contratação (vaga vazia)", () => {
         lockedTeams={[]}
         scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
+        closesAt={CLOSES_AT}
         rosteredPlayerIds={[]}
         onConfirm={vi.fn()}
       />,
@@ -391,6 +470,7 @@ describe("MarketSheet — nova contratação (vaga vazia)", () => {
         lockedTeams={[]}
         scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
+        closesAt={CLOSES_AT}
         rosteredPlayerIds={[]}
         onConfirm={vi.fn()}
       />,
@@ -418,6 +498,7 @@ describe("MarketSheet — nova contratação (vaga vazia)", () => {
         lockedTeams={[]}
         scope={AMERICAS_SCOPE}
         closesIn="36h 12m"
+        closesAt={CLOSES_AT}
         rosteredPlayerIds={[]}
         onConfirm={vi.fn()}
       />,
@@ -426,5 +507,180 @@ describe("MarketSheet — nova contratação (vaga vazia)", () => {
     const panel = screen.getByRole("tabpanel");
     expect(within(panel).getByText("50.0")).toBeInTheDocument();
     expect(within(panel).queryByText(/saldo/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("MarketSheet — carregando (loadMarket ainda não voltou)", () => {
+  it("market nulo: mostra o skeleton da lista, com o resumo já preenchido", () => {
+    render(
+      <MarketSheet
+        open
+        onOpenChange={vi.fn()}
+        selection={substituting}
+        market={null}
+        balanceCents={10_000}
+        marketOpen
+        lockedTeams={[]}
+        scope={null}
+        closesIn="36h 12m"
+        closesAt={CLOSES_AT}
+        rosteredPlayerIds={["derke"]}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    // Cabeçalho e resumo já vêm do dado de página — não dependem do mercado.
+    expect(screen.getByText("Mercado · Substituir Derke")).toBeInTheDocument();
+    expect(screen.getByText("36h 12m")).toBeInTheDocument();
+
+    // A lista, sim, está esperando o mercado.
+    expect(screen.getByText("Carregando o mercado…")).toBeInTheDocument();
+    const loading = screen.getByText("Carregando o mercado…").parentElement;
+    expect(loading).toHaveAttribute("aria-busy", "true");
+  });
+
+  it("market nulo: as quatro abas ficam desabilitadas", () => {
+    render(
+      <MarketSheet
+        open
+        onOpenChange={vi.fn()}
+        selection={substituting}
+        market={null}
+        balanceCents={10_000}
+        marketOpen
+        lockedTeams={[]}
+        scope={null}
+        closesIn="36h 12m"
+        closesAt={CLOSES_AT}
+        rosteredPlayerIds={["derke"]}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    for (const role of ["Duelista", "Iniciador", "Controlador", "Sentinela"]) {
+      expect(screen.getByRole("tab", { name: role })).toBeDisabled();
+    }
+  });
+
+  it("venda continua disponível mesmo com o mercado ainda carregando", async () => {
+    const user = userEvent.setup();
+    const onSell = vi.fn();
+
+    render(
+      <MarketSheet
+        open
+        onOpenChange={vi.fn()}
+        selection={substituting}
+        market={null}
+        balanceCents={10_000}
+        marketOpen
+        lockedTeams={[]}
+        scope={null}
+        closesIn="36h 12m"
+        closesAt={CLOSES_AT}
+        rosteredPlayerIds={["derke"]}
+        onConfirm={vi.fn()}
+        onSell={onSell}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /vender derke/i }));
+    expect(onSell).toHaveBeenCalledWith(outgoing);
+  });
+
+  it("vaga vazia: ao chegar o mercado, abre na primeira função COM candidatos", () => {
+    // Regressão: o Sheet abre sem catálogo, então `initialRole` cai no
+    // fallback `PLAYER_ROLES[0]` ("Duelista"). Sem remontar o `Tabs` quando o
+    // mercado chega, a vaga ficaria presa numa aba vazia e desabilitada
+    // enquanto Sentinela tem gente.
+    const market = emptyMarket();
+    market.Sentinela = [
+      makePlayer({ id: "chronicle", nickname: "Chronicle", role: "Sentinela" }),
+    ];
+
+    const { rerender } = render(
+      <MarketSheet
+        open
+        onOpenChange={vi.fn()}
+        selection={emptySlot}
+        market={null}
+        balanceCents={10_000}
+        marketOpen
+        lockedTeams={[]}
+        scope={null}
+        closesIn="36h 12m"
+        closesAt={CLOSES_AT}
+        rosteredPlayerIds={[]}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    rerender(
+      <MarketSheet
+        open
+        onOpenChange={vi.fn()}
+        selection={emptySlot}
+        market={market}
+        balanceCents={10_000}
+        marketOpen
+        lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
+        closesIn="36h 12m"
+        closesAt={CLOSES_AT}
+        rosteredPlayerIds={[]}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("tab", { name: "Sentinela" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByText("Chronicle")).toBeInTheDocument();
+  });
+
+  it("quando o mercado chega, a lista substitui o skeleton", () => {
+    const market = emptyMarket();
+    market.Duelista = [makePlayer({ id: "yay", nickname: "yay" })];
+
+    const { rerender } = render(
+      <MarketSheet
+        open
+        onOpenChange={vi.fn()}
+        selection={substituting}
+        market={null}
+        balanceCents={10_000}
+        marketOpen
+        lockedTeams={[]}
+        scope={null}
+        closesIn="36h 12m"
+        closesAt={CLOSES_AT}
+        rosteredPlayerIds={["derke"]}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Carregando o mercado…")).toBeInTheDocument();
+
+    rerender(
+      <MarketSheet
+        open
+        onOpenChange={vi.fn()}
+        selection={substituting}
+        market={market}
+        balanceCents={10_000}
+        marketOpen
+        lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
+        closesIn="36h 12m"
+        closesAt={CLOSES_AT}
+        rosteredPlayerIds={["derke"]}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText("Carregando o mercado…")).not.toBeInTheDocument();
+    expect(screen.getByText("yay")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Duelista" })).toBeEnabled();
   });
 });

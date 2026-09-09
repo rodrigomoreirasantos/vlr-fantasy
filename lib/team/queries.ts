@@ -13,8 +13,8 @@ import {
 import { isUniqueViolation } from "@/lib/db/errors";
 import { lockedOrganizations } from "@/lib/market/lock";
 import type { MarketScope } from "@/lib/market/scope";
-import { marketScopeFor } from "@/lib/market/scope";
-import { nextMarketClose } from "@/lib/market/window";
+import { marketScopeFor, scopeOrganizations } from "@/lib/market/scope";
+import { marketMatchesFor, nextMarketClose } from "@/lib/market/window";
 import {
   hasInternationalEvent,
   qualifiedOrganizations,
@@ -158,7 +158,13 @@ async function loadTeamOverview(
       activeRound ?? null,
       points,
       {
-        closesAt: nextMarketClose(lockMatches),
+        // Recortado pelo time: o próximo fechamento de "qualquer campeonato"
+        // não é o que vai travar este time — só o dele (mais o internacional,
+        // que tranca todo mundo) e, no time Internacional, o das próprias
+        // organizações classificadas. Ver `marketMatchesFor`.
+        closesAt: nextMarketClose(
+          marketMatchesFor(lockMatches, region, scopeOrganizations(scope)),
+        ),
       },
     ),
     roster,

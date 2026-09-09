@@ -32,6 +32,16 @@ export function marketScopeFor(
   return { kind: "region", region };
 }
 
+/**
+ * As organizações deste escopo — vazio quando o recorte é por região (lá
+ * quem identifica as organizações é a própria liga). Usada por
+ * `marketMatchesFor` (`lib/market/window.ts`) para o fechamento exibido não
+ * discordar da trava, que é sempre por organização.
+ */
+export function scopeOrganizations(scope: MarketScope): readonly string[] {
+  return scope.kind === "organizations" ? scope.organizations : [];
+}
+
 /** O candidato pertence a este escopo? A mesma regra que `getMarketByRole` aplica no `WHERE`. */
 export function matchesScope(
   scope: MarketScope,

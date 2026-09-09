@@ -1,0 +1,29 @@
+# `docker compose up -d --build` a partir deste diretório. Lê um `.env` aqui
+# ao lado (docker compose carrega isso sozinho) — ver README.md deste
+# diretório para as variáveis obrigatórias.
+services:
+  vlr-cron:
+    build:
+      context: ../..
+      dockerfile: deploy/vlr-cron/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?defina DATABASE_URL}
+      VLR_CONTACT_EMAIL: ${VLR_CONTACT_EMAIL:?defina VLR_CONTACT_EMAIL}
+      VLR_BASE_URL: ${VLR_BASE_URL:-https://www.vlr.gg}
+      VLR_USER_AGENT: ${VLR_USER_AGENT:-}
+      VLR_RATE_LIMIT_MS: ${VLR_RATE_LIMIT_MS:-1100}
+      VLR_REQUEST_TIMEOUT_MS: ${VLR_REQUEST_TIMEOUT_MS:-15000}
+      # Absoluto e fixo: é o ponto de montagem do volume abaixo, não importa
+      # o cwd de onde cada linha do crontab dispara o script.
+      VLR_STORAGE_DIR: /app/storage/raw
+      VLR_SOURCE_TZ: ${VLR_SOURCE_TZ:-America/New_York}
+      NODE_ENV: production
+    volumes:
+      # O HTML bruto é o dado (docs/SCRAPING.md) — precisa sobreviver a um
+      # `docker compose up` de novo, ou `pnpm vlr:reprocess` não tem o que
+      # reprocessar.
+      - vlr-raw-html:/app/storage/raw
+
+volumes:
+  vlr-raw-html:
