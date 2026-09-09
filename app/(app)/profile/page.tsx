@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { Panel } from "@/components/layout/panel";
+import { RegionDisplaySync } from "@/components/layout/region-display";
 import { AccountPanel } from "@/components/profile/account-panel";
 import { AddFriendForm } from "@/components/profile/add-friend-form";
 import {
@@ -86,6 +87,13 @@ export default async function ProfilePage() {
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-9">
+      {/* Mantém o header na região desta navegação — ver
+          `components/layout/region-display.tsx`. */}
+      <RegionDisplaySync
+        region={overview.region}
+        balanceCents={overview.summary.balanceCents}
+      />
+
       <div className="grid gap-6 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
         <div className="flex flex-col gap-6">
           <Panel title="Identidade do time">

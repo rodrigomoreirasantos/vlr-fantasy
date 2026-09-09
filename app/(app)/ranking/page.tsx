@@ -9,6 +9,7 @@ import { InviteMemberForm } from "@/components/championship/invite-member-form";
 import { PendingInvites } from "@/components/championship/pending-invites";
 import { StandingsTable } from "@/components/championship/standings-table";
 import { Panel } from "@/components/layout/panel";
+import { RegionDisplaySync } from "@/components/layout/region-display";
 import { auth } from "@/lib/auth";
 import {
   getStandingRows,
@@ -18,6 +19,8 @@ import {
 } from "@/lib/championship/queries";
 import { rankStandings } from "@/lib/championship/standings";
 import { regionLabel } from "@/lib/round/regions";
+import { resolveRegion } from "@/lib/team/region-selection";
+import { getTeamOverview } from "@/lib/team/queries";
 
 export const metadata: Metadata = {
   title: "Ranking | VLR Fantasy",
@@ -33,14 +36,33 @@ export default async function RankingPage(props: PageProps<"/ranking">) {
   const requestedId =
     typeof searchParams.c === "string" ? searchParams.c : undefined;
 
-  const [championships, pendingInvites] = await Promise.all([
+  // Mesmos argumentos do layout logado (`app/(app)/layout.tsx`): a
+  // memoização por request de `getTeamOverview` evita uma segunda consulta
+  // ao time, só para manter o header em dia nesta navegação.
+  const { region } = await resolveRegion();
+  const [championships, pendingInvites, overview] = await Promise.all([
     listUserChampionships(session.user.id),
     listPendingInvites(session.user.id),
+    getTeamOverview(
+      session.user.id,
+      session.user.username ?? session.user.name,
+      region,
+    ),
   ]);
+
+  // Mantém o header na região desta navegação — ver
+  // `components/layout/region-display.tsx`.
+  const regionSync = overview ? (
+    <RegionDisplaySync
+      region={overview.region}
+      balanceCents={overview.summary.balanceCents}
+    />
+  ) : null;
 
   if (championships.length === 0) {
     return (
       <main className="mx-auto max-w-7xl px-6 py-9">
+        {regionSync}
         <PendingInvites invites={pendingInvites} />
         <EmptyChampionships />
       </main>
@@ -60,6 +82,7 @@ export default async function RankingPage(props: PageProps<"/ranking">) {
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-9">
+      {regionSync}
       <PendingInvites invites={pendingInvites} />
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
