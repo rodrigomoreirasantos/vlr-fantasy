@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { chipClasses } from "@/components/home/chip-classes";
-import { REGION_PARAM } from "@/lib/team/region-constants";
+import { regionHref } from "@/lib/team/region-href";
 import { regionColor, regionLabel, type TeamRegion } from "@/lib/round/regions";
 
 export type RegionTabsProps = {
@@ -15,22 +15,6 @@ export type RegionTabsProps = {
    */
   params?: Record<string, string | string[] | undefined>;
 };
-
-/** `?region=<região>` preservando os demais parâmetros da URL atual. */
-function hrefFor(
-  region: TeamRegion,
-  params: RegionTabsProps["params"],
-): string {
-  const query = new URLSearchParams();
-  for (const [key, value] of Object.entries(params ?? {})) {
-    if (key === REGION_PARAM || value === undefined) continue;
-    for (const item of Array.isArray(value) ? value : [value]) {
-      query.append(key, item);
-    }
-  }
-  query.set(REGION_PARAM, region);
-  return `/my-team?${query.toString()}`;
-}
 
 /**
  * A troca de time por região (`.claude/plans/10-time-por-regiao.md`,
@@ -54,7 +38,7 @@ export function RegionTabs({ current, available, params }: RegionTabsProps) {
         return (
           <Link
             key={region}
-            href={hrefFor(region, params)}
+            href={regionHref("/my-team", region, params)}
             prefetch={false}
             aria-current={active ? "page" : undefined}
             className={chipClasses({ active })}
