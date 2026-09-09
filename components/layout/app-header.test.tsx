@@ -5,6 +5,7 @@ const usePathnameMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
   usePathname: () => usePathnameMock(),
+  useSearchParams: () => new URLSearchParams(),
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
 
@@ -18,15 +19,16 @@ import {
   type RegionDisplay,
 } from "@/components/layout/region-display";
 import { DEFAULT_CREST } from "@/lib/crest/crest";
+import { LEAGUE_REGIONS } from "@/lib/round/regions";
 
 /**
- * Região e pontuação vêm do contexto, não de props — é o que mantém o header
- * em dia numa navegação que não re-renderiza o layout (ver
+ * Região e saldo vêm do contexto, não de props — é o que mantém o header em
+ * dia numa navegação que não re-renderiza o layout (ver
  * `components/layout/region-display.tsx`).
  */
 function renderHeader(
   overrides: Partial<React.ComponentProps<typeof AppHeader>> = {},
-  display: RegionDisplay = { region: "americas", points: 78.5 },
+  display: RegionDisplay = { region: "americas", balanceCents: 14_820 },
 ) {
   return render(
     <RegionDisplayProvider initial={display}>
@@ -34,6 +36,7 @@ function renderHeader(
         teamName="Rodrigo FC"
         crest={DEFAULT_CREST}
         userName="Rodrigo"
+        available={LEAGUE_REGIONS}
         {...overrides}
       />
     </RegionDisplayProvider>,
@@ -85,23 +88,29 @@ describe("AppHeader", () => {
       "aria-current",
       "page",
     );
-    expect(screen.getByRole("link", { name: /início/i })).toHaveAttribute(
-      "href",
-      "/home",
-    );
   });
 
-  it("itens sem rota não são links", () => {
+  it("não existe mais o item Menu", () => {
     usePathnameMock.mockReturnValue("/my-team");
     renderHeader();
 
     expect(
       screen.queryByRole("link", { name: /menu/i }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText("Menu")).toBeInTheDocument();
+    expect(screen.queryByText("Menu")).not.toBeInTheDocument();
   });
 
-  it("mostra o nome do time, o brasão, os pontos e a saudação", () => {
+  it("o logo é link para /home", () => {
+    usePathnameMock.mockReturnValue("/my-team");
+    renderHeader();
+
+    expect(screen.getByRole("link", { name: /vlrfantasy/i })).toHaveAttribute(
+      "href",
+      "/home",
+    );
+  });
+
+  it("mostra o nome do time, o brasão, o saldo e a saudação", () => {
     usePathnameMock.mockReturnValue("/my-team");
     renderHeader();
 
@@ -109,13 +118,14 @@ describe("AppHeader", () => {
     expect(
       screen.getByRole("img", { name: "Brasão de Rodrigo FC" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("78.5")).toBeInTheDocument();
+    expect(screen.getByText("148.2")).toBeInTheDocument();
+    expect(screen.queryByText("pts")).not.toBeInTheDocument();
     expect(screen.getByText("Rodrigo")).toBeInTheDocument();
   });
 
-  it("mostra a região e a pontuação do time em exibição", () => {
+  it("mostra a região e o saldo do time em exibição", () => {
     usePathnameMock.mockReturnValue("/my-team");
-    renderHeader({}, { region: "emea", points: 12.5 });
+    renderHeader({}, { region: "emea", balanceCents: 1_250 });
 
     expect(screen.getByText("EMEA")).toBeInTheDocument();
     expect(screen.getByText("12.5")).toBeInTheDocument();

@@ -1,62 +1,60 @@
 "use client";
 
-import {
-  Crosshair,
-  Home,
-  Menu,
-  Trophy,
-  User,
-  type LucideIcon,
-} from "lucide-react";
+import { Crosshair, Home, Trophy, User, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { TeamCrest } from "@/components/crest/team-crest";
+import { RegionSwitcher } from "@/components/layout/region-switcher";
 import { useRegionDisplay } from "@/components/layout/region-display";
+import { PlayerPrice } from "@/components/team/player-price";
 import type { Crest } from "@/lib/crest/types";
-import { regionColor, regionLabel } from "@/lib/round/regions";
-import { formatScore } from "@/lib/team/score";
+import type { TeamRegion } from "@/lib/round/regions";
 import { cn } from "@/lib/utils";
 
-/**
- * Seções do produto. Itens sem `href` ainda não têm rota própria e
- * continuam `<span>` inertes — mesmo motivo do comentário original em
- * `app/my-team/page.tsx` antes da extração deste componente.
- */
-type Section = { label: string; icon: LucideIcon; href?: string };
+type Section = { label: string; icon: LucideIcon; href: string };
 
 const SECTIONS: Section[] = [
   { label: "Início", icon: Home, href: "/home" },
   { label: "Perfil", icon: User, href: "/profile" },
   { label: "Escalação", icon: Crosshair, href: "/my-team" },
   { label: "Ranking", icon: Trophy, href: "/ranking" },
-  { label: "Menu", icon: Menu },
 ];
 
 export type AppHeaderProps = {
   teamName: string;
   crest: Crest;
   userName: string;
+  /** As regiões que o menu de troca pode oferecer agora — vem do layout (`resolveRegion`). */
+  available: readonly TeamRegion[];
 };
 
 /**
- * Região e pontuação **não** são props: elas mudam a cada troca de aba de
+ * Região e saldo **não** são props: eles mudam a cada troca de aba de
  * região, e o layout que renderiza este header não re-renderiza na
  * navegação (ver `components/layout/region-display.tsx`). Vêm do contexto,
  * que a página republica a cada navegação — é o que impede o header de
- * mostrar os pontos de uma região e a tela ao lado os de outra.
+ * mostrar o saldo de uma região e a tela ao lado o de outra.
  */
-export function AppHeader({ teamName, crest, userName }: AppHeaderProps) {
+export function AppHeader({
+  teamName,
+  crest,
+  userName,
+  available,
+}: AppHeaderProps) {
   const pathname = usePathname();
-  const { region, points } = useRegionDisplay();
+  const { region, balanceCents } = useRegionDisplay();
 
   return (
     <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border bg-sidebar px-6 py-3">
       <div className="flex items-center gap-4">
-        <span className="text-lg font-bold tracking-tight text-primary">
+        <Link
+          href="/home"
+          className="cursor-pointer text-lg font-bold tracking-tight text-primary"
+        >
           VLR<span className="text-foreground">FANTASY</span>
-        </span>
+        </Link>
         <span aria-hidden className="h-5 w-px bg-border" />
         <span className="flex items-center gap-2">
           <TeamCrest crest={crest} size="sm" title={`Brasão de ${teamName}`} />
@@ -65,44 +63,32 @@ export function AppHeader({ teamName, crest, userName }: AppHeaderProps) {
           </span>
         </span>
         <span aria-hidden className="h-5 w-px bg-border" />
-        <span className="text-base font-extrabold text-info tabular-nums">
-          {formatScore(points)}{" "}
-          <span className="text-[11px] font-semibold text-muted-foreground uppercase">
-            pts
+        <span className="flex items-baseline gap-1">
+          <span className="sr-only">Saldo</span>
+          <PlayerPrice
+            priceCents={balanceCents}
+            className="text-base font-extrabold"
+          />
+          <span
+            aria-hidden
+            className="text-[11px] font-semibold text-muted-foreground uppercase"
+          >
+            cr
           </span>
         </span>
         <span aria-hidden className="h-5 w-px bg-border" />
-        <span
-          className="flex items-center gap-1.5 text-[11px] font-bold tracking-wide uppercase"
-          style={{ color: regionColor(region) }}
-        >
-          <span
-            aria-hidden
-            className="size-1.5 rounded-full"
-            style={{ backgroundColor: regionColor(region) }}
-          />
-          {regionLabel(region)}
-        </span>
+        <RegionSwitcher current={region} available={available} />
       </div>
 
       <nav aria-label="Seções" className="flex items-center gap-6 xl:gap-9">
         {SECTIONS.map(({ label, icon: Icon, href }) => {
-          const current = href ? pathname.startsWith(href) : false;
+          const current = pathname.startsWith(href);
           const className = cn(
             "flex items-center gap-[7px] text-[13px]",
             current
               ? "font-bold text-primary"
               : "font-semibold text-muted-foreground",
           );
-
-          if (!href) {
-            return (
-              <span key={label} className={className}>
-                <Icon aria-hidden className="size-[17px]" />
-                {label}
-              </span>
-            );
-          }
 
           return (
             <Link
