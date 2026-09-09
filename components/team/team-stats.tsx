@@ -1,5 +1,5 @@
-import { formatCredits } from "@/lib/market/money";
 import { regionColor, regionLabel } from "@/lib/round/regions";
+import { formatScore } from "@/lib/team/score";
 import type { TeamSummary } from "@/lib/team/types";
 import { cn } from "@/lib/utils";
 
@@ -22,18 +22,18 @@ function Stat({
   );
 }
 
-/** Saldo, estado do mercado e a região deste time. */
+/** Pontos, estado do mercado e a região deste time. O saldo já aparece no header. */
 export function TeamStats({ summary }: { summary: TeamSummary }) {
-  const { balanceCents, market, region } = summary;
+  const { points, market, region } = summary;
 
   return (
     <section className="grid grid-cols-1 ring-1 ring-border sm:grid-cols-3">
       <Stat
-        label="Saldo"
+        label="Pontos"
         className="border-b border-border sm:border-r sm:border-b-0"
       >
         <p className="mt-1 text-xl font-extrabold text-info tabular-nums">
-          {formatCredits(balanceCents)}
+          {formatScore(points)}
         </p>
       </Stat>
 

@@ -36,9 +36,10 @@ describe("TeamStats", () => {
     expect(screen.queryByText("Partidas Pontuadas")).not.toBeInTheDocument();
   });
 
-  it("mostra o saldo formatado", () => {
-    render(<TeamStats summary={makeSummary({ balanceCents: 12_340 })} />);
+  it("mostra os pontos do time", () => {
+    render(<TeamStats summary={makeSummary({ points: 42 })} />);
 
-    expect(screen.getByText("123.4")).toBeInTheDocument();
+    expect(screen.getByText("42.0")).toBeInTheDocument();
+    expect(screen.queryByText("123.4")).not.toBeInTheDocument();
   });
 });
