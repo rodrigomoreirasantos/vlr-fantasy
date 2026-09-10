@@ -149,7 +149,7 @@ describe("resolvePlayer", () => {
     expect(inserts()).toHaveLength(0);
   });
 
-  it("3º degrau: cria com needsReview e fora do mercado quando nada bate", async () => {
+  it("3º degrau: cria já ativo quando o agente resolve a função com confiança", async () => {
     const { tx, calls, inserts } = createTxStub({
       byVlrId: null,
       byNickname: null,
@@ -160,17 +160,18 @@ describe("resolvePlayer", () => {
     expect(result).toEqual({
       id: "player-1",
       created: true,
-      needsReview: true,
+      needsReview: false,
     });
     // O insert de criação roda dentro de um savepoint.
     expect(calls[0].op).toBe("savepoint");
     expect(inserts()[0].payload).toMatchObject({
       vlrId: "30395",
       nickname: "edith",
-      // Neon e Jett são duelistas: a função sai do agente mais jogado.
+      // Neon e Jett são duelistas: a função sai do agente mais jogado, e o
+      // agente é reconhecido — não precisa de revisão manual.
       role: "Duelista",
-      active: false,
-      needsReview: true,
+      active: true,
+      needsReview: false,
       priceCents: MIN_PRICE_CENTS,
     });
   });
@@ -184,6 +185,7 @@ describe("resolvePlayer", () => {
     // que cai no default é a **função**, e por isso a linha sai sinalizada.
     expect(inserts()[0].payload).toMatchObject({
       role: "Duelista",
+      active: false,
       needsReview: true,
       agent: "Agente Novo",
     });
@@ -210,7 +212,13 @@ describe("resolvePlayer", () => {
     expect(result.created).toBe(true);
     expect(result.needsReview).toBe(true);
     expect(inserts()).toHaveLength(2);
-    expect(inserts()[1].payload).toMatchObject({ nickname: "edith (30395)" });
+    // O agente era confiável (Duelista, viria ativo), mas a colisão de
+    // nickname por si só já não resolveu a identidade — sinaliza mesmo assim.
+    expect(inserts()[1].payload).toMatchObject({
+      nickname: "edith (30395)",
+      active: false,
+      needsReview: true,
+    });
     // A tentativa que viola tem de estar dentro do savepoint: é isso que
     // mantém a transação da partida viva para o insert seguinte.
     expect(calls[0].op).toBe("savepoint");

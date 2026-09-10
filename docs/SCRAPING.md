@@ -47,6 +47,7 @@ não conhece HTTP; o motor de pontuação não conhece nem um nem outro.
 | `pnpm vlr:doctor`    | diário   | Roda os parsers contra a rede; exit ≠ 0 se algum seletor quebrou |
 | `pnpm vlr:backfill`  | manual   | Carga histórica (`--pages=20`)                                   |
 | `pnpm vlr:reprocess` | manual   | `--match=<vlrId>` — reparsa do HTML salvo, **sem rede**          |
+| `pnpm vlr:activate-reviewed` | manual | Libera no mercado quem ficou `needsReview` mas tem identidade confiável — rede de segurança, idempotente |
 
 Mais uma linha, essa só uma vez por dia:
 
@@ -110,10 +111,13 @@ pnpm vlr:schedule                     # calendário + rodadas semanais
 pnpm vlr:backfill --pages=5           # carga histórica (rode de novo: as contagens têm de bater)
 ```
 
-Jogadores novos nascem com **`needs_review = true` e `active = false`**: ficam
-fora do mercado até alguém conferir a função inferida do agente. É deliberado —
-nunca duplicamos nem publicamos jogador em silêncio. Para liberar, revise em
-`pnpm db:studio` e marque `active`.
+Jogador novo nasce **`active = true`** direto quando a identidade é confiável:
+vlrId do scoreboard, agente reconhecido (função não caiu no fallback) e sem
+colisão de nickname. Só quem não bate um desses três nasce com
+**`needs_review = true` e `active = false`**, fora do mercado até alguém
+conferir em `pnpm db:studio` e marcar `active`. É deliberado — nunca
+duplicamos nem publicamos jogador ambíguo em silêncio; o que não é mais
+deliberado é travar quem já veio com identidade batendo.
 
 ## A trava de escalação (regra inviolável nº 8)
 

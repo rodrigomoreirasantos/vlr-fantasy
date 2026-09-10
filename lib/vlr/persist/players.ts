@@ -140,6 +140,12 @@ async function createPlayer(
   scraped: ScrapedIdentity,
 ): Promise<ResolvedPlayer> {
   const role = primaryRole(scraped.agents);
+  // Confiança alta: a função veio de um agente que a gente conhece de
+  // verdade, não do `FALLBACK_ROLE`. É o único caso em que dá pra publicar
+  // sem um humano olhar — o scoreboard trouxe vlrId, time e agente, e o
+  // agente resolveu função sozinho. Quem cai no fallback (agente
+  // desconhecido) continua nascendo fora do mercado.
+  const confident = role !== null;
   const values = {
     vlrId: scraped.vlrId,
     nickname: scraped.nickname,
@@ -153,8 +159,8 @@ async function createPlayer(
     // Preço no piso: o backfill recalcula a partir da média real de pontos
     // (`averageScore × PRICE_PER_POINT_CENTS`) assim que houver histórico.
     priceCents: MIN_PRICE_CENTS,
-    active: false,
-    needsReview: true,
+    active: confident,
+    needsReview: !confident,
   };
 
   let createdId: string | null = null;
@@ -167,11 +173,13 @@ async function createPlayer(
   });
 
   if (inserted && createdId) {
-    return { id: createdId, created: true, needsReview: true };
+    return { id: createdId, created: true, needsReview: !confident };
   }
 
-  // Dois vlrIds diferentes com o mesmo nickname. O sufixo mantém os dois no
-  // banco, sinalizados, em vez de perder um deles ou derrubar a partida.
+  // Dois vlrIds diferentes com o mesmo nickname. A resolução de identidade
+  // não bateu — sinaliza sempre, mesmo quando o agente era confiável: o
+  // sufixo mantém os dois no banco, fora do mercado até um humano olhar, em
+  // vez de perder um deles ou derrubar a partida.
   {
     const nickname = `${scraped.nickname} (${scraped.vlrId})`;
     logWarn("vlr.player.nickname_collision", {
@@ -181,7 +189,7 @@ async function createPlayer(
     });
     const [created] = await tx
       .insert(player)
-      .values({ ...values, nickname })
+      .values({ ...values, nickname, active: false, needsReview: true })
       .returning({ id: player.id });
     return { id: created.id, created: true, needsReview: true };
   }
