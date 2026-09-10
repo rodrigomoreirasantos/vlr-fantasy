@@ -145,6 +145,7 @@ describe("RosterPanel", () => {
     const user = userEvent.setup();
     render(
       <RosterPanel
+        region="americas"
         roster={makeRoster()}
         balanceCents={10_000}
         marketOpen
@@ -172,6 +173,7 @@ describe("RosterPanel", () => {
     const user = userEvent.setup();
     render(
       <RosterPanel
+        region="americas"
         roster={makeRoster()}
         balanceCents={10_000}
         marketOpen
@@ -191,6 +193,7 @@ describe("RosterPanel", () => {
     const user = userEvent.setup();
     render(
       <RosterPanel
+        region="americas"
         roster={makeRoster()}
         balanceCents={10_000}
         marketOpen
@@ -210,6 +213,7 @@ describe("RosterPanel", () => {
     const user = userEvent.setup();
     render(
       <RosterPanel
+        region="americas"
         roster={makeRoster()}
         balanceCents={10_000}
         marketOpen
@@ -230,6 +234,7 @@ describe("RosterPanel", () => {
   it("mercado fechado: nem a lista, nem o campo, nem a braçadeira ficam clicáveis", () => {
     render(
       <RosterPanel
+        region="americas"
         roster={makeRoster()}
         balanceCents={10_000}
         marketOpen={false}
@@ -257,6 +262,7 @@ describe("RosterPanel", () => {
     const user = userEvent.setup();
     render(
       <RosterPanel
+        region="americas"
         roster={makeRoster()}
         balanceCents={10_000}
         marketOpen
@@ -277,6 +283,7 @@ describe("RosterPanel", () => {
     const user = userEvent.setup();
     render(
       <RosterPanel
+        region="americas"
         roster={makeRoster()}
         balanceCents={10_000}
         marketOpen
@@ -297,6 +304,7 @@ describe("RosterPanel", () => {
     const user = userEvent.setup();
     render(
       <RosterPanel
+        region="americas"
         roster={makeRoster()}
         balanceCents={10_000}
         marketOpen
@@ -317,6 +325,7 @@ describe("RosterPanel", () => {
     const user = userEvent.setup();
     render(
       <RosterPanel
+        region="americas"
         roster={makeRoster()}
         balanceCents={10_000}
         marketOpen
@@ -339,6 +348,7 @@ describe("RosterPanel", () => {
     const user = userEvent.setup();
     render(
       <RosterPanel
+        region="americas"
         roster={makeRoster()}
         balanceCents={10_000}
         marketOpen
@@ -363,6 +373,7 @@ describe("RosterPanel", () => {
     const user = userEvent.setup();
     render(
       <RosterPanel
+        region="americas"
         roster={makeRoster()}
         balanceCents={10_000}
         marketOpen
@@ -389,6 +400,7 @@ describe("RosterPanel", () => {
   it("vaga travada pela regra do dia: não dispara loadMarket nenhum", () => {
     render(
       <RosterPanel
+        region="americas"
         roster={makeRoster()}
         balanceCents={10_000}
         marketOpen
@@ -406,6 +418,7 @@ describe("RosterPanel", () => {
   it("mercado fechado: o botão Vender da linha não aparece", () => {
     render(
       <RosterPanel
+        region="americas"
         roster={makeRoster()}
         balanceCents={10_000}
         marketOpen={false}
@@ -434,6 +447,7 @@ describe("RosterPanel — vaga vazia", () => {
   it("mostra a faixa de progresso quando a escalação não está completa", () => {
     render(
       <RosterPanel
+        region="americas"
         roster={makeRoster()}
         balanceCents={10_000}
         marketOpen
@@ -455,6 +469,7 @@ describe("RosterPanel — vaga vazia", () => {
 
     render(
       <RosterPanel
+        region="americas"
         roster={roster}
         balanceCents={10_000}
         marketOpen
@@ -471,6 +486,7 @@ describe("RosterPanel — vaga vazia", () => {
     const user = userEvent.setup();
     render(
       <RosterPanel
+        region="americas"
         roster={makeRoster()}
         balanceCents={10_000}
         marketOpen
@@ -495,6 +511,7 @@ describe("RosterPanel — vaga vazia", () => {
     const user = userEvent.setup();
     render(
       <RosterPanel
+        region="americas"
         roster={makeRoster()}
         balanceCents={10_000}
         marketOpen
@@ -524,6 +541,7 @@ describe("RosterPanel — vaga vazia", () => {
     const user = userEvent.setup();
     render(
       <RosterPanel
+        region="americas"
         roster={makeRoster()}
         balanceCents={10_000}
         marketOpen
@@ -548,6 +566,7 @@ describe("RosterPanel — vaga vazia", () => {
   it("mercado fechado: o card + fica inerte", () => {
     render(
       <RosterPanel
+        region="americas"
         roster={makeRoster()}
         balanceCents={10_000}
         marketOpen={false}
@@ -560,5 +579,26 @@ describe("RosterPanel — vaga vazia", () => {
     expect(
       screen.queryByRole("button", { name: /adicionar jogador/i }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("RosterPanel — região", () => {
+  it("a região passada à página chega até a barra do Sheet", async () => {
+    const user = userEvent.setup();
+    render(
+      <RosterPanel
+        region="emea"
+        roster={makeRoster()}
+        balanceCents={10_000}
+        marketOpen
+        lockedTeams={[]}
+        closesIn="36h 12m"
+        closesAt={null}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /substituir tenz$/i }));
+
+    expect(screen.getByText("EMEA")).toBeInTheDocument();
   });
 });

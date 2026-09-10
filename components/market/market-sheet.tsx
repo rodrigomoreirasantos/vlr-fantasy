@@ -32,6 +32,7 @@ import {
   type MarketSortOrder,
 } from "@/lib/market/ordering";
 import type { MarketScope } from "@/lib/market/scope";
+import type { TeamRegion } from "@/lib/round/regions";
 import { PLAYER_ROLES, type Player, type PlayerRole } from "@/lib/team/types";
 import { cn } from "@/lib/utils";
 
@@ -47,6 +48,11 @@ export type MarketSelection = {
 };
 
 export type MarketSheetProps = {
+  /**
+   * A região do TIME — vem sempre por prop, nunca de `scope`: no Internacional
+   * o escopo é `{kind:"organizations"}` e não tem região nenhuma para extrair.
+   */
+  region: TeamRegion;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Vaga selecionada — `null` enquanto nada está selecionado. */
@@ -84,6 +90,7 @@ export type MarketSheetProps = {
  * e a ordem (preço ↓/↑ ou alfabética) vêm de `lib/market/ordering.ts`.
  */
 export function MarketSheet({
+  region,
   open,
   onOpenChange,
   selection,
@@ -218,6 +225,7 @@ export function MarketSheet({
 
             <div className="flex flex-1 flex-col gap-4 overflow-hidden px-4 pb-4">
               <MarketSummaryBar
+                region={region}
                 balanceCents={balanceCents}
                 outgoing={outgoing}
                 marketOpen={marketOpen}

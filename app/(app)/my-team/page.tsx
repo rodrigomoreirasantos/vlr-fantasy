@@ -65,6 +65,7 @@ export default async function MyTeamPage(props: PageProps<"/my-team">) {
       <LiveRefresh intervalMs={myTeamRefreshMs(summary.market.closesAt)} />
 
       <RosterPanel
+        region={region}
         roster={roster}
         balanceCents={summary.balanceCents}
         marketOpen={summary.market.open}

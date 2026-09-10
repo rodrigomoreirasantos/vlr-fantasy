@@ -3,6 +3,7 @@ import { PlayerPrice } from "@/components/team/player-price";
 import { spendingCapCents } from "@/lib/market/eligibility";
 import { formatCreditsDelta } from "@/lib/market/money";
 import { formatTimeLeft } from "@/lib/market/window";
+import { regionColor, regionLabel, type TeamRegion } from "@/lib/round/regions";
 import type { Player } from "@/lib/team/types";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,11 @@ function Stat({
 }
 
 export type MarketSummaryBarProps = {
+  /**
+   * A região do TIME — nunca derivada do `scope` do mercado: no Internacional
+   * o escopo é por organizações e não carrega região nenhuma.
+   */
+  region: TeamRegion;
   balanceCents: number;
   /** `null` numa vaga vazia — não há ninguém saindo da escalação. */
   outgoing: Player | null;
@@ -41,7 +47,7 @@ export type MarketSummaryBarProps = {
 };
 
 /**
- * Saldo, o teto de compra desta troca e a janela de mercado — o número da
+ * Saldo, o teto de compra desta troca e a região deste time — o número da
  * vaga já está no `<SheetDescription>` do Sheet, não repetido aqui.
  *
  * Numa substituição, o teto (`spendingCapCents`) é o saldo mais o preço de
@@ -49,8 +55,13 @@ export type MarketSummaryBarProps = {
  * "Sem saldo" em cada card, então bate exatamente com o que aparece bloqueado
  * lá embaixo. Numa vaga vazia o teto é igual ao saldo, e a célula do meio
  * some — mostrar o mesmo número duas vezes seria ruído.
+ *
+ * A terceira célula é sempre a região — o tempo até o mercado fechar vira
+ * sublinha discreta embaixo dela, no mesmo padrão da sublinha de "Pode
+ * gastar".
  */
 export function MarketSummaryBar({
+  region,
   balanceCents,
   outgoing,
   marketOpen,
@@ -82,22 +93,27 @@ export function MarketSummaryBar({
         </Stat>
       )}
 
-      <Stat label={marketOpen && closesAt ? "Fecha em" : "Mercado"}>
+      <Stat label="Região">
+        <p
+          className="truncate text-sm font-extrabold uppercase"
+          style={{ color: regionColor(region) }}
+        >
+          {regionLabel(region)}
+        </p>
+
         {marketOpen && closesAt ? (
-          <MarketCountdown
-            closesAt={closesAt}
-            initialCountdown={closesIn}
-            formatter={formatTimeLeft}
-            className="text-sm font-bold text-primary"
-          />
+          <div className="mt-0.5 flex items-center justify-center gap-1 text-[10px] font-semibold text-muted-foreground">
+            <span>Fecha em</span>
+            <MarketCountdown
+              closesAt={closesAt}
+              initialCountdown={closesIn}
+              formatter={formatTimeLeft}
+              className="text-[10px] font-semibold text-muted-foreground normal-case"
+            />
+          </div>
         ) : (
-          <p
-            className={cn(
-              "text-sm font-bold uppercase",
-              marketOpen ? "text-primary" : "text-muted-foreground",
-            )}
-          >
-            {marketOpen ? closesIn : "Fechado"}
+          <p className="mt-0.5 truncate text-[10px] font-semibold text-muted-foreground">
+            {marketOpen ? closesIn : "Mercado fechado"}
           </p>
         )}
       </Stat>

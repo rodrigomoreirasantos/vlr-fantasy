@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { MarketSummaryBar } from "@/components/market/market-summary-bar";
+import { regionColor } from "@/lib/round/regions";
 import type { Player } from "@/lib/team/types";
 
 function makePlayer(overrides: Partial<Player> = {}): Player {
@@ -24,9 +25,45 @@ function makePlayer(overrides: Partial<Player> = {}): Player {
 const CLOSES_AT = new Date("2026-03-14T18:00:00Z");
 
 describe("MarketSummaryBar", () => {
+  it("mostra sempre a região do time, na cor da região", () => {
+    render(
+      <MarketSummaryBar
+        region="americas"
+        balanceCents={10_000}
+        outgoing={null}
+        marketOpen
+        closesIn="7h 0m"
+        closesAt={CLOSES_AT}
+      />,
+    );
+
+    expect(screen.getByText("Região")).toBeInTheDocument();
+    expect(screen.getByText("Americas")).toHaveStyle({
+      color: regionColor("americas"),
+    });
+  });
+
+  it("time Internacional: mostra 'Internacional', mesmo sem região no escopo do mercado", () => {
+    render(
+      <MarketSummaryBar
+        region="international"
+        balanceCents={10_000}
+        outgoing={null}
+        marketOpen
+        closesIn="7h 0m"
+        closesAt={CLOSES_AT}
+      />,
+    );
+
+    expect(screen.getByText("Internacional")).toHaveStyle({
+      color: regionColor("international"),
+    });
+  });
+
   it("mercado aberto com fechamento: mostra o countdown sob 'Fecha em'", () => {
     render(
       <MarketSummaryBar
+        region="americas"
         balanceCents={10_000}
         outgoing={null}
         marketOpen
@@ -39,9 +76,10 @@ describe("MarketSummaryBar", () => {
     expect(screen.getByText("7h 0m")).toBeInTheDocument();
   });
 
-  it("mercado aberto sem closesAt (nenhum jogo marcado): mostra a frase sob 'Mercado'", () => {
+  it("mercado aberto sem closesAt (nenhum jogo marcado): a região continua na célula", () => {
     render(
       <MarketSummaryBar
+        region="americas"
         balanceCents={10_000}
         outgoing={null}
         marketOpen
@@ -50,13 +88,14 @@ describe("MarketSummaryBar", () => {
       />,
     );
 
-    expect(screen.getByText("Mercado")).toBeInTheDocument();
+    expect(screen.getByText("Região")).toBeInTheDocument();
     expect(screen.getByText("Nenhum jogo marcado")).toBeInTheDocument();
   });
 
-  it("mercado fechado: mostra 'Fechado', mesmo com closesAt presente", () => {
+  it("mercado fechado: mostra 'Mercado fechado' na sublinha, sem afirmar que a região fechou", () => {
     render(
       <MarketSummaryBar
+        region="china"
         balanceCents={10_000}
         outgoing={null}
         marketOpen={false}
@@ -65,13 +104,15 @@ describe("MarketSummaryBar", () => {
       />,
     );
 
-    expect(screen.getByText("Fechado")).toBeInTheDocument();
+    expect(screen.getByText("China")).toBeInTheDocument();
+    expect(screen.getByText("Mercado fechado")).toBeInTheDocument();
   });
 
   it("substituição: mostra o teto de compra (saldo + preço de quem sai) e o nickname", () => {
     const outgoing = makePlayer();
     render(
       <MarketSummaryBar
+        region="americas"
         balanceCents={10_000}
         outgoing={outgoing}
         marketOpen
@@ -86,9 +127,10 @@ describe("MarketSummaryBar", () => {
     expect(screen.getByText(/com Derke/)).toBeInTheDocument();
   });
 
-  it("vaga vazia: não mostra a célula do meio — o teto seria igual ao saldo", () => {
+  it("vaga vazia: só duas células — a segunda continua sendo a região", () => {
     render(
       <MarketSummaryBar
+        region="americas"
         balanceCents={10_000}
         outgoing={null}
         marketOpen
@@ -98,6 +140,7 @@ describe("MarketSummaryBar", () => {
     );
 
     expect(screen.queryByText("Pode gastar")).not.toBeInTheDocument();
+    expect(screen.getByText("Região")).toBeInTheDocument();
     // Saldo aparece uma única vez — sem repetir o mesmo número na célula do meio.
     expect(screen.getAllByText("100.0")).toHaveLength(1);
   });

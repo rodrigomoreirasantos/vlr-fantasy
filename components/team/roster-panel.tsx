@@ -20,9 +20,17 @@ import {
   substitutePlayer,
 } from "@/app/(app)/my-team/actions";
 import { isTeamLocked } from "@/lib/market/lock";
+import type { TeamRegion } from "@/lib/round/regions";
 import type { MarketData, Player, RosterSlot } from "@/lib/team/types";
 
 export type RosterPanelProps = {
+  /**
+   * A região do TIME (não do escopo do mercado) — sempre a que `resolveRegion`
+   * resolveu para esta navegação. É a única fonte confiável para o
+   * Internacional, onde o escopo de mercado (`MarketData.scope`) vira
+   * `{kind:"organizations"}` e não carrega região nenhuma.
+   */
+  region: TeamRegion;
   roster: RosterSlot[];
   balanceCents: number;
   marketOpen: boolean;
@@ -49,6 +57,7 @@ export type RosterPanelProps = {
  * página) e só a lista de candidatos fica em skeleton.
  */
 export function RosterPanel({
+  region,
   roster,
   balanceCents,
   marketOpen,
@@ -244,6 +253,7 @@ export function RosterPanel({
       </div>
 
       <MarketSheet
+        region={region}
         open={selection !== null}
         onOpenChange={handleOpenChange}
         selection={selection}

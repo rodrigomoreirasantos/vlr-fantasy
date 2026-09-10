@@ -46,6 +46,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
   it("mostra o título e a descrição com quem sai, sem restrição de função", () => {
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={substituting}
@@ -77,6 +78,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
 
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={substituting}
@@ -113,6 +115,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
   it("mostra o estado vazio da aba quando a função ativa não tem candidatos", () => {
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={substituting}
@@ -136,6 +139,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
   it("as quatro abas de função aparecem, mesmo numa substituição", () => {
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={substituting}
@@ -165,6 +169,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
 
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={substituting}
@@ -192,6 +197,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
 
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={substituting}
@@ -229,6 +235,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
 
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={substituting}
@@ -267,6 +274,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
 
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={substituting}
@@ -308,6 +316,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
   it("não mostra os controles de busca e ordenação enquanto o mercado ainda carrega", () => {
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={substituting}
@@ -342,6 +351,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
 
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={substituting}
@@ -370,6 +380,7 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
 
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={substituting}
@@ -409,6 +420,7 @@ describe("MarketSheet — busca por nome", () => {
 
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={substituting}
@@ -443,6 +455,7 @@ describe("MarketSheet — busca por nome", () => {
 
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={substituting}
@@ -484,6 +497,7 @@ describe("MarketSheet — busca por nome", () => {
 
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={substituting}
@@ -515,6 +529,7 @@ describe("MarketSheet — busca por nome", () => {
   it("função sem candidato nenhum no mercado: mensagem distinta da de busca sem resultado", () => {
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={substituting}
@@ -543,6 +558,7 @@ describe("MarketSheet — busca por nome", () => {
 
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={substituting}
@@ -577,6 +593,7 @@ describe("MarketSheet — busca por nome", () => {
 
     const { rerender } = render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={substituting}
@@ -600,6 +617,7 @@ describe("MarketSheet — busca por nome", () => {
 
     rerender(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={otherSlot}
@@ -628,6 +646,7 @@ describe("MarketSheet — busca por nome", () => {
 
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={substituting}
@@ -663,6 +682,7 @@ describe("MarketSheet — vender sem substituir", () => {
 
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={substituting}
@@ -688,6 +708,7 @@ describe("MarketSheet — vender sem substituir", () => {
   it("mercado fechado: o botão de vender fica desabilitado", () => {
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={substituting}
@@ -712,6 +733,7 @@ describe("MarketSheet — vender sem substituir", () => {
   it("vaga vazia: não mostra o botão de vender", () => {
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={emptySlot}
@@ -738,6 +760,7 @@ describe("MarketSheet — nova contratação (vaga vazia)", () => {
   it("mostra o título e a descrição com a vaga, sem função", () => {
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={emptySlot}
@@ -769,6 +792,7 @@ describe("MarketSheet — nova contratação (vaga vazia)", () => {
 
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={emptySlot}
@@ -800,6 +824,7 @@ describe("MarketSheet — nova contratação (vaga vazia)", () => {
   it("mostra o estado vazio da aba quando não há candidato algum", () => {
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={emptySlot}
@@ -828,6 +853,7 @@ describe("MarketSheet — nova contratação (vaga vazia)", () => {
 
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={emptySlot}
@@ -853,6 +879,7 @@ describe("MarketSheet — carregando (loadMarket ainda não voltou)", () => {
   it("market nulo: mostra o skeleton da lista, com o resumo já preenchido", () => {
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={substituting}
@@ -881,6 +908,7 @@ describe("MarketSheet — carregando (loadMarket ainda não voltou)", () => {
   it("market nulo: as quatro abas ficam desabilitadas", () => {
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={substituting}
@@ -907,6 +935,7 @@ describe("MarketSheet — carregando (loadMarket ainda não voltou)", () => {
 
     render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={substituting}
@@ -939,6 +968,7 @@ describe("MarketSheet — carregando (loadMarket ainda não voltou)", () => {
 
     const { rerender } = render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={emptySlot}
@@ -956,6 +986,7 @@ describe("MarketSheet — carregando (loadMarket ainda não voltou)", () => {
 
     rerender(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={emptySlot}
@@ -984,6 +1015,7 @@ describe("MarketSheet — carregando (loadMarket ainda não voltou)", () => {
 
     const { rerender } = render(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={substituting}
@@ -1003,6 +1035,7 @@ describe("MarketSheet — carregando (loadMarket ainda não voltou)", () => {
 
     rerender(
       <MarketSheet
+        region="americas"
         open
         onOpenChange={vi.fn()}
         selection={substituting}
@@ -1021,5 +1054,32 @@ describe("MarketSheet — carregando (loadMarket ainda não voltou)", () => {
     expect(screen.queryByText("Carregando o mercado…")).not.toBeInTheDocument();
     expect(screen.getByText("yay")).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Duelista" })).toBeEnabled();
+  });
+});
+
+describe("MarketSheet — região", () => {
+  it("escopo por organizações (time Internacional): a barra mostra 'Internacional', que o escopo não sabe informar", () => {
+    // `scope.kind === "organizations"` não carrega região nenhuma — se a
+    // região da barra fosse derivada do `scope` em vez de vir por prop,
+    // este caso não teria de onde tirar o rótulo.
+    render(
+      <MarketSheet
+        region="international"
+        open
+        onOpenChange={vi.fn()}
+        selection={substituting}
+        market={emptyMarket()}
+        balanceCents={10_000}
+        marketOpen
+        lockedTeams={[]}
+        scope={{ kind: "organizations", organizations: ["FNATIC"] }}
+        closesIn="36h 12m"
+        closesAt={CLOSES_AT}
+        rosteredPlayerIds={["derke"]}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Internacional")).toBeInTheDocument();
   });
 });
