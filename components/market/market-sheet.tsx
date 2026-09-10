@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { TriangleAlert } from "lucide-react";
+import { Search, TriangleAlert } from "lucide-react";
 
 import { MarketPlayerRow } from "@/components/market/market-player-row";
 import { MarketSummaryBar } from "@/components/market/market-summary-bar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Sheet,
@@ -21,9 +22,13 @@ import {
   evaluateSale,
   type SubstitutionContext,
 } from "@/lib/market/eligibility";
+import { isTeamLocked } from "@/lib/market/lock";
 import { formatCredits, formatCreditsDelta } from "@/lib/market/money";
 import {
-  sortMarketCandidates,
+  DEFAULT_MARKET_SORT,
+  evaluateMarketCandidates,
+  filterAndSortMarketCandidates,
+  type MarketCandidate,
   type MarketSortOrder,
 } from "@/lib/market/ordering";
 import type { MarketScope } from "@/lib/market/scope";
@@ -72,12 +77,11 @@ export type MarketSheetProps = {
 /**
  * Painel do mercado, aberto ao selecionar uma vaga da escalação — ocupada
  * (substituição) ou vazia (nova contratação). As quatro funções aparecem
- * sempre como abas, nos dois modos. A filtragem, o preço e o bloqueio de
- * cada linha vêm de `evaluateSubstitution` (lib/market/eligibility.ts),
- * nunca reescritos aqui; a ordem (preço ou alfabética, bloqueados sempre por
- * último) vem de `sortMarketCandidates` (lib/market/ordering.ts) — o
- * `<ToggleGroup>` troca só o critério, o estado vive aqui e não persiste
- * entre aberturas do Sheet.
+ * sempre como abas, nos dois modos. O preço e o bloqueio de cada linha vêm
+ * de `evaluateSubstitution` (lib/market/eligibility.ts), nunca reescritos
+ * aqui; quem está com o mercado da organização fechado hoje nem aparece —
+ * os outros motivos de bloqueio continuam visíveis, no fim da lista. A busca
+ * e a ordem (preço ↓/↑ ou alfabética) vêm de `lib/market/ordering.ts`.
  */
 export function MarketSheet({
   open,
@@ -96,7 +100,22 @@ export function MarketSheet({
   pending = false,
 }: MarketSheetProps) {
   const outgoing = selection?.outgoing ?? null;
-  const [sortOrder, setSortOrder] = useState<MarketSortOrder>("price");
+  const [query, setQuery] = useState("");
+  const [sortOrder, setSortOrder] =
+    useState<MarketSortOrder>(DEFAULT_MARKET_SORT);
+
+  // O RosterPanel mantém o Sheet sempre montado, só alternando `open` — o
+  // estado sobrevive a fechar/reabrir. Sem isso, uma busca esquecida numa
+  // vaga apareceria vazia na próxima. Ajuste de estado durante o render (o
+  // padrão do React para isto): a cada vaga diferente (ou fechamento, que
+  // zera `selection`), busca e ordem voltam ao padrão.
+  const slotKey = `${selection?.position ?? "none"}-${outgoing?.id ?? "empty"}`;
+  const [lastSlotKey, setLastSlotKey] = useState(slotKey);
+  if (slotKey !== lastSlotKey) {
+    setLastSlotKey(slotKey);
+    setQuery("");
+    setSortOrder(DEFAULT_MARKET_SORT);
+  }
 
   // `scope` chega `null` enquanto `loadMarket` não voltou para esta vaga —
   // sem ele não há como montar o contexto (`SubstitutionContext.scope` não é
@@ -127,26 +146,56 @@ export function MarketSheet({
     return evaluateSale({ marketOpen, lockedTeams, balanceCents }, outgoing);
   }, [outgoing, marketOpen, lockedTeams, balanceCents]);
 
-  const candidatesByRole = useMemo(() => {
+  // Estágio 1: avalia cada candidato uma vez e esconde quem tem o mercado da
+  // organização fechado — não depende da busca, então não roda a cada tecla.
+  const visibleByRole = useMemo(() => {
     if (!ctx || !market) return null;
     return Object.fromEntries(
       PLAYER_ROLES.map((role) => [
         role,
-        sortMarketCandidates(market[role] ?? [], ctx, sortOrder),
+        evaluateMarketCandidates(market[role] ?? [], ctx),
       ]),
-    ) as Record<PlayerRole, Player[]>;
-  }, [ctx, market, sortOrder]);
+    ) as Record<PlayerRole, MarketCandidate[]>;
+  }, [ctx, market]);
+
+  // Estágio 2: filtra pela busca e ordena — este sim roda a cada tecla.
+  const listByRole = useMemo(() => {
+    if (!visibleByRole) return null;
+    return Object.fromEntries(
+      PLAYER_ROLES.map((role) => [
+        role,
+        filterAndSortMarketCandidates(visibleByRole[role], {
+          query,
+          order: sortOrder,
+        }),
+      ]),
+    ) as Record<PlayerRole, MarketCandidate[]>;
+  }, [visibleByRole, query, sortOrder]);
+
+  const searching = query.trim() !== "";
+  const totalMatches = listByRole
+    ? PLAYER_ROLES.reduce((sum, role) => sum + listByRole[role].length, 0)
+    : 0;
+
+  // Se quem SAI está com a organização travada, `market-closed` cobre os
+  // dois lados da troca e nenhum candidato foi escondido (guard em
+  // `evaluateMarketCandidates`) — a lista continua inteira e bloqueada. Aqui
+  // é onde isso vira uma explicação, em vez de quatro abas de badges iguais.
+  const outgoingLocked =
+    outgoing !== null && isTeamLocked(lockedTeams, outgoing.team);
 
   // Aba inicial: a função de quem sai, numa substituição — mesmo que ela não
   // tenha candidatos, é a mais relevante para o usuário ver primeiro. Numa
-  // vaga vazia, a primeira função que tiver algum candidato.
+  // vaga vazia, a primeira função que tiver algum candidato. Olha sempre
+  // `visibleByRole` (nunca a lista filtrada): a aba inicial não pode
+  // depender de um termo de busca.
   const initialRole = useMemo((): PlayerRole => {
     if (outgoing) return outgoing.role;
     return (
-      PLAYER_ROLES.find((role) => (candidatesByRole?.[role].length ?? 0) > 0) ??
+      PLAYER_ROLES.find((role) => (visibleByRole?.[role].length ?? 0) > 0) ??
       PLAYER_ROLES[0]
     );
-  }, [outgoing, candidatesByRole]);
+  }, [outgoing, visibleByRole]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -171,7 +220,6 @@ export function MarketSheet({
               <MarketSummaryBar
                 balanceCents={balanceCents}
                 outgoing={outgoing}
-                position={selection.position}
                 marketOpen={marketOpen}
                 closesIn={closesIn}
                 closesAt={closesAt}
@@ -215,41 +263,21 @@ export function MarketSheet({
                 </Alert>
               )}
 
-              {/* Só faz sentido depois que `loadMarket` volta — antes disso
-                  não há lista para reordenar. */}
-              {candidatesByRole && (
-                <div className="flex items-center justify-end gap-2">
-                  <span className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-                    Ordenar por
-                  </span>
-                  <ToggleGroup
-                    type="single"
-                    variant="outline"
-                    size="sm"
-                    value={sortOrder}
-                    onValueChange={(value) => {
-                      // Radix devolve "" ao clicar no item já pressionado —
-                      // ignorado, para sempre haver um critério selecionado.
-                      if (value) setSortOrder(value as MarketSortOrder);
-                    }}
-                    aria-label="Ordenar mercado"
-                  >
-                    <ToggleGroupItem
-                      value="price"
-                      aria-label="Ordenar por preço"
-                      className="cursor-pointer text-xs"
-                    >
-                      Preço
-                    </ToggleGroupItem>
-                    <ToggleGroupItem
-                      value="alphabetical"
-                      aria-label="Ordenar alfabeticamente"
-                      className="cursor-pointer text-xs"
-                    >
-                      A-Z
-                    </ToggleGroupItem>
-                  </ToggleGroup>
-                </div>
+              {/* `market-closed` cobre os dois lados da troca: se quem sai
+                  está travado, todo candidato também fica — a lista continua
+                  inteira e bloqueada (guard em `evaluateMarketCandidates`),
+                  e é aqui que isso vira explicação em vez de quatro abas de
+                  badges iguais. Só mostrado com `marketOpen`: sem rodada
+                  ativa o alerta acima já cobre o caso. */}
+              {marketOpen && outgoingLocked && outgoing && (
+                <Alert variant="destructive">
+                  <TriangleAlert aria-hidden />
+                  <AlertTitle>Organização travada hoje</AlertTitle>
+                  <AlertDescription>
+                    O mercado da organização de {outgoing.nickname} já fechou
+                    hoje. Ele só pode ser trocado quando o mercado dela reabrir.
+                  </AlertDescription>
+                </Alert>
               )}
 
               {/*
@@ -279,17 +307,91 @@ export function MarketSheet({
                       key={role}
                       value={role}
                       disabled={
-                        !candidatesByRole || candidatesByRole[role].length === 0
+                        !visibleByRole || visibleByRole[role].length === 0
                       }
                     >
                       {role}
+                      {searching && (
+                        <span className="tabular-nums opacity-70">
+                          {listByRole?.[role].length ?? 0}
+                        </span>
+                      )}
                     </TabsTrigger>
                   ))}
                 </TabsList>
 
-                {candidatesByRole && ctx ? (
+                {/* Abaixo das abas: busca por nome (as quatro funções ao
+                    mesmo tempo, contador em cada aba) e a ordem — só depois
+                    que `loadMarket` volta, não há lista para filtrar/ordenar
+                    antes disso. */}
+                {visibleByRole && (
+                  <div className="flex items-center gap-2">
+                    <div className="relative min-w-0 flex-1">
+                      <Search
+                        aria-hidden
+                        className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                      />
+                      <Input
+                        type="search"
+                        value={query}
+                        onChange={(event) => setQuery(event.target.value)}
+                        placeholder="Buscar jogador"
+                        aria-label="Buscar jogador pelo nome"
+                        className="h-8 pl-7 text-xs"
+                      />
+                    </div>
+                    <ToggleGroup
+                      type="single"
+                      variant="outline"
+                      size="sm"
+                      value={sortOrder}
+                      onValueChange={(value) => {
+                        // Radix devolve "" ao clicar no item já pressionado —
+                        // ignorado, para sempre haver um critério selecionado.
+                        if (value) setSortOrder(value as MarketSortOrder);
+                      }}
+                      aria-label="Ordenar mercado"
+                    >
+                      <ToggleGroupItem
+                        value="price-desc"
+                        aria-label="Preço: do mais caro para o mais barato"
+                        className="cursor-pointer text-xs"
+                      >
+                        <span aria-hidden>↓</span> Preço
+                      </ToggleGroupItem>
+                      <ToggleGroupItem
+                        value="price-asc"
+                        aria-label="Preço: do mais barato para o mais caro"
+                        className="cursor-pointer text-xs"
+                      >
+                        <span aria-hidden>↑</span> Preço
+                      </ToggleGroupItem>
+                      <ToggleGroupItem
+                        value="alphabetical"
+                        aria-label="A-Z: ordem alfabética"
+                        className="cursor-pointer text-xs"
+                      >
+                        A-Z
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                  </div>
+                )}
+
+                {/* Anúncio da busca para leitor de tela — fora de
+                    `TabsContent` de propósito: o Radix desmonta painéis
+                    inativos, e uma live region desmontada não anuncia. */}
+                <p role="status" className="sr-only">
+                  {searching
+                    ? `${totalMatches} ${totalMatches === 1 ? "jogador encontrado" : "jogadores encontrados"} para "${query}".`
+                    : ""}
+                </p>
+
+                {listByRole && visibleByRole && market && ctx ? (
                   PLAYER_ROLES.map((role) => {
-                    const candidates = candidatesByRole[role];
+                    const candidates = listByRole[role];
+                    const hadAnyBeforeSearch = market[role].length > 0;
+                    const hadAnyAfterHiding = visibleByRole[role].length > 0;
+
                     return (
                       <TabsContent key={role} value={role} className="min-h-0">
                         {/*
@@ -302,9 +404,25 @@ export function MarketSheet({
                         */}
                         <ScrollArea className="-mx-1 h-full px-1">
                           {candidates.length === 0 ? (
-                            <p className="py-6 text-center text-xs text-muted-foreground">
-                              Nenhum {role} disponível no mercado.
-                            </p>
+                            <div className="flex flex-col items-center gap-2 py-6 text-center text-xs text-muted-foreground">
+                              {!hadAnyBeforeSearch ? (
+                                <p>Nenhum {role} disponível no mercado.</p>
+                              ) : !hadAnyAfterHiding ? (
+                                <p>Nenhum {role} com mercado aberto agora.</p>
+                              ) : (
+                                <>
+                                  <p>{`Nenhum ${role} corresponde a "${query}".`}</p>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setQuery("")}
+                                  >
+                                    Limpar busca
+                                  </Button>
+                                </>
+                              )}
+                            </div>
                           ) : (
                             <ul
                               className={cn(
@@ -312,11 +430,11 @@ export function MarketSheet({
                                 pending && "pointer-events-none opacity-70",
                               )}
                             >
-                              {candidates.map((candidate) => (
+                              {candidates.map(({ player }) => (
                                 <MarketPlayerRow
-                                  key={candidate.id}
+                                  key={player.id}
                                   ctx={ctx}
-                                  candidate={candidate}
+                                  candidate={player}
                                   onConfirm={onConfirm}
                                 />
                               ))}
@@ -328,7 +446,7 @@ export function MarketSheet({
                   })
                 ) : (
                   // `loadMarket` ainda não voltou para esta vaga — as abas
-                  // acima já nascem desabilitadas (`!candidatesByRole`).
+                  // acima já nascem desabilitadas (`!visibleByRole`).
                   <div
                     aria-busy="true"
                     aria-live="polite"

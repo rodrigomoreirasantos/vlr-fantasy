@@ -215,10 +215,12 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
     ).toHaveAttribute("aria-disabled", "true");
   });
 
-  it("lista antes quem pode ser contratado, depois quem está bloqueado", () => {
+  it("lista antes quem pode ser contratado, depois quem está bloqueado (do mais caro para o mais barato)", () => {
     const market = emptyMarket();
     // Ordem de entrada deliberadamente "errada": o caro (bloqueado) vem
-    // primeiro no array, os dois acessíveis depois.
+    // primeiro no array, os dois acessíveis depois. Teto de compra é
+    // 10.000 + 4.000 (preço de Derke, quem sai) = 14.000: Caro (1.000.000)
+    // fica "insufficient-balance", os outros dois passam.
     market.Duelista = [
       makePlayer({ id: "caro", nickname: "Caro", priceCents: 1_000_000 }),
       makePlayer({ id: "barato-a", nickname: "BaratoA", priceCents: 1000 }),
@@ -249,15 +251,18 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
           within(item).getByText(/^(Caro|BaratoA|BaratoB)$/).textContent,
       );
 
-    expect(names).toEqual(["BaratoA", "BaratoB", "Caro"]);
+    expect(names).toEqual(["BaratoB", "BaratoA", "Caro"]);
   });
 
-  it("alterna para ordem alfabética ao clicar em 'A-Z'", async () => {
+  it("o toggle de ordenação alterna entre preço decrescente, crescente e alfabética", async () => {
     const user = userEvent.setup();
     const market = emptyMarket();
+    // Três preços e três nicknames cujas ordens não coincidem em nenhum par,
+    // para cada clique provar uma permutação diferente.
     market.Duelista = [
-      makePlayer({ id: "zeta", nickname: "Zeta", priceCents: 1000 }),
-      makePlayer({ id: "alfa", nickname: "Alfa", priceCents: 3000 }),
+      makePlayer({ id: "alfa", nickname: "Alfa", priceCents: 2000 }),
+      makePlayer({ id: "bravo", nickname: "Bravo", priceCents: 3000 }),
+      makePlayer({ id: "charlie", nickname: "Charlie", priceCents: 1000 }),
     ];
 
     render(
@@ -277,23 +282,30 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
       />,
     );
 
-    // Padrão é por preço: Zeta (mais barato) antes de Alfa.
-    const namesBefore = screen
-      .getAllByRole("listitem")
-      .map((item) => within(item).getByText(/^(Zeta|Alfa)$/).textContent);
-    expect(namesBefore).toEqual(["Zeta", "Alfa"]);
+    const namesOf = (regex: RegExp) =>
+      screen
+        .getAllByRole("listitem")
+        .map((item) => within(item).getByText(regex).textContent);
+
+    const NAME_RE = /^(Alfa|Bravo|Charlie)$/;
+
+    // Padrão: preço decrescente.
+    expect(namesOf(NAME_RE)).toEqual(["Bravo", "Alfa", "Charlie"]);
 
     await user.click(
-      screen.getByRole("radio", { name: "Ordenar alfabeticamente" }),
+      screen.getByRole("radio", {
+        name: "Preço: do mais barato para o mais caro",
+      }),
     );
+    expect(namesOf(NAME_RE)).toEqual(["Charlie", "Alfa", "Bravo"]);
 
-    const namesAfter = screen
-      .getAllByRole("listitem")
-      .map((item) => within(item).getByText(/^(Zeta|Alfa)$/).textContent);
-    expect(namesAfter).toEqual(["Alfa", "Zeta"]);
+    await user.click(
+      screen.getByRole("radio", { name: "A-Z: ordem alfabética" }),
+    );
+    expect(namesOf(NAME_RE)).toEqual(["Alfa", "Bravo", "Charlie"]);
   });
 
-  it("não mostra o controle de ordenação enquanto o mercado ainda carrega", () => {
+  it("não mostra os controles de busca e ordenação enquanto o mercado ainda carrega", () => {
     render(
       <MarketSheet
         open
@@ -312,8 +324,335 @@ describe("MarketSheet — substituição (vaga ocupada)", () => {
     );
 
     expect(
-      screen.queryByRole("radio", { name: "Ordenar alfabeticamente" }),
+      screen.queryByRole("radio", { name: "A-Z: ordem alfabética" }),
     ).not.toBeInTheDocument();
+    expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+  });
+
+  it("jogador de organização travada some da lista; um bloqueado por saldo continua visível", () => {
+    const market = emptyMarket();
+    market.Duelista = [
+      makePlayer({ id: "travado", nickname: "Travado", team: "FNATIC" }),
+      makePlayer({
+        id: "caro",
+        nickname: "MuitoCaro",
+        priceCents: 1_000_000,
+      }),
+    ];
+
+    render(
+      <MarketSheet
+        open
+        onOpenChange={vi.fn()}
+        selection={substituting}
+        market={market}
+        balanceCents={10_000}
+        marketOpen
+        lockedTeams={["FNATIC"]}
+        scope={AMERICAS_SCOPE}
+        closesIn="36h 12m"
+        closesAt={CLOSES_AT}
+        rosteredPlayerIds={["derke"]}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText("Travado")).not.toBeInTheDocument();
+    expect(screen.getByText("MuitoCaro")).toBeInTheDocument();
+    expect(
+      screen.getByText("Saldo insuficiente para esta contratação."),
+    ).toBeInTheDocument();
+  });
+
+  it("organização de quem sai travada: mostra o alerta dedicado, lista continua inteira e bloqueada", () => {
+    const market = emptyMarket();
+    market.Duelista = [makePlayer({ id: "yay", nickname: "yay" })];
+
+    render(
+      <MarketSheet
+        open
+        onOpenChange={vi.fn()}
+        selection={substituting}
+        market={market}
+        balanceCents={10_000}
+        marketOpen
+        // Derke (quem sai) é de SENTINELS por padrão do fixture `outgoing`.
+        lockedTeams={["SENTINELS"]}
+        scope={AMERICAS_SCOPE}
+        closesIn="36h 12m"
+        closesAt={CLOSES_AT}
+        rosteredPlayerIds={["derke"]}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Organização travada hoje")).toBeInTheDocument();
+    // Ninguém some: yay continua na lista, bloqueado.
+    expect(screen.getByText("yay")).toBeInTheDocument();
+    expect(
+      screen.getByText("O mercado deste campeonato já fechou — ele joga hoje."),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("MarketSheet — busca por nome", () => {
+  it("filtra as quatro funções conforme o usuário digita", async () => {
+    const user = userEvent.setup();
+    const market = emptyMarket();
+    market.Duelista = [
+      makePlayer({ id: "yay", nickname: "yay" }),
+      makePlayer({ id: "derps", nickname: "Derps" }),
+    ];
+    market.Sentinela = [
+      makePlayer({ id: "chronicle", nickname: "Chronicle", role: "Sentinela" }),
+    ];
+
+    render(
+      <MarketSheet
+        open
+        onOpenChange={vi.fn()}
+        selection={substituting}
+        market={market}
+        balanceCents={10_000}
+        marketOpen
+        lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
+        closesIn="36h 12m"
+        closesAt={CLOSES_AT}
+        rosteredPlayerIds={["derke"]}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    const searchbox = screen.getByRole("searchbox", {
+      name: /buscar jogador pelo nome/i,
+    });
+    await user.type(searchbox, "der");
+
+    expect(screen.getByText("Derps")).toBeInTheDocument();
+    expect(screen.queryByText("yay")).not.toBeInTheDocument();
+  });
+
+  it("o contador só aparece com busca ativa e reflete as quatro funções", async () => {
+    const user = userEvent.setup();
+    const market = emptyMarket();
+    market.Duelista = [makePlayer({ id: "yay", nickname: "yay" })];
+    market.Sentinela = [
+      makePlayer({ id: "chronicle", nickname: "Chronicle", role: "Sentinela" }),
+    ];
+
+    render(
+      <MarketSheet
+        open
+        onOpenChange={vi.fn()}
+        selection={substituting}
+        market={market}
+        balanceCents={10_000}
+        marketOpen
+        lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
+        closesIn="36h 12m"
+        closesAt={CLOSES_AT}
+        rosteredPlayerIds={["derke"]}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    // Sem busca: nome puro da função, sem número ao lado.
+    expect(screen.getByRole("tab", { name: "Duelista" })).toBeInTheDocument();
+
+    await user.type(
+      screen.getByRole("searchbox", { name: /buscar jogador pelo nome/i }),
+      "chronicle",
+    );
+
+    // Duelista (aba ativa) fica sem resultado, mas segue HABILITADA — o
+    // contador "0" é a informação, não um motivo para travar a aba.
+    const duelistaTab = screen.getByRole("tab", { name: /^Duelista/ });
+    expect(duelistaTab).toHaveTextContent("0");
+    expect(duelistaTab).toBeEnabled();
+
+    expect(screen.getByRole("tab", { name: /^Sentinela/ })).toHaveTextContent(
+      "1",
+    );
+  });
+
+  it("busca sem resultado numa função: mostra o termo e o botão Limpar busca", async () => {
+    const user = userEvent.setup();
+    const market = emptyMarket();
+    market.Duelista = [makePlayer({ id: "yay", nickname: "yay" })];
+
+    render(
+      <MarketSheet
+        open
+        onOpenChange={vi.fn()}
+        selection={substituting}
+        market={market}
+        balanceCents={10_000}
+        marketOpen
+        lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
+        closesIn="36h 12m"
+        closesAt={CLOSES_AT}
+        rosteredPlayerIds={["derke"]}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    await user.type(
+      screen.getByRole("searchbox", { name: /buscar jogador pelo nome/i }),
+      "zzz",
+    );
+
+    expect(
+      screen.getByText(/Nenhum Duelista corresponde a "zzz"/),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Limpar busca" }));
+
+    expect(screen.getByText("yay")).toBeInTheDocument();
+  });
+
+  it("função sem candidato nenhum no mercado: mensagem distinta da de busca sem resultado", () => {
+    render(
+      <MarketSheet
+        open
+        onOpenChange={vi.fn()}
+        selection={substituting}
+        market={emptyMarket()}
+        balanceCents={10_000}
+        marketOpen
+        lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
+        closesIn="36h 12m"
+        closesAt={CLOSES_AT}
+        rosteredPlayerIds={["derke"]}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText("Nenhum Duelista disponível no mercado."),
+    ).toBeInTheDocument();
+  });
+
+  it("função com candidatos, todos travados por organização: mensagem de mercado fechado", () => {
+    const market = emptyMarket();
+    market.Duelista = [
+      makePlayer({ id: "travado", nickname: "Travado", team: "FNATIC" }),
+    ];
+
+    render(
+      <MarketSheet
+        open
+        onOpenChange={vi.fn()}
+        selection={substituting}
+        market={market}
+        balanceCents={10_000}
+        marketOpen
+        lockedTeams={["FNATIC"]}
+        scope={AMERICAS_SCOPE}
+        closesIn="36h 12m"
+        closesAt={CLOSES_AT}
+        rosteredPlayerIds={["derke"]}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText("Nenhum Duelista com mercado aberto agora."),
+    ).toBeInTheDocument();
+  });
+
+  it("trocar de vaga sem fechar o Sheet zera a busca e a ordem", async () => {
+    // O RosterPanel mantém o Sheet sempre montado, só alternando `open` —
+    // trocar de `selection` (nova vaga) sem desmontar é o cenário real; sem
+    // reset, uma busca esquecida faria a próxima vaga parecer vazia.
+    const user = userEvent.setup();
+    const market = emptyMarket();
+    market.Duelista = [makePlayer({ id: "yay", nickname: "yay" })];
+    const otherSlot: MarketSelection = {
+      position: 2,
+      outgoing: makePlayer({ id: "chamber", nickname: "Chamber" }),
+    };
+
+    const { rerender } = render(
+      <MarketSheet
+        open
+        onOpenChange={vi.fn()}
+        selection={substituting}
+        market={market}
+        balanceCents={10_000}
+        marketOpen
+        lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
+        closesIn="36h 12m"
+        closesAt={CLOSES_AT}
+        rosteredPlayerIds={["derke"]}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    await user.type(
+      screen.getByRole("searchbox", { name: /buscar jogador pelo nome/i }),
+      "zzz",
+    );
+    expect(screen.queryByText("yay")).not.toBeInTheDocument();
+
+    rerender(
+      <MarketSheet
+        open
+        onOpenChange={vi.fn()}
+        selection={otherSlot}
+        market={market}
+        balanceCents={10_000}
+        marketOpen
+        lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
+        closesIn="36h 12m"
+        closesAt={CLOSES_AT}
+        rosteredPlayerIds={["derke", "chamber"]}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("searchbox", { name: /buscar jogador pelo nome/i }),
+    ).toHaveValue("");
+    expect(screen.getByText("yay")).toBeInTheDocument();
+  });
+
+  it("anuncia a contagem de resultados numa live region", async () => {
+    const user = userEvent.setup();
+    const market = emptyMarket();
+    market.Duelista = [makePlayer({ id: "yay", nickname: "yay" })];
+
+    render(
+      <MarketSheet
+        open
+        onOpenChange={vi.fn()}
+        selection={substituting}
+        market={market}
+        balanceCents={10_000}
+        marketOpen
+        lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
+        closesIn="36h 12m"
+        closesAt={CLOSES_AT}
+        rosteredPlayerIds={["derke"]}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("");
+
+    await user.type(
+      screen.getByRole("searchbox", { name: /buscar jogador pelo nome/i }),
+      "yay",
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      '1 jogador encontrado para "yay".',
+    );
   });
 });
 
