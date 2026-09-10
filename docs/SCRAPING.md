@@ -40,7 +40,7 @@ não conhece HTTP; o motor de pontuação não conhece nem um nem outro.
 | Comando              | Cron     | O que faz                                                        |
 | -------------------- | -------- | ---------------------------------------------------------------- |
 | `pnpm vlr:events`    | semanal  | `/events` → `vlr_event`. **Não** mexe em `tracked`               |
-| `pnpm vlr:schedule`  | 06:00    | `/matches` → calendário → rodadas semanais (`marketClosesAt`)    |
+| `pnpm vlr:schedule`  | 06:00    | `/matches`, paginado até o fim → calendário → rodadas semanais (`marketClosesAt`) |
 | `pnpm vlr:results`   | \*/5min  | `/matches/results` → marca encerradas e enfileira a extração     |
 | `pnpm vlr:work`      | \*/2min  | Consome a fila; falha isolada não derruba o lote                 |
 | `pnpm vlr:round`     | \*/15min | Rodada toda extraída → `calculateRound` + `closeActiveRound`     |
@@ -145,6 +145,13 @@ ligadas à rodada ativa era o que fazia o painel anunciar um fechamento
 inexistente: com uma rodada de seed ativa (sem `event_id` nas partidas), ele
 mostrava a janela dela — dias à frente — enquanto o próximo jogo de verdade era
 no dia seguinte.
+
+**`vlr:schedule` pagina `/matches` até o fim** (`lastListPage`,
+`lib/vlr/scrapers/match-list.ts`), com um teto de segurança
+(`MAX_SCHEDULE_PAGES`, `lib/vlr/jobs/sync-schedule.ts`). A página 1 sozinha só
+cobre alguns dias em semana cheia — um Champions ou Masters daqui a um mês fica
+na página 2+, e sem paginar ele nunca chegava ao banco. `--pages=N` sobrepõe a
+contagem anunciada, no mesmo molde de `vlr:results --pages`.
 
 ### A trava, do lado de quem compra e vende
 

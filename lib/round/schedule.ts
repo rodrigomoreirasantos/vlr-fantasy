@@ -1,3 +1,4 @@
+import { dayKey } from "@/lib/round/day";
 import { formatMatchDay } from "@/lib/round/format";
 import type { RoundMatch } from "@/lib/round/types";
 
@@ -9,14 +10,6 @@ export type MatchDay = {
   label: string;
   matches: RoundMatch[];
 };
-
-/** `Date` → `"2026-09-04"`, o dia local em que a partida acontece. */
-function dayKey(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 /**
  * Agrupa partidas por dia, preservando a ordem cronológica dentro de cada dia

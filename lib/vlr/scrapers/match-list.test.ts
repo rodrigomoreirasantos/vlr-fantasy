@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 
 import { readFixture } from "@/lib/vlr/fixtures/load";
-import { parseMatchList } from "@/lib/vlr/scrapers/match-list";
+import { lastListPage, parseMatchList } from "@/lib/vlr/scrapers/match-list";
 import { SelectorMissError } from "@/lib/vlr/scrapers/parse";
 
 const schedule = parseMatchList(
@@ -72,5 +72,19 @@ describe("parseMatchList — falhas", () => {
     expect(() =>
       parseMatchList("<html><body></body></html>", "/matches"),
     ).toThrow(SelectorMissError);
+  });
+});
+
+describe("lastListPage", () => {
+  it("lê a última página anunciada em /matches", () => {
+    expect(lastListPage(readFixture("match-list-schedule.html"))).toBe(2);
+  });
+
+  it("lê a última página anunciada em /matches/results, mesmo com '…' no meio", () => {
+    expect(lastListPage(readFixture("match-list-results.html"))).toBe(664);
+  });
+
+  it("sem bloco de paginação (página única), devolve 1", () => {
+    expect(lastListPage("<html><body></body></html>")).toBe(1);
   });
 });

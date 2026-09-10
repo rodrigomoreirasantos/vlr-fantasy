@@ -43,7 +43,8 @@ describe("UpcomingMatches", () => {
     renderPanel([match()]);
 
     expect(screen.getByText(/NRG/)).toBeInTheDocument();
-    expect(screen.getByText("17:00")).toBeInTheDocument();
+    // 17:00Z = 14:00 em America/Sao_Paulo (UTC-3), o fuso do jogo.
+    expect(screen.getByText("14:00")).toBeInTheDocument();
     // A origem do jogo, evidente: a liga em destaque e o nome curto embaixo.
     expect(screen.getByText("Americas")).toBeInTheDocument();
     expect(screen.getByText("Americas Stage 2")).toBeInTheDocument();
@@ -141,8 +142,9 @@ describe("UpcomingMatches", () => {
   it("cada linha diz quando o mercado dela fecha", () => {
     renderPanel([match()]);
 
-    // Kickoff 17:00Z; o mercado do dia fecha uma hora antes.
-    expect(screen.getByText("Mercado fecha 16:00")).toBeInTheDocument();
+    // Kickoff 17:00Z; o mercado do dia fecha uma hora antes (16:00Z), que é
+    // 13:00 em America/Sao_Paulo (UTC-3), o fuso do jogo.
+    expect(screen.getByText("Mercado fecha 13:00")).toBeInTheDocument();
   });
 
   it("jogos do mesmo campeonato no mesmo dia fecham juntos", () => {
@@ -151,9 +153,10 @@ describe("UpcomingMatches", () => {
       match({ id: "b", scheduledAt: new Date("2026-09-04T20:00:00Z") }),
     ]);
 
-    // Os dois às 16:00 — uma hora antes do PRIMEIRO jogo do dia.
-    expect(screen.getAllByText("Mercado fecha 16:00")).toHaveLength(2);
-    expect(screen.queryByText("Mercado fecha 19:00")).not.toBeInTheDocument();
+    // Os dois às 16:00Z (13:00 em Sao_Paulo) — uma hora antes do PRIMEIRO
+    // jogo do dia.
+    expect(screen.getAllByText("Mercado fecha 13:00")).toHaveLength(2);
+    expect(screen.queryByText("Mercado fecha 16:00")).not.toBeInTheDocument();
   });
 
   it("em 'Todos', não há relógio de mercado — só a regra", () => {
@@ -245,7 +248,7 @@ describe("UpcomingMatches", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("oferece as regiões com a internacional à frente", () => {
+  it("oferece as regiões com a internacional à frente, e cada liga soma os internacionais", () => {
     renderPanel([
       match({ id: "a", event: "VCT 2026: Americas Stage 2" }),
       match({ id: "b", event: "VCT 2026: EMEA Stage 2" }),
@@ -257,7 +260,26 @@ describe("UpcomingMatches", () => {
       .getAllByRole("button")
       .map((button) => button.textContent);
 
-    expect(labels).toEqual(["Todos3", "Internacional1", "Americas1", "EMEA1"]);
+    // Cada liga entrega os dela + o Champions: é o que a seleção de fato mostra.
+    expect(labels).toEqual(["Todos3", "Internacional1", "Americas2", "EMEA2"]);
+  });
+
+  it("o jogo de Champions aparece com Americas selecionado", async () => {
+    const user = userEvent.setup();
+    renderPanel([
+      match({ id: "a", teamA: "NRG", event: "VCT 2026: Americas Stage 2" }),
+      match({
+        id: "b",
+        teamA: "FNATIC",
+        teamB: "LOUD",
+        event: "Valorant Champions 2026",
+      }),
+    ]);
+
+    await user.click(screen.getByRole("button", { name: /Americas/ }));
+
+    expect(screen.getByText(/NRG/)).toBeInTheDocument();
+    expect(screen.getByText(/FNATIC/)).toBeInTheDocument();
   });
 
   it("duas ligas da mesma região caem num chip só", () => {
@@ -336,5 +358,30 @@ describe("UpcomingMatches", () => {
     await user.click(screen.getByRole("button", { name: "Ver mais 3 jogos" }));
 
     expect(screen.getByText(/Time 14/)).toBeInTheDocument();
+  });
+
+  it("uma grade bem longa cresce em blocos, não tudo de uma vez", async () => {
+    const user = userEvent.setup();
+    const many = Array.from({ length: 40 }, (_, index) =>
+      match({
+        id: `m${index}`,
+        teamA: `Time ${index}`,
+        scheduledAt: new Date(
+          new Date("2026-09-04T17:00:00Z").getTime() + index * 3_600_000,
+        ),
+      }),
+    );
+    renderPanel(many);
+
+    // 40 jogos, 12 visíveis: o primeiro clique acrescenta o passo (24), não
+    // os 28 restantes de uma vez só.
+    await user.click(screen.getByRole("button", { name: "Ver mais 24 jogos" }));
+
+    expect(screen.getByText(/Time 35/)).toBeInTheDocument();
+    expect(screen.queryByText(/Time 36/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Ver mais 4 jogos" }));
+
+    expect(screen.getByText(/Time 39/)).toBeInTheDocument();
   });
 });

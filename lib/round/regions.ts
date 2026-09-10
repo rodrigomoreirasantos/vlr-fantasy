@@ -239,7 +239,17 @@ export function matchRegion(match: {
 }
 
 /**
- * As partidas de uma região — `null` devolve a grade inteira.
+ * As partidas que uma seleção do filtro entrega — `null` devolve a grade inteira.
+ *
+ * Uma liga (`LEAGUE_REGIONS`) devolve as dela **mais as internacionais**:
+ * Masters e Champions são o palco das quatro ligas juntas, então quem está
+ * vendo "EMEA" tem de ver o jogo do time de EMEA em Champions. É a mesma
+ * regra que a trava do mercado já usa (`marketMatchesFor`,
+ * `lib/market/window.ts`) — antes desta mudança, o relógio do topo do painel
+ * e a trava de escalação discordavam sobre o mesmo conjunto.
+ *
+ * "Internacional" e "Outros" devolvem só o que é delas: a primeira já **é** o
+ * recorte inteiro, e a segunda é o limbo de quem não é liga nenhuma.
  *
  * Existe porque dois componentes precisam do **mesmo** recorte: o relógio do
  * mercado no topo de "Próximos jogos" e a grade logo abaixo. Escrito duas
@@ -250,7 +260,14 @@ export function matchesInRegion<
   T extends { event: string; regionCode?: string | null },
 >(matches: readonly T[], region: EventRegion | null): T[] {
   if (region === null) return [...matches];
-  return matches.filter((match) => matchRegion(match) === region);
+
+  const withInternational = isLeagueRegion(region);
+  return matches.filter((match) => {
+    const matched = matchRegion(match);
+    return (
+      matched === region || (withInternational && matched === "international")
+    );
+  });
 }
 
 /**
@@ -274,22 +291,27 @@ export type RegionFilterOption = {
 /**
  * As regiões do calendário, na ordem de `EVENT_REGIONS` (internacional
  * primeiro: Masters e Champions são o que move o mercado), com a contagem de
- * jogos de cada uma.
+ * jogos que cada chip **entrega** — a mesma regra de `matchesInRegion`.
  */
 export function regionFilterOptions(
   matches: readonly RoundMatch[],
 ): RegionFilterOption[] {
-  const counts = new Map<EventRegion, number>();
+  const own = new Map<EventRegion, number>();
   for (const match of matches) {
     const region = matchRegion(match);
-    counts.set(region, (counts.get(region) ?? 0) + 1);
+    own.set(region, (own.get(region) ?? 0) + 1);
   }
 
-  return [...counts.entries()]
+  const international = own.get("international") ?? 0;
+
+  // O chip nasce da região ter jogo **próprio**: "EMEA" não deveria aparecer
+  // numa semana em que só há Champions. Mas o número que ele mostra é o que o
+  // clique entrega — os dela mais os internacionais.
+  return [...own.entries()]
     .map(([region, count]) => ({
       region,
       label: regionLabel(region),
-      count,
+      count: count + (isLeagueRegion(region) ? international : 0),
     }))
     .sort((a, b) => REGION_ORDER[a.region] - REGION_ORDER[b.region]);
 }

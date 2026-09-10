@@ -63,6 +63,23 @@ export function parseMatchList(
   return items;
 }
 
+/**
+ * A última página da lista, lida da própria paginação do rodapé.
+ *
+ * **Não** usa `requireAll`: uma lista de página única não tem paginação
+ * nenhuma, e isso é um estado legítimo — devolve `1`. Diferente de um card
+ * ausente, que é seletor quebrado e deve falhar alto.
+ */
+export function lastListPage(html: string): number {
+  const $ = load(html);
+  const numbers = $(`${MATCH_LIST.pages} ${MATCH_LIST.pageItem}`)
+    .map((_, node) => int(text($(node))))
+    .get()
+    .flatMap((value) => (value === null ? [] : [value]));
+
+  return numbers.length > 0 ? Math.max(...numbers, 1) : 1;
+}
+
 type CardElement = ReturnType<ReturnType<typeof load>>;
 
 function parseCard(

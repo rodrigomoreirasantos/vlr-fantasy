@@ -40,12 +40,15 @@ import { getTeamOverview } from "@/lib/team/queries";
 import type { RosterSlot } from "@/lib/team/types";
 
 /**
- * Quantos jogos do circuito a Home carrega. Maior que o que cabe na tela de
- * propósito: o filtro por campeonato precisa de material para filtrar, e uma
- * janela curta esconderia campeonatos inteiros do seletor.
- * `<UpcomingMatches>` é quem decide quantos exibir de cada vez.
+ * Quantos jogos do circuito a Home carrega.
+ *
+ * Deixou de ser orçamento de tela e virou fusível. O pedido é ver o
+ * calendário inteiro — Champions de fim de setembro incluído —, e quem
+ * limita a exibição é `<MatchSchedule>`, em blocos. O teto aqui existe só
+ * para que um `tracked` marcado por engano num torneio de mil partidas não
+ * vire um payload de RSC de megabytes a cada `<LiveRefresh>`.
  */
-const UPCOMING_MATCH_LIMIT = 40;
+const UPCOMING_MATCH_LIMIT = 500;
 
 /** As organizações dos 5 jogadores escalados, sem repetição. */
 function organizationsOf(roster: readonly RosterSlot[]): string[] {

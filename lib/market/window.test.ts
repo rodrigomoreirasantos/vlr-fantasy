@@ -65,9 +65,9 @@ describe("formatTimeLeft", () => {
 });
 
 describe("formatClosesAt", () => {
-  it("formata em português, com dia da semana abreviado", () => {
-    // 2026-03-14 é um sábado.
-    expect(formatClosesAt(closesAt)).toBe("Fecha sáb, 14/03 às 18:00");
+  it("formata em português, com dia da semana abreviado, no fuso do jogo", () => {
+    // 2026-03-14 é um sábado. 18:00Z = 15:00 em America/Sao_Paulo (UTC-3).
+    expect(formatClosesAt(closesAt)).toBe("Fecha sáb, 14/03 às 15:00");
   });
 });
 

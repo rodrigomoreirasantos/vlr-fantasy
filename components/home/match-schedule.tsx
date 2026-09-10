@@ -16,8 +16,10 @@ import { groupMatchesByDay, nextMatchId } from "@/lib/round/schedule";
 import type { RoundMatch } from "@/lib/round/types";
 import { cn } from "@/lib/utils";
 
-/** Quantos jogos a lista mostra antes de pedir licença para continuar. */
+/** Quantos jogos a lista mostra de saída. */
 const VISIBLE_LIMIT = 12;
+/** Quantos ela acrescenta a cada "ver mais" — o calendário inteiro pode ter centenas. */
+const LOAD_MORE_STEP = 24;
 
 export type MatchScheduleProps = {
   matches: readonly RoundMatch[];
@@ -117,10 +119,11 @@ function ScheduleDays({
   closesBy,
   now,
 }: ScheduleDaysProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [limit, setLimit] = useState(VISIBLE_LIMIT);
 
-  const visible = expanded ? matches : matches.slice(0, VISIBLE_LIMIT);
+  const visible = matches.slice(0, limit);
   const hidden = matches.length - visible.length;
+  const step = Math.min(hidden, LOAD_MORE_STEP);
 
   const mine = new Set(myOrganizations);
   const days = groupMatchesByDay(visible, now);
@@ -190,10 +193,10 @@ function ScheduleDays({
       {hidden > 0 && (
         <button
           type="button"
-          onClick={() => setExpanded(true)}
+          onClick={() => setLimit((current) => current + LOAD_MORE_STEP)}
           className="mt-4 w-full text-[10px] font-bold tracking-[0.14em] text-muted-foreground uppercase transition-colors hover:text-primary"
         >
-          Ver mais {hidden} {hidden === 1 ? "jogo" : "jogos"}
+          Ver mais {step} {step === 1 ? "jogo" : "jogos"}
         </button>
       )}
     </>

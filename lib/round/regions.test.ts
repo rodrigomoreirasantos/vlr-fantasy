@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   eventRegion,
   isLeagueRegion,
+  matchesInRegion,
   parseTeamRegion,
   regionColor,
   regionFilterOptions,
@@ -85,6 +86,34 @@ describe("regionColor", () => {
   });
 });
 
+describe("matchesInRegion", () => {
+  const matches = [
+    match("VCT 2026: Americas Stage 2", "a"),
+    match("VCT 2026: EMEA Stage 2", "b"),
+    match("Valorant Champions 2026", "c"),
+    match("Red Bull Home Ground", "d"), // "other"
+  ];
+
+  it("null devolve a grade inteira", () => {
+    expect(matchesInRegion(matches, null)).toHaveLength(4);
+  });
+
+  it("uma liga devolve as dela mais as internacionais", () => {
+    const ids = matchesInRegion(matches, "americas").map((m) => m.id);
+    expect(ids).toEqual(["a", "c"]);
+  });
+
+  it("'international' devolve só os internacionais", () => {
+    const ids = matchesInRegion(matches, "international").map((m) => m.id);
+    expect(ids).toEqual(["c"]);
+  });
+
+  it("'other' não recebe internacional de brinde", () => {
+    const ids = matchesInRegion(matches, "other").map((m) => m.id);
+    expect(ids).toEqual(["d"]);
+  });
+});
+
 describe("regionFilterOptions", () => {
   it("conta os jogos de cada região, sem repetir a região", () => {
     const options = regionFilterOptions([
@@ -109,6 +138,20 @@ describe("regionFilterOptions", () => {
     expect(options.map((option) => option.region)).toEqual([
       "international",
       "americas",
+    ]);
+  });
+
+  it("a contagem de cada liga inclui os internacionais — o que o clique entrega", () => {
+    const options = regionFilterOptions([
+      match("Valorant Champions 2026", "a"),
+      match("VCT 2026: Americas Stage 2", "b"),
+      match("VCT 2026: EMEA Stage 2", "c"),
+    ]);
+
+    expect(options).toEqual([
+      { region: "international", label: "Internacional", count: 1 },
+      { region: "americas", label: "Americas", count: 2 },
+      { region: "emea", label: "EMEA", count: 2 },
     ]);
   });
 

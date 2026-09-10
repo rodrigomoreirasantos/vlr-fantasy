@@ -20,6 +20,13 @@ export const MATCH_LIST = {
   status: ".match-item-eta .ml-status",
   event: ".match-item-event",
   eventSeries: ".match-item-event-series",
+  /**
+   * A paginação do rodapé. O último número está sempre visível (`1 2 3 4 … 664`
+   * em `/matches/results`), então `lastListPage` sabe onde parar sem sondar
+   * página por página.
+   */
+  pages: ".action-container-pages",
+  pageItem: ".btn.mod-page",
 } as const;
 
 /** `/{vlrId}/?game=all&tab=overview` — a página que carrega todo o valor. */

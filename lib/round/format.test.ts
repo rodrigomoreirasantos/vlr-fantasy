@@ -9,10 +9,10 @@ import {
 } from "@/lib/round/format";
 
 describe("formatMatchKickoff", () => {
-  it("formata em português, com dia da semana abreviado", () => {
-    // 2026-03-12 é uma quinta.
+  it("formata em português, com dia da semana abreviado, no fuso do jogo", () => {
+    // 2026-03-12 é uma quinta. 21:00Z = 18:00 em America/Sao_Paulo (UTC-3).
     const scheduledAt = new Date("2026-03-12T21:00:00Z");
-    expect(formatMatchKickoff(scheduledAt)).toBe("qui, 12/03 às 21:00");
+    expect(formatMatchKickoff(scheduledAt)).toBe("qui, 12/03 às 18:00");
   });
 });
 
@@ -41,8 +41,8 @@ describe("availabilityMessage", () => {
 });
 
 describe("formatKickoffTime", () => {
-  it("mostra só a hora", () => {
-    expect(formatKickoffTime(new Date("2026-09-03T21:00:00Z"))).toBe("21:00");
+  it("mostra só a hora, no fuso do jogo (America/Sao_Paulo, UTC-3)", () => {
+    expect(formatKickoffTime(new Date("2026-09-03T21:00:00Z"))).toBe("18:00");
   });
 });
 
@@ -68,6 +68,12 @@ describe("formatMatchDay", () => {
   it("um dia anterior não vira 'Hoje'", () => {
     expect(formatMatchDay(new Date("2026-09-02T21:00:00Z"), now)).toBe(
       "qua, 02/09",
+    );
+  });
+
+  it("um jogo do ano seguinte traz o ano, para não ficar ambíguo", () => {
+    expect(formatMatchDay(new Date("2027-01-10T21:00:00Z"), now)).toBe(
+      "dom, 10/01/2027",
     );
   });
 });

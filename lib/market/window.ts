@@ -1,7 +1,7 @@
 import dayjs from "dayjs";
 import "dayjs/locale/pt-br";
 
-import { dayKey } from "@/lib/round/day";
+import { APP_TZ, dayKey } from "@/lib/round/day";
 import { matchRegion, type TeamRegion } from "@/lib/round/regions";
 import type { RoundMatch } from "@/lib/round/types";
 
@@ -136,9 +136,13 @@ export function formatTimeLeft(closesAt: Date, now: Date = new Date()): string {
   return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 }
 
-/** Data de fechamento por extenso, ex. "Fecha sáb, 14/03 às 18:00". */
+/**
+ * Data de fechamento por extenso, ex. "Fecha sáb, 14/03 às 18:00" — sempre no
+ * fuso do jogo (`APP_TZ`), como todo formatador de data da tela
+ * (`lib/round/format.ts`).
+ */
 export function formatClosesAt(closesAt: Date): string {
-  return `Fecha ${dayjs(closesAt).format("ddd, DD/MM [às] HH:mm")}`;
+  return `Fecha ${dayjs(closesAt).tz(APP_TZ).format("ddd, DD/MM [às] HH:mm")}`;
 }
 
 /**

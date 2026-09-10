@@ -3,14 +3,16 @@
 import "dotenv/config";
 
 import { syncSchedule } from "@/lib/vlr/jobs/sync-schedule";
-import { isMain, runScript } from "@/scripts/vlr/run";
+import { isMain, numberArg, runScript } from "@/scripts/vlr/run";
 
 if (isMain(import.meta.url)) {
   void runScript("vlr:schedule", async () => {
-    const { matches, rounds } = await syncSchedule();
+    const { matches, rounds, pages } = await syncSchedule({
+      pages: numberArg("pages"),
+    });
     return {
       ok: true,
-      summary: `✓ ${matches} partidas no calendário, ${rounds} rodadas semanais sincronizadas.`,
+      summary: `✓ ${matches} partidas (${pages} páginas), ${rounds} rodadas semanais sincronizadas.`,
     };
   });
 }
