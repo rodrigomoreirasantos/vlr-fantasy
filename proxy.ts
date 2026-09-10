@@ -89,16 +89,40 @@ function applyRegionSelection(request: NextRequest) {
  * uma checagem otimista de UX; quem barra de verdade é `auth.api.getSession`
  * no Server Component, que roda na navegação real.
  */
-const PREFETCH_HEADERS = [
-  { type: "header", key: "next-router-prefetch" },
-  { type: "header", key: "purpose", value: "prefetch" },
-] as const;
-
+// Repetido em cada entrada do matcher, em vez de um `const` só referenciado —
+// o Next 16 extrai `config` via AST, sem executar o módulo, e não resolve
+// identificador externo nenhum aqui dentro (nem uma constante do mesmo
+// arquivo): precisa ser 100% literal inline, senão `next build` falha com
+// `Unknown identifier "PREFETCH_HEADERS"` na coleta de dados de página.
 export const config = {
   matcher: [
-    { source: "/my-team/:path*", missing: PREFETCH_HEADERS },
-    { source: "/ranking/:path*", missing: PREFETCH_HEADERS },
-    { source: "/profile/:path*", missing: PREFETCH_HEADERS },
-    { source: "/home/:path*", missing: PREFETCH_HEADERS },
+    {
+      source: "/my-team/:path*",
+      missing: [
+        { type: "header", key: "next-router-prefetch" },
+        { type: "header", key: "purpose", value: "prefetch" },
+      ],
+    },
+    {
+      source: "/ranking/:path*",
+      missing: [
+        { type: "header", key: "next-router-prefetch" },
+        { type: "header", key: "purpose", value: "prefetch" },
+      ],
+    },
+    {
+      source: "/profile/:path*",
+      missing: [
+        { type: "header", key: "next-router-prefetch" },
+        { type: "header", key: "purpose", value: "prefetch" },
+      ],
+    },
+    {
+      source: "/home/:path*",
+      missing: [
+        { type: "header", key: "next-router-prefetch" },
+        { type: "header", key: "purpose", value: "prefetch" },
+      ],
+    },
   ],
 };
