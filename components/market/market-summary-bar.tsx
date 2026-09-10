@@ -1,5 +1,6 @@
 import { MarketCountdown } from "@/components/market/market-countdown";
 import { PlayerPrice } from "@/components/team/player-price";
+import { spendingCapCents } from "@/lib/market/eligibility";
 import { formatCreditsDelta } from "@/lib/market/money";
 import { formatTimeLeft } from "@/lib/market/window";
 import type { Player } from "@/lib/team/types";
@@ -8,14 +9,12 @@ import { cn } from "@/lib/utils";
 function Stat({
   label,
   children,
-  className,
 }: {
   label: string;
   children: React.ReactNode;
-  className?: string;
 }) {
   return (
-    <div className={cn("p-2.5 text-center", className)}>
+    <div className="p-2.5 text-center">
       <p className="text-[9px] font-semibold tracking-wider text-muted-foreground uppercase">
         {label}
       </p>
@@ -28,8 +27,6 @@ export type MarketSummaryBarProps = {
   balanceCents: number;
   /** `null` numa vaga vazia — não há ninguém saindo da escalação. */
   outgoing: Player | null;
-  /** Número da vaga (1-5), usado no lugar do nickname quando `outgoing` é `null`. */
-  position: number;
   marketOpen: boolean;
   /** A frase já formatada no servidor — usada como `initialCountdown` do `<MarketCountdown>`. */
   closesIn: string;
@@ -44,40 +41,48 @@ export type MarketSummaryBarProps = {
 };
 
 /**
- * Saldo, quem sai da escalação (ou a vaga sendo preenchida) e a janela de
- * mercado. Numa substituição, o crédito que a saída de `outgoing` gera
- * aparece aqui, uma única vez — é o único lugar que mostra esse abatimento;
- * os cards de candidato (`MarketPlayerRow`) mostram só o preço cheio.
+ * Saldo, o teto de compra desta troca e a janela de mercado — o número da
+ * vaga já está no `<SheetDescription>` do Sheet, não repetido aqui.
+ *
+ * Numa substituição, o teto (`spendingCapCents`) é o saldo mais o preço de
+ * quem sai — é a mesma conta que `evaluateSubstitution` usa para decidir
+ * "Sem saldo" em cada card, então bate exatamente com o que aparece bloqueado
+ * lá embaixo. Numa vaga vazia o teto é igual ao saldo, e a célula do meio
+ * some — mostrar o mesmo número duas vezes seria ruído.
  */
 export function MarketSummaryBar({
   balanceCents,
   outgoing,
-  position,
   marketOpen,
   closesIn,
   closesAt,
 }: MarketSummaryBarProps) {
+  const showCap = outgoing !== null;
+
   return (
-    <div className="clip-corner grid grid-cols-3 ring-1 ring-border [--clip:10px]">
-      <Stat label="Saldo" className="border-r border-border">
+    <div
+      className={cn(
+        "clip-corner grid ring-1 ring-border [&>*+*]:border-l [&>*+*]:border-border [--clip:10px]",
+        showCap ? "grid-cols-3" : "grid-cols-2",
+      )}
+    >
+      <Stat label="Saldo">
         <PlayerPrice priceCents={balanceCents} className="text-base" />
       </Stat>
 
-      <Stat
-        label={outgoing ? "Sai" : "Vaga"}
-        className="border-r border-border"
-      >
-        <p className="truncate text-sm font-bold uppercase">
-          {outgoing ? outgoing.nickname : position}
-        </p>
-        {outgoing && (
-          <p className="mt-0.5 text-[10px] font-semibold text-muted-foreground tabular-nums">
-            {formatCreditsDelta(outgoing.priceCents)}
+      {outgoing && (
+        <Stat label="Pode gastar">
+          <PlayerPrice
+            priceCents={spendingCapCents(balanceCents, outgoing)}
+            className="text-base"
+          />
+          <p className="mt-0.5 truncate text-[10px] font-semibold text-muted-foreground tabular-nums">
+            {formatCreditsDelta(outgoing.priceCents)} com {outgoing.nickname}
           </p>
-        )}
-      </Stat>
+        </Stat>
+      )}
 
-      <Stat label="Mercado">
+      <Stat label={marketOpen && closesAt ? "Fecha em" : "Mercado"}>
         {marketOpen && closesAt ? (
           <MarketCountdown
             closesAt={closesAt}
