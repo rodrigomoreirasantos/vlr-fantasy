@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { match, vlrEvent } from "@/db/schema";
 import { SCOUT_VERSION, mapPoints } from "@/lib/scoring/scout";
+import { fingerprint } from "@/lib/vlr/http/fingerprint";
 import { logInfo } from "@/lib/vlr/http/log";
 import { fetchHtml } from "@/lib/vlr/http/client";
 import { diskRawStore, type RawStore } from "@/lib/vlr/http/raw-store";
@@ -64,6 +65,45 @@ export async function reprocessMatch(
 }
 
 /**
+ * Relê uma partida já extraída, no máximo uma vez (Decisão 5, plano 17):
+ * `pnpm vlr:reprocess` reparsa o **HTML salvo**, então nunca traria uma
+ * correção que o vlr fizesse depois — só uma requisição nova traz.
+ *
+ * Digital igual à da última extração → só carimba `revalidatedAt`, **sem**
+ * tocar disco nem estatística. Digital diferente → grava tudo de novo, como
+ * uma extração nova; o HTML antigo continua no disco (o princípio "o HTML
+ * bruto é o dado" não muda) e `player.score` se corrige sozinho no próximo
+ * `vlr:round`, porque `calculateRound` **atribui**, nunca soma.
+ */
+export async function revalidateMatch(
+  vlrId: string,
+  store: RawStore = diskRawStore,
+): Promise<{ changed: boolean }> {
+  const existing = await db.query.match.findFirst({
+    where: eq(match.vlrId, vlrId),
+  });
+  if (!existing) {
+    throw new Error(`Partida ${vlrId} não existe — nada para revalidar.`);
+  }
+
+  const { html } = await fetchHtml(matchDetailPath(vlrId));
+  const detail = parseMatchDetail(html, vlrId);
+  const newHash = fingerprint(detail);
+
+  if (newHash === existing.contentHash) {
+    await db
+      .update(match)
+      .set({ revalidatedAt: new Date() })
+      .where(eq(match.id, existing.id));
+    return { changed: false };
+  }
+
+  const rawHtmlPath = await store.put("match", vlrId, html);
+  await persistMatchDetail(detail, rawHtmlPath, new Date());
+  return { changed: true };
+}
+
+/**
  * A escrita, numa única transação: evento, times, partida, jogadores e
  * estatísticas. Metade gravada seria pior que nada — um jogador criado sem a
  * partida a que pertence, ou uma partida marcada como extraída sem placar.
@@ -71,6 +111,8 @@ export async function reprocessMatch(
 async function persistMatchDetail(
   detail: ScrapedMatchDetail,
   rawHtmlPath: string,
+  /** Só a releitura tardia passa isto — a extração inicial nunca grava. */
+  revalidatedAt?: Date,
 ): Promise<{ matchId: string; mapCount: number; statCount: number }> {
   return db.transaction(async (tx) => {
     const eventIds = detail.event.vlrId
@@ -174,6 +216,11 @@ async function persistMatchDetail(
       scoreB: detail.scoreB,
       bestOf: detail.bestOf,
       status: detail.status,
+      // A digital do payload interpretado — base da releitura tardia
+      // (Decisão 5, plano 17). `revalidatedAt` só entra quando é de fato uma
+      // revalidação; a extração inicial nunca escreve nesta coluna.
+      contentHash: fingerprint(detail),
+      ...(revalidatedAt !== undefined && { revalidatedAt }),
     });
 
     // A bandeira do evento (`vlr_event.region`) recém-upsertado — `upsertEvents`

@@ -7,8 +7,16 @@ import { isMain, runScript } from "@/scripts/vlr/run";
 
 if (isMain(import.meta.url)) {
   void runScript("vlr:doctor", async () => {
-    const { checks, healthy, needsReview, scrapedMatches, playersOutOfRegion } =
-      await runDoctor();
+    const {
+      checks,
+      healthy,
+      needsReview,
+      scrapedMatches,
+      playersOutOfRegion,
+      staleJobs,
+      dismissedMatches,
+      rosterMissing,
+    } = await runDoctor();
 
     const lines = checks.map((check) => {
       const icon = check.status === "ok" ? "✓" : "✗";
@@ -25,11 +33,17 @@ if (isMain(import.meta.url)) {
       ok: healthy,
       summary: [
         healthy
-          ? "✓ Todos os seletores respondendo."
-          : "✗ Há seletores quebrados.",
+          ? "✓ Seletores OK e todos os jobs em dia."
+          : "✗ Há seletor quebrado ou job atrasado/sem rodar/em falha.",
         ...lines,
+        staleJobs.length > 0
+          ? `  ✗ Job(s) fora do prazo: ${staleJobs.join(", ")}.`
+          : null,
         `  · ${scrapedMatches} partidas extraídas, ${needsReview} jogador(es) aguardando revisão, ${playersOutOfRegion} fora de região.`,
-      ].join("\n"),
+        `  · ${dismissedMatches} partida(s) descartada(s), ${rosterMissing} jogador(es) fora do elenco da organização.`,
+      ]
+        .filter((line): line is string => line !== null)
+        .join("\n"),
     };
   });
 }

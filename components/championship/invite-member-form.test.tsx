@@ -22,7 +22,10 @@ describe("InviteMemberForm", () => {
   it("envia o login digitado sem @, junto do championshipId", async () => {
     const user = userEvent.setup();
     render(
-      <InviteMemberForm championshipId="11111111-1111-4111-8111-111111111111" />,
+      <InviteMemberForm
+        championshipId="11111111-1111-4111-8111-111111111111"
+        region="emea"
+      />,
     );
 
     await user.type(screen.getByLabelText("Login do amigo"), "alvo");
@@ -37,7 +40,10 @@ describe("InviteMemberForm", () => {
   it("campo vazio: mostra erro pt-BR e não chama execute", async () => {
     const user = userEvent.setup();
     render(
-      <InviteMemberForm championshipId="11111111-1111-4111-8111-111111111111" />,
+      <InviteMemberForm
+        championshipId="11111111-1111-4111-8111-111111111111"
+        region="emea"
+      />,
     );
 
     await user.click(screen.getByRole("button", { name: /convidar/i }));
@@ -46,5 +52,18 @@ describe("InviteMemberForm", () => {
       await screen.findByText("Este campo é obrigatório."),
     ).toBeInTheDocument();
     expect(executeMock).not.toHaveBeenCalled();
+  });
+
+  it("mostra a região com que o convidado vai jogar", () => {
+    render(
+      <InviteMemberForm
+        championshipId="11111111-1111-4111-8111-111111111111"
+        region="pacific"
+      />,
+    );
+
+    expect(
+      screen.getByText("Seu amigo vai entrar com o time dele de Pacific."),
+    ).toBeInTheDocument();
   });
 });

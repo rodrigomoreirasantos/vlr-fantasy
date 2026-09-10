@@ -20,6 +20,20 @@ export type VlrJobStatus = (typeof VLR_JOB_STATUSES)[number];
 export const VLR_JOBS = {
   /** Chave: o `vlrId` da partida. */
   scrapeMatch: "scrape-match",
+  /** Chave: o `vlrId` da partida — a releitura tardia (Decisão 5, plano 17). */
+  revalidateMatch: "revalidate-match",
+  /** Chave: o `vlrId` do time — o elenco (Decisão 4, plano 17). */
+  scrapeRoster: "scrape-roster",
 } as const;
 
 export type VlrJob = (typeof VLR_JOBS)[keyof typeof VLR_JOBS];
+
+/**
+ * Desfecho de uma **execução completa** de um script `vlr:*` (`vlr_job_health`)
+ * — não confundir com `VLR_JOB_STATUSES`, que é o estado de uma unidade de
+ * trabalho dentro da fila. Um script pode terminar `ok` mesmo processando
+ * zero unidades (nada a fazer é sucesso).
+ */
+export const VLR_JOB_HEALTH_STATUSES = ["ok", "failed"] as const;
+
+export type VlrJobHealthStatus = (typeof VLR_JOB_HEALTH_STATUSES)[number];

@@ -1,4 +1,4 @@
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { match, round, vlrEvent } from "@/db/schema";
 import { marketClosesAtFor } from "@/lib/market/window";
@@ -43,7 +43,10 @@ export async function syncRoundsFromMatches(
     })
     .from(match)
     .innerJoin(vlrEvent, eq(match.eventId, vlrEvent.id))
-    .where(eq(vlrEvent.tracked, true));
+    // Partida descartada (Decisão 6, plano 17) não conta para `marketClosesAt`
+    // nem para o total da rodada — ela pode estar ancorando o kickoff de uma
+    // semana num jogo que não vai acontecer.
+    .where(and(eq(vlrEvent.tracked, true), isNull(match.dismissedAt)));
 
   if (rows.length === 0) return [];
 
@@ -177,7 +180,7 @@ export async function refreshRoundMatchCounts(
       scoredMatches: sql<number>`count(*) filter (where ${match.scrapedAt} is not null)::int`,
     })
     .from(match)
-    .where(eq(match.roundId, roundId));
+    .where(and(eq(match.roundId, roundId), isNull(match.dismissedAt)));
 
   const totalMatches = counts?.totalMatches ?? 0;
   const scoredMatches = counts?.scoredMatches ?? 0;

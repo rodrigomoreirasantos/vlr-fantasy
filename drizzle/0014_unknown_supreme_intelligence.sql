@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "championship_name_uidx" ON "championship" USING btree (lower(btrim("name")));

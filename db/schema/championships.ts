@@ -38,6 +38,9 @@ export const championship = pgTable(
     index("championship_owner_idx").on(table.ownerId),
     index("championship_region_idx").on(table.region),
     check("championship_region_is_team", sql`${table.region} <> 'other'`),
+    // Nome único globalmente, ignorando maiúsculas e espaços nas bordas —
+    // mesma chave e mesmo espírito de `fantasy_identity_name_uidx`.
+    uniqueIndex("championship_name_uidx").on(sql`lower(btrim(${table.name}))`),
   ],
 );
 

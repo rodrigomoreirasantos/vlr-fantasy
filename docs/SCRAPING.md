@@ -37,17 +37,26 @@ não conhece HTTP; o motor de pontuação não conhece nem um nem outro.
 
 ## Comandos
 
-| Comando              | Cron     | O que faz                                                        |
-| -------------------- | -------- | ---------------------------------------------------------------- |
-| `pnpm vlr:events`    | semanal  | `/events` → `vlr_event`. **Não** mexe em `tracked`               |
-| `pnpm vlr:schedule`  | 06:00    | `/matches`, paginado até o fim → calendário → rodadas semanais (`marketClosesAt`) |
-| `pnpm vlr:results`   | \*/5min  | `/matches/results` → marca encerradas e enfileira a extração     |
-| `pnpm vlr:work`      | \*/2min  | Consome a fila; falha isolada não derruba o lote                 |
-| `pnpm vlr:round`     | \*/15min | Rodada toda extraída → `calculateRound` + `closeActiveRound`     |
-| `pnpm vlr:doctor`    | diário   | Roda os parsers contra a rede; exit ≠ 0 se algum seletor quebrou |
-| `pnpm vlr:backfill`  | manual   | Carga histórica (`--pages=20`)                                   |
-| `pnpm vlr:reprocess` | manual   | `--match=<vlrId>` — reparsa do HTML salvo, **sem rede**          |
-| `pnpm vlr:activate-reviewed` | manual | Libera no mercado quem ficou `needsReview` mas tem identidade confiável — rede de segurança, idempotente |
+Desde o plano 17 ("scrap automático — sem comando, sempre em dia"), **nenhuma
+destas linhas precisa ser digitada por alguém**: todas rodam sozinhas pelo
+cron de `deploy/vlr-cron/` (Docker ou crontab de sistema). O comando continua
+existindo para rodar manualmente quando algo precisa ser forçado.
+
+| Comando                      | Cron                                       | O que faz                                                                                                                                                               |
+| ---------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm vlr:events`            | diário 03:00                               | `/events` → `vlr_event`, e liga `tracked` sozinho para o circuito principal (VCT das 4 ligas, Masters, Champions). O veto humano (`tracked_override`) continua mandando |
+| `pnpm vlr:rosters`           | diário 05:00                               | Elenco de cada organização relevante → `player.team`/`nickname`/`realName`/`país` — transferência aparece sem esperar o jogador entrar em quadra                        |
+| `pnpm vlr:regions`           | diário 05:30                               | Idempotente, sem rede — reclassifica a região de quem mudou de organização                                                                                              |
+| `pnpm vlr:activate-reviewed` | diário 05:40                               | Libera no mercado quem ficou `needsReview` mas tem identidade confiável — rede de segurança, idempotente, nunca afrouxa o critério                                      |
+| `pnpm vlr:schedule`          | 6 em 6h                                    | `/matches`, paginado até o fim → calendário → rodadas semanais (`marketClosesAt`) → marca partida cancelada como sumida                                                 |
+| `pnpm vlr:results`           | 1 em 1 min                                 | `/matches/results` → marca encerradas e enfileira a extração. Passa pelo portão de cadência: fora de janela de partida, só consulta o banco                             |
+| `pnpm vlr:revalidate`        | de hora em hora                            | Enfileira a releitura tardia de partida extraída entre 6h e 48h atrás — a correção que o vlr faz depois de fechar o jogo                                                |
+| `pnpm vlr:work`              | 1 em 1 min                                 | Consome a fila (partida, releitura, elenco); falha isolada não derruba o lote                                                                                           |
+| `pnpm vlr:round`             | 5 em 5 min                                 | Rodada toda extraída (e não descartada) → `calculateRound` + `closeActiveRound`                                                                                         |
+| `pnpm vlr:doctor`            | diário 07:00                               | Roda os parsers contra a rede e confere o batimento dos jobs; exit ≠ 0 se um seletor quebrou **ou** algum job está atrasado                                             |
+| `pnpm vlr:health`            | a cada 5 min, pelo `healthcheck` do Docker | **Sem rede** — lê o batimento (`vlr_job_health`) e falha se algo parou                                                                                                  |
+| `pnpm vlr:backfill`          | manual                                     | Carga histórica (`--pages=20`)                                                                                                                                          |
+| `pnpm vlr:reprocess`         | manual                                     | `--match=<vlrId>` — reparsa do HTML salvo, **sem rede** (não traz correção do vlr — ver "Por que não existe gatilho")                                                   |
 
 Mais uma linha, essa só uma vez por dia:
 
@@ -57,6 +66,41 @@ pnpm vlr:results --force --pages=3    # varre o que ficou fora da janela
 
 Sem processo de longa duração: a fila vive no próprio Postgres (`vlr_job_run`,
 com `FOR UPDATE SKIP LOCKED`) e os scripts saem quando terminam.
+
+## Por que não existe gatilho
+
+O plano 17 pedia que o scrap disparasse "assim que algo mudar no site". Não
+dá — verificado, não hipotético. O vlr.gg é site de terceiro: não publica
+webhook, não tem push, e a única alternativa barata do HTTP (`ETag`/
+`Last-Modified`, o "me diga só se mudou") também não existe:
+
+```
+$ curl -sI https://www.vlr.gg/matches
+HTTP/2 200
+cache-control: no-store, no-cache, must-revalidate
+pragma: no-cache
+```
+
+Sem `ETag`. Sem `Last-Modified`. `no-store` explícito — o servidor desliga
+cache de propósito. A única forma de saber que algo mudou é **baixar a
+página e comparar**. O que este pipeline faz no lugar do gatilho:
+
+- **Pergunta rápido só quando importa.** `vlr:results`/`vlr:work` de minuto em
+  minuto, mas só vão à rede de fato durante a janela de partida
+  (`lib/vlr/jobs/cadence.ts`) — fora dela, cada execução é uma consulta ao
+  banco, nunca uma requisição.
+- **Impressão digital, não byte a byte.** `fingerprint` (`lib/vlr/http/
+fingerprint.ts`) é o SHA-256 do **payload já interpretado**, não do HTML
+  bruto — a página carrega carimbo relativo ("2d ago") e cookie de sessão que
+  mudariam o hash mesmo quando nada relevante mudou. Página idêntica
+  (`lib/vlr/persist/page-state.ts`) pula upsert e paginação seguinte; partida
+  idêntica (`match.content_hash`) pula a releitura tardia. A requisição, essa,
+  já aconteceu — o que se evita é o processamento depois dela.
+- **Uma releitura tardia por partida.** `pnpm vlr:reprocess` reparsa o **HTML
+  salvo em disco** — se o vlr corrigir uma estatística depois de fechar o
+  jogo, reprocessar o mesmo arquivo devolve o mesmo dado velho.
+  `pnpm vlr:revalidate` é o que de fato busca de novo: uma vez, 6 a 48h depois
+  da extração original.
 
 ### Onde o cron roda
 
@@ -90,9 +134,9 @@ página não tem nada de novo a dizer, e o job sai sem gastar requisição —
 custando uma consulta ao banco.
 
 Com isso o cron pôde apertar sem aumentar em nada o tráfego que o vlr.gg recebe
-fora de dia de jogo: **em dia de jogo**, um resultado vira pontuação em ~7 min
-(`results` a cada 5, `work` a cada 2); **fora dele**, o pipeline inteiro não faz
-uma única requisição.
+fora de dia de jogo: **em dia de jogo**, um resultado vira pontuação em ~1 a
+3 min (`results` e `work`, os dois a cada minuto); **fora dele**, o pipeline
+inteiro não faz uma única requisição — só uma consulta ao banco por ciclo.
 
 A cauda da janela é de 12h e é proposital: uma Bo5 cabe folgada, e o que passa
 disso não é jogo demorado, é partida que o vlr nunca fechou (cancelada, W.O.).
@@ -261,3 +305,24 @@ select key, attempts, last_error from vlr_job_run where status = 'dead';
 -- jogadores esperando revisão
 select count(*) from player where needs_review;
 ```
+
+### Ler o quadro de saúde (Decisão 7, plano 17)
+
+`vlr_job_health` tem **uma linha por job**, sempre a última execução —
+gravada por `runScript` (`scripts/vlr/run.ts`), no `finally` de todo
+entrypoint, sem cada script precisar saber que isso existe.
+
+```sql
+-- o quadro inteiro, do mais recente para o mais atrasado
+select job, last_status, last_finished_at, last_duration_ms, consecutive_failures
+from vlr_job_health order by last_finished_at desc;
+```
+
+`pnpm vlr:health` (sem rede) aplica a tolerância de cada job
+(`lib/vlr/jobs/health-policy.ts`) e sai com código ≠ 0 se alguém está
+atrasado, nunca rodou, ou terminou em falha — é o comando que o
+`healthcheck` do `docker-compose.yml` chama a cada 5 minutos, e que também
+aparece embutido no resultado de `pnpm vlr:doctor`. Um container `unhealthy`
+no `docker ps` (ou um `vlr:doctor` com exit ≠ 0) é o sinal de que algo parou;
+nenhum dos dois reinicia sozinho — quem quiser isso precisa de um vigia
+externo, que este pipeline não entrega.

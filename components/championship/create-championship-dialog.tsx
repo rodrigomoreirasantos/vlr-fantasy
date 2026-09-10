@@ -37,20 +37,28 @@ import {
   DEFAULT_TEAM_REGION,
   regionLabel,
   TEAM_REGIONS,
+  type TeamRegion,
 } from "@/lib/round/regions";
 import {
   createChampionshipSchema,
   type CreateChampionshipInput,
 } from "@/lib/validations/championship";
 
+export type CreateChampionshipDialogProps = {
+  /** Região pré-selecionada no formulário — a aba de região onde o botão está. */
+  defaultRegion?: TeamRegion;
+};
+
 /** Botão "Criar campeonato" + formulário num Dialog — cria e já navega para ele. */
-export function CreateChampionshipDialog() {
+export function CreateChampionshipDialog({
+  defaultRegion = DEFAULT_TEAM_REGION,
+}: CreateChampionshipDialogProps = {}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
   const form = useForm<CreateChampionshipInput>({
     resolver: zodResolver(createChampionshipSchema),
-    defaultValues: { name: "", region: DEFAULT_TEAM_REGION },
+    defaultValues: { name: "", region: defaultRegion },
   });
 
   const { execute, isExecuting } = useAction(createChampionship, {

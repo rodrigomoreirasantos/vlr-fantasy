@@ -60,6 +60,26 @@ export const match = pgTable(
     scrapedAt: timestamp("scraped_at", { withTimezone: true }),
     /** Caminho do HTML bruto salvo — o que sustenta `pnpm vlr:reprocess`. */
     rawHtmlPath: text("raw_html_path"),
+    /**
+     * Digital (`fingerprint`) do payload interpretado na última extração —
+     * a base da releitura tardia (Decisão 5, plano 17): payload idêntico não
+     * regrava nada.
+     */
+    contentHash: text("content_hash"),
+    /** A releitura tardia já aconteceu — no máximo uma vez por partida. */
+    revalidatedAt: timestamp("revalidated_at", { withTimezone: true }),
+    /**
+     * Primeira varredura de `/matches` em que este card sumiu (Decisão 6,
+     * plano 17). Card visto de novo volta a `null` — ressurreição automática.
+     */
+    missingSince: timestamp("missing_since", { withTimezone: true }),
+    /**
+     * Confirmada sumida — ausente em 2 varreduras seguidas. **É esta coluna
+     * que toda leitura de calendário, mercado e fechamento de rodada passa a
+     * filtrar** (`dismissed_at IS NULL`); a linha e o histórico continuam no
+     * banco, só param de contar.
+     */
+    dismissedAt: timestamp("dismissed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -73,6 +93,13 @@ export const match = pgTable(
     uniqueIndex("match_vlr_id_uidx").on(t.vlrId),
     // A query do worker: partidas encerradas que ainda não foram extraídas.
     index("match_scraped_idx").on(t.status, t.scrapedAt),
+    // Toda leitura "ativa" filtra por isto — parcial porque a maioria das
+    // linhas nunca é descartada, e o índice cheio não ajudaria em nada.
+    index("match_dismissed_idx")
+      .on(t.dismissedAt)
+      .where(sql`${t.dismissedAt} IS NULL`),
+    // O enfileirador da releitura tardia (Fase 4): candidatas por janela.
+    index("match_revalidated_scraped_idx").on(t.revalidatedAt, t.scrapedAt),
     check("match_distinct_orgs", sql`${t.teamA} <> ${t.teamB}`),
     // Placar é par: ou os dois lados existem, ou nenhum.
     check(

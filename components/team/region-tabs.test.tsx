@@ -54,4 +54,28 @@ describe("RegionTabs", () => {
       "aria-current",
     );
   });
+
+  it("com pathname='/ranking', os links apontam para /ranking?region=…", () => {
+    render(
+      <RegionTabs
+        current="americas"
+        available={LEAGUE_REGIONS}
+        pathname="/ranking"
+      />,
+    );
+
+    expect(screen.getByText("EMEA").closest("a")).toHaveAttribute(
+      "href",
+      "/ranking?region=emea",
+    );
+  });
+
+  it("sem pathname, continua apontando para /my-team", () => {
+    render(<RegionTabs current="americas" available={LEAGUE_REGIONS} />);
+
+    expect(screen.getByText("EMEA").closest("a")).toHaveAttribute(
+      "href",
+      "/my-team?region=emea",
+    );
+  });
 });

@@ -8,6 +8,7 @@ import { respondToInvite } from "@/app/(app)/ranking/actions";
 import { Button } from "@/components/ui/button";
 import { formatInvitedAt } from "@/lib/championship/format";
 import type { PendingInvite } from "@/lib/championship/types";
+import { regionColor, regionLabel } from "@/lib/round/regions";
 
 export type PendingInvitesProps = {
   invites: PendingInvite[];
@@ -54,13 +55,27 @@ export function PendingInvites({ invites }: PendingInvitesProps) {
               className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-background/40 px-3 py-2.5"
             >
               <div>
-                <p className="text-sm font-semibold">
+                <p className="flex items-center gap-2 text-sm font-semibold">
                   {invite.championshipName}
+                  <span
+                    className="flex items-center gap-1 text-[10px] font-bold tracking-wide text-muted-foreground uppercase"
+                    style={{ color: regionColor(invite.region) }}
+                  >
+                    <span
+                      aria-hidden
+                      className="size-1.5 rounded-full"
+                      style={{ backgroundColor: regionColor(invite.region) }}
+                    />
+                    {regionLabel(invite.region)}
+                  </span>
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {invite.invitedByUsername &&
                     `de @${invite.invitedByUsername} · `}
                   {formatInvitedAt(invite.invitedAt)}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Você entra com o seu time de {regionLabel(invite.region)}.
                 </p>
               </div>
               <div className="flex gap-2">

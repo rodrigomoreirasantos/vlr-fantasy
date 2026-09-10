@@ -34,6 +34,14 @@ export type SaveMatchStatsArgs = {
   scoreB: number | null;
   bestOf: number | null;
   status: MatchStatus;
+  /**
+   * Digital (`fingerprint`) do payload interpretado — base da releitura
+   * tardia (Decisão 5, plano 17). `undefined` deixa a coluna como está;
+   * passar explicitamente é o que grava a digital de toda extração nova.
+   */
+  contentHash?: string | null;
+  /** Só `revalidateMatch` escreve isto — a extração inicial nunca grava. */
+  revalidatedAt?: Date | null;
 };
 
 /**
@@ -102,6 +110,10 @@ export async function saveMatchStats(
       scoreA: args.scoreA,
       scoreB: args.scoreB,
       bestOf: args.bestOf,
+      ...(args.contentHash !== undefined && { contentHash: args.contentHash }),
+      ...(args.revalidatedAt !== undefined && {
+        revalidatedAt: args.revalidatedAt,
+      }),
     })
     .where(eq(match.id, args.matchId));
 }

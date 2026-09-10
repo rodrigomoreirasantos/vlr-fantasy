@@ -1,7 +1,7 @@
 # Cron do pipeline do vlr.gg
 
-Roda os oito scripts `pnpm vlr:*` (`docs/SCRAPING.md`) no ritmo da tabela de lá,
-fora do serverless. Existe porque nenhum dos dois pilares do pipeline
+Roda os onze scripts `pnpm vlr:*` (`docs/SCRAPING.md`) no ritmo da tabela de
+lá, fora do serverless. Existe porque nenhum dos dois pilares do pipeline
 sobrevive numa função serverless:
 
 - **o disco importa.** `VLR_STORAGE_DIR` (`lib/vlr/http/raw-store.ts`) guarda
@@ -39,7 +39,18 @@ docker compose exec vlr-cron pnpm vlr:doctor
 # Prova que o volume preservou o HTML bruto entre execuções.
 docker compose exec vlr-cron pnpm vlr:results --force --pages=1
 docker compose exec vlr-cron pnpm vlr:reprocess --match=<vlrId>
+
+# O quadro de saúde (Decisão 7, plano 17) — sem rede, uma linha por job.
+docker compose exec vlr-cron pnpm vlr:health
 ```
+
+`docker compose ps` mostra `healthy`/`unhealthy` depois do `start_period` de
+10 minutos: o `healthcheck` chama `pnpm vlr:health`, que falha se algum job
+está atrasado, nunca rodou, ou terminou em falha — a tolerância de cada um
+está em `lib/vlr/jobs/health-policy.ts`. **O compose puro não reinicia
+sozinho por causa disso** — `unhealthy` é só um sinal no `docker ps`; quem
+quiser reinício automático precisa de um vigia externo (Portainer, um
+`healthcheck`+`restart` de orquestrador, etc.), que este projeto não entrega.
 
 ## Sem Docker (crontab do sistema / VPS)
 

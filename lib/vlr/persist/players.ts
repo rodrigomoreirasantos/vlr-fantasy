@@ -120,7 +120,12 @@ export async function resolvePlayer(
  * partida, uma colisão de nickname derrubaria a partida toda — o oposto do que
  * o tratamento pretende. Verificado contra o Postgres, não deduzido.
  */
-async function inSavepoint(
+/**
+ * Exportada para `applyRoster` (lib/vlr/persist/rosters.ts) reusar a mesma
+ * proteção contra colisão de apelido — a resolução por elenco também renomeia
+ * jogador, e não pode derrubar o lote inteiro por um `player_nickname_uidx`.
+ */
+export async function inSavepoint(
   tx: Querier,
   write: (sp: Querier) => Promise<unknown>,
 ): Promise<boolean> {

@@ -147,3 +147,29 @@ describe("saveMatchStats — partida não encerrada", () => {
     expect(calls[1].payload).toMatchObject({ rawHtmlPath: ARGS.rawHtmlPath });
   });
 });
+
+describe("saveMatchStats — digital (Decisão 5, plano 17)", () => {
+  it("grava contentHash e revalidatedAt quando informados", async () => {
+    const { tx, calls } = createTxStub();
+
+    await saveMatchStats(tx as never, {
+      ...ARGS,
+      contentHash: "abc123",
+      revalidatedAt: new Date("2026-09-10T18:00:00Z"),
+    });
+
+    expect(calls[1].payload).toMatchObject({
+      contentHash: "abc123",
+      revalidatedAt: new Date("2026-09-10T18:00:00Z"),
+    });
+  });
+
+  it("sem contentHash/revalidatedAt informados, não toca nessas colunas", async () => {
+    const { tx, calls } = createTxStub();
+
+    await saveMatchStats(tx as never, ARGS);
+
+    expect(calls[1].payload).not.toHaveProperty("contentHash");
+    expect(calls[1].payload).not.toHaveProperty("revalidatedAt");
+  });
+});

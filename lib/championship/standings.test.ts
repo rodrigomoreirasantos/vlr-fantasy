@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_CREST } from "@/lib/crest/crest";
-import { rankStandings } from "@/lib/championship/standings";
+import { rankStandings, standingZone } from "@/lib/championship/standings";
 import type { StandingRow } from "@/lib/championship/types";
 
 function row(
@@ -79,5 +79,28 @@ describe("rankStandings", () => {
 
     expect(result.filter((r) => r.isCurrentUser)).toHaveLength(1);
     expect(result.find((r) => r.isCurrentUser)?.userId).toBe("b");
+  });
+});
+
+describe("standingZone", () => {
+  it("com 5 membros, marca o 1º como líder e 2º/3º como pódio", () => {
+    expect(standingZone(1, 5)).toBe("leader");
+    expect(standingZone(2, 5)).toBe("podium");
+    expect(standingZone(3, 5)).toBe("podium");
+    expect(standingZone(4, 5)).toBeNull();
+    expect(standingZone(5, 5)).toBeNull();
+  });
+
+  it("com 3 membros ou menos, nenhuma posição ganha faixa", () => {
+    expect(standingZone(1, 3)).toBeNull();
+    expect(standingZone(2, 3)).toBeNull();
+    expect(standingZone(3, 3)).toBeNull();
+  });
+
+  it("empate em 2º lugar: as duas linhas de posição 2 ficam no pódio", () => {
+    // 4 membros, posições (1, 2, 2, 4) — a de posição 4 fica de fora.
+    expect(standingZone(1, 4)).toBe("leader");
+    expect(standingZone(2, 4)).toBe("podium");
+    expect(standingZone(4, 4)).toBeNull();
   });
 });

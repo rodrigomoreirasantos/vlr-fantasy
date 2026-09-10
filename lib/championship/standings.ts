@@ -33,3 +33,20 @@ export function rankStandings(
     return { ...row, position, isCurrentUser: row.userId === currentUserId };
   });
 }
+
+/** Quantas vagas a faixa de classificação destaca — o pódio de sempre. */
+export const PODIUM_SIZE = 3;
+
+export type StandingZone = "leader" | "podium" | null;
+
+/**
+ * A faixa de uma linha da tabela. `total <= PODIUM_SIZE` devolve `null` para
+ * todo mundo: num campeonato de 3, destacar os 3 não distingue ninguém.
+ * Empate herda a posição (`rankStandings`), então dois segundos lugares ficam
+ * os dois na faixa — que é o comportamento de tabela de liga de verdade.
+ */
+export function standingZone(position: number, total: number): StandingZone {
+  if (total <= PODIUM_SIZE) return null;
+  if (position === 1) return "leader";
+  return position <= PODIUM_SIZE ? "podium" : null;
+}

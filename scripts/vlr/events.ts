@@ -7,10 +7,12 @@ import { isMain, runScript } from "@/scripts/vlr/run";
 
 if (isMain(import.meta.url)) {
   void runScript("vlr:events", async () => {
-    const { count } = await syncEvents();
+    const { count, autoTracked } = await syncEvents();
     return {
       ok: true,
-      summary: `✓ ${count} eventos sincronizados. Marque os que o fantasy segue com \`tracked\` no \`pnpm db:studio\`.`,
+      summary:
+        `✓ ${count} eventos sincronizados, ${autoTracked.length} passaram a ser seguidos automaticamente. ` +
+        "Ajuste exceções com `tracked_override` no `pnpm db:studio`.",
     };
   });
 }

@@ -98,6 +98,50 @@ describe("createChampionship", () => {
     expect(result?.data).toEqual({ championshipId: CHAMPIONSHIP_ID });
     expect(revalidatePathMock).toHaveBeenCalledWith("/ranking");
   });
+
+  it("nome com espaços duplicados chega normalizado ao banco", async () => {
+    insertChampionshipWithOwnerMock.mockResolvedValue(CHAMPIONSHIP_ID);
+
+    await createChampionship({
+      name: "  Liga   dos Cria ",
+      region: "americas",
+    });
+
+    expect(insertChampionshipWithOwnerMock).toHaveBeenCalledWith(txStub, {
+      name: "Liga dos Cria",
+      ownerId: OWNER_ID,
+      region: "americas",
+    });
+  });
+
+  it("nome já existente: traduz a violação de unicidade e não revalida", async () => {
+    insertChampionshipWithOwnerMock.mockRejectedValue(
+      Object.assign(new Error("dup"), { code: "23505" }),
+    );
+
+    const result = await createChampionship({
+      name: "Liga dos Cria",
+      region: "americas",
+    });
+
+    expect(result?.serverError).toBe(
+      "Já existe um campeonato com esse nome. Escolha outro.",
+    );
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+
+  it("erro que não é violação de unicidade continua propagando", async () => {
+    insertChampionshipWithOwnerMock.mockRejectedValue(new Error("boom"));
+
+    const result = await createChampionship({
+      name: "Liga dos Cria",
+      region: "americas",
+    });
+
+    expect(result?.serverError).not.toBe(
+      "Já existe um campeonato com esse nome. Escolha outro.",
+    );
+  });
 });
 
 describe("inviteMember", () => {

@@ -1,7 +1,8 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import { vlrEvent } from "@/db/schema";
 import type { Querier } from "@/lib/team/queries";
+import { isCircuitEvent } from "@/lib/vlr/normalize/tracking";
 import type { ScrapedEvent } from "@/lib/vlr/schemas";
 
 /**
@@ -54,4 +55,39 @@ export async function upsertEvents(
     .returning({ id: vlrEvent.id, vlrId: vlrEvent.vlrId });
 
   return new Map(rows.map((row) => [row.vlrId, row.id]));
+}
+
+/**
+ * Liga `tracked` sozinho para todo evento do circuito (`isCircuitEvent`,
+ * lib/vlr/normalize/tracking.ts) cujo veto humano (`trackedOverride`) ainda
+ * é `null` — Decisão 3 do plano 17. **Nunca desliga**: só considera quem
+ * ainda não está seguido, e quem tem `trackedOverride = false` nunca entra
+ * aqui, mesmo casando com a regra. A pessoa continua podendo ligar/desligar
+ * pelo `pnpm db:studio`; este automático nunca escreve por cima dela.
+ */
+export async function applyAutoTracking(
+  tx: Querier,
+): Promise<{ tracked: string[] }> {
+  // A consulta traz todo evento ainda não seguido — o veto humano é
+  // conferido em memória (`trackedOverride === null`) para o caminho ficar
+  // testável sem precisar reproduzir a árvore SQL de `and`/`isNull` no teste.
+  const candidates = await tx.query.vlrEvent.findMany({
+    where: eq(vlrEvent.tracked, false),
+  });
+
+  const toTrack = candidates.filter(
+    (row) =>
+      row.trackedOverride === null &&
+      isCircuitEvent({ name: row.name, status: row.status }),
+  );
+  if (toTrack.length === 0) return { tracked: [] };
+
+  for (const row of toTrack) {
+    await tx
+      .update(vlrEvent)
+      .set({ tracked: true })
+      .where(eq(vlrEvent.id, row.id));
+  }
+
+  return { tracked: toTrack.map((row) => row.vlrId) };
 }

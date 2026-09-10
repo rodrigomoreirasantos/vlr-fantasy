@@ -286,6 +286,7 @@ export async function listPendingInvites(
       memberId: championshipMember.id,
       championshipId: championship.id,
       championshipName: championship.name,
+      region: championship.region,
       invitedByUsername: user.username,
       invitedAt: championshipMember.invitedAt,
     })
@@ -303,7 +304,9 @@ export async function listPendingInvites(
     )
     .orderBy(asc(championshipMember.invitedAt));
 
-  return rows;
+  // A CHECK `championship_region_is_team` garante que nunca é "other" — o
+  // mesmo estreitamento que `listUserChampionships` já faz.
+  return rows.map((row) => ({ ...row, region: toTeamRegion(row.region) }));
 }
 
 /** Convites enviados por um campeonato, ainda pendentes — visível só ao dono. */

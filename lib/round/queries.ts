@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, lte, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNull, lte, ne, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -112,6 +112,7 @@ export async function listUpcomingMatches(
         eq(vlrEvent.tracked, true),
         ne(match.status, "finished"),
         gte(match.scheduledAt, new Date(now.getTime() - LIVE_GRACE_MS)),
+        isNull(match.dismissedAt),
       ),
     )
     .orderBy(asc(match.scheduledAt))
@@ -327,6 +328,7 @@ export async function listMarketLockMatches(
         eq(vlrEvent.tracked, true),
         gte(match.scheduledAt, from),
         lte(match.scheduledAt, to),
+        isNull(match.dismissedAt),
       ),
     )
     .orderBy(asc(match.scheduledAt));
@@ -407,7 +409,7 @@ export async function listOrganizationMatches(q: Querier = db): Promise<
     })
     .from(match)
     .innerJoin(vlrEvent, eq(vlrEvent.id, match.eventId))
-    .where(eq(vlrEvent.tracked, true));
+    .where(and(eq(vlrEvent.tracked, true), isNull(match.dismissedAt)));
 }
 
 /**
@@ -433,6 +435,7 @@ export async function organizationLeague(
       and(
         eq(vlrEvent.tracked, true),
         or(eq(match.teamA, organization), eq(match.teamB, organization)),
+        isNull(match.dismissedAt),
       ),
     )
     .orderBy(desc(match.scheduledAt));
@@ -481,6 +484,7 @@ export async function listInternationalWindowMatches(
         eq(vlrEvent.tracked, true),
         gte(match.scheduledAt, from),
         lte(match.scheduledAt, to),
+        isNull(match.dismissedAt),
       ),
     )
     .orderBy(asc(match.scheduledAt));

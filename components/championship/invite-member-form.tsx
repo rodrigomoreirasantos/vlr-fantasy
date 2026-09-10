@@ -9,6 +9,7 @@ import { inviteMember } from "@/app/(app)/ranking/actions";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { regionLabel, type TeamRegion } from "@/lib/round/regions";
 import {
   inviteMemberSchema,
   type InviteMemberInput,
@@ -16,10 +17,15 @@ import {
 
 export type InviteMemberFormProps = {
   championshipId: string;
+  /** Região do campeonato — quem convida sabe com que time o convidado vai jogar. */
+  region: TeamRegion;
 };
 
 /** Formulário de convite por login — visível só para o dono do campeonato. */
-export function InviteMemberForm({ championshipId }: InviteMemberFormProps) {
+export function InviteMemberForm({
+  championshipId,
+  region,
+}: InviteMemberFormProps) {
   const form = useForm<InviteMemberInput>({
     resolver: zodResolver(inviteMemberSchema),
     defaultValues: { championshipId, username: "" },
@@ -68,6 +74,10 @@ export function InviteMemberForm({ championshipId }: InviteMemberFormProps) {
       <Button type="submit" disabled={isExecuting}>
         {isExecuting ? "Convidando…" : "Convidar"}
       </Button>
+
+      <p className="basis-full text-xs text-muted-foreground">
+        Seu amigo vai entrar com o time dele de {regionLabel(region)}.
+      </p>
     </form>
   );
 }

@@ -4,8 +4,10 @@ import { db } from "@/db";
 import { vlrEvent } from "@/db/schema";
 import type { Querier } from "@/lib/team/queries";
 import { fetchHtml } from "@/lib/vlr/http/client";
+import { fingerprint } from "@/lib/vlr/http/fingerprint";
 import { logInfo, logWarn } from "@/lib/vlr/http/log";
-import { upsertMatches } from "@/lib/vlr/persist/matches";
+import { markMissingMatches, upsertMatches } from "@/lib/vlr/persist/matches";
+import { pageChanged } from "@/lib/vlr/persist/page-state";
 import { syncRoundsFromMatches } from "@/lib/vlr/persist/rounds";
 import { lastListPage, parseMatchList } from "@/lib/vlr/scrapers/match-list";
 import type { ScrapedMatchListItem } from "@/lib/vlr/schemas";
@@ -61,12 +63,31 @@ export async function resolveEventIdsByName(
 export async function syncSchedule(
   options: { pages?: number } = {},
 ): Promise<{ matches: number; rounds: number; pages: number }> {
+  // Um relógio só para esta execução: `markMissingMatches` compara contra
+  // ele, não contra `Date.now()` no meio da transação.
+  const sweptAt = new Date();
+
   const first = await fetchHtml("/matches");
   const items = [...parseMatchList(first.html, "/matches")];
 
+  // A digital da página 1 (Decisão 2, plano 17): idêntica à da última
+  // leitura → nada mudou no calendário próximo, e o mais provável é que as
+  // páginas seguintes também não tenham mudado. A requisição desta primeira
+  // página já aconteceu (o vlr não dá outro jeito); o que se evita é o
+  // upsert, `markMissingMatches` e a paginação seguinte.
+  const firstPageHash = fingerprint(items);
+  const firstPageChanged = await db.transaction((tx) =>
+    pageChanged(tx, { path: "/matches", hash: firstPageHash, at: sweptAt }),
+  );
+  if (!firstPageChanged) {
+    logInfo("vlr.page.unchanged", { path: "/matches" });
+    return { matches: 0, rounds: 0, pages: 1 };
+  }
+
   const announced = options.pages ?? lastListPage(first.html);
   const last = Math.min(announced, MAX_SCHEDULE_PAGES);
-  if (announced > last) {
+  const truncated = announced > last;
+  if (truncated) {
     logWarn("vlr.schedule.pages_truncated", { announced, visited: last });
   }
 
@@ -102,6 +123,25 @@ export async function syncSchedule(
         hint: "Rode `pnpm vlr:events` — o evento pode não estar em `vlr_event`.",
       });
     }
+
+    // Varredura truncada não tem autoridade para declarar nada sumido — uma
+    // partida além do teto de paginação nunca aparece em `scheduled`, e seria
+    // marcada cancelada por engano. Sem nenhuma partida com horário, também
+    // não há `horizonAt` confiável para calcular.
+    if (!truncated && scheduled.length > 0) {
+      const horizonAt = scheduled.reduce(
+        (latest, item) =>
+          item.scheduledAt > latest ? item.scheduledAt : latest,
+        scheduled[0].scheduledAt,
+      );
+      const missing = await markMissingMatches(tx, {
+        seenVlrIds: scheduled.map((item) => item.vlrId),
+        horizonAt,
+        sweptAt,
+      });
+      logInfo("vlr.schedule.missing_matches", missing);
+    }
+
     const rounds = await syncRoundsFromMatches(tx);
 
     logInfo("vlr.schedule.synced", {

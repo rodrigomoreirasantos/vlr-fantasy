@@ -20,6 +20,7 @@ function invite(overrides: Partial<PendingInvite> = {}): PendingInvite {
     memberId: "member-1",
     championshipId: "champ-1",
     championshipName: "Liga dos Cria",
+    region: "emea",
     invitedByUsername: "rodrigo",
     invitedAt: new Date("2026-03-14T18:00:00Z"),
     ...overrides,
@@ -41,6 +42,15 @@ describe("PendingInvites", () => {
 
     expect(screen.getByText("Liga dos Cria")).toBeInTheDocument();
     expect(screen.getByText(/@rodrigo/)).toBeInTheDocument();
+  });
+
+  it("mostra a região do campeonato e o time com que o usuário vai jogar", () => {
+    render(<PendingInvites invites={[invite({ region: "emea" })]} />);
+
+    expect(screen.getByText("EMEA")).toBeInTheDocument();
+    expect(
+      screen.getByText("Você entra com o seu time de EMEA."),
+    ).toBeInTheDocument();
   });
 
   it("Aceitar chama execute com accept: true", async () => {

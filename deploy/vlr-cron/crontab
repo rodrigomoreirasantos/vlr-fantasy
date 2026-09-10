@@ -4,37 +4,72 @@
 # Formato de crontab de sistema: min hora dia mês dia-da-semana USUÁRIO comando.
 # `flock -n` em cada linha: sem ele, uma execução que atrasa (rede lenta,
 # `vlr:work` com fila grande) poderia se sobrepor à próxima do mesmo job —
-# `vlr_job_run` (FOR UPDATE SKIP LOCKED) só protege a fila de `scrapeMatch`,
-# os outros scripts não têm proteção nenhuma contra rodar em dobro.
+# `vlr_job_run` (FOR UPDATE SKIP LOCKED) só protege a fila dos três jobs que
+# passam por ela, os scripts em si não têm proteção nenhuma contra rodar em
+# dobro.
 #
 # `>> /var/log/vlr-cron.log 2>&1`: o `entrypoint.sh` faz `tail -F` desse
 # arquivo para stdout, então `docker logs` mostra tudo — cron por si só não
 # imprime saída nenhuma no console do container.
+#
+# O ritmo abaixo é o do plano 17 ("scrap automático, sem comando"): o vlr.gg
+# não oferece webhook nem ETag (`docs/SCRAPING.md`, seção "Por que não existe
+# gatilho") — o que dá para fazer é perguntar rápido quando importa
+# (`vlr:results`/`vlr:work` de minuto em minuto) e devagar quando não
+# (o resto, diário). `vlr:health` não tem linha aqui: quem o chama é o
+# `healthcheck` do `docker-compose.yml`, a cada 5 minutos.
 
 SHELL=/bin/sh
 PATH=/usr/local/bin:/usr/bin:/bin
 
-# vlr:events — semanal (domingo às 03:00). Não mexe em `tracked`.
-0 3 * * 0 root cd /app && flock -n /tmp/vlr-events.lock pnpm vlr:events >> /var/log/vlr-cron.log 2>&1
+# vlr:events — diário às 03:00. Liga `tracked` sozinho para o circuito
+# principal (Decisão 3, plano 17); o veto humano (`tracked_override`)
+# continua mandando. Precisa ser diário, não semanal: um campeonato novo não
+# pode esperar uma semana para entrar no jogo.
+0 3 * * * root cd /app && flock -n /tmp/vlr-events.lock pnpm vlr:events >> /var/log/vlr-cron.log 2>&1
 
-# vlr:schedule — diário às 06:00. Calendário + rodadas semanais (marketClosesAt).
-0 6 * * * root cd /app && flock -n /tmp/vlr-schedule.lock pnpm vlr:schedule >> /var/log/vlr-cron.log 2>&1
+# vlr:rosters — diário às 05:00. Elenco de cada organização relevante
+# (Decisão 4, plano 17) — transferência aparece sem esperar o jogador entrar
+# em quadra.
+0 5 * * * root cd /app && flock -n /tmp/vlr-rosters.lock pnpm vlr:rosters >> /var/log/vlr-cron.log 2>&1
 
-# vlr:results — a cada 5 minutos. Passa pelo portão de cadência
+# vlr:regions — diário às 05:30. Idempotente, sem rede — reclassifica quem
+# mudou de organização (a passada de `vlr:rosters` de meia hora atrás).
+30 5 * * * root cd /app && flock -n /tmp/vlr-regions.lock pnpm vlr:regions >> /var/log/vlr-cron.log 2>&1
+
+# vlr:activate-reviewed — diário às 05:40. Rede de segurança para jogador
+# ambíguo com identidade que já ficou confiável (Decisão 8, plano 17) — nunca
+# afrouxa o critério de confiança.
+40 5 * * * root cd /app && flock -n /tmp/vlr-activate-reviewed.lock pnpm vlr:activate-reviewed >> /var/log/vlr-cron.log 2>&1
+
+# vlr:schedule — a cada 6 horas. Calendário + rodadas semanais
+# (marketClosesAt) + marca partida cancelada como sumida (Decisão 6).
+0 */6 * * * root cd /app && flock -n /tmp/vlr-schedule.lock pnpm vlr:schedule >> /var/log/vlr-cron.log 2>&1
+
+# vlr:results — a cada 1 minuto. Passa pelo portão de cadência
 # (lib/vlr/jobs/cadence.ts): fora de janela de partida, só uma consulta ao
-# banco, nenhuma requisição.
-*/5 * * * * root cd /app && flock -n /tmp/vlr-results.lock pnpm vlr:results >> /var/log/vlr-cron.log 2>&1
+# banco, nenhuma requisição — apertar o ritmo não aumenta o tráfego fora de
+# dia de jogo.
+* * * * * root cd /app && flock -n /tmp/vlr-results.lock pnpm vlr:results >> /var/log/vlr-cron.log 2>&1
 
 # vlr:results --force — uma vez por dia, varre o que ficou fora da janela de
 # cadência (partida cancelada/W.O. que o vlr nunca fechou).
 30 6 * * * root cd /app && flock -n /tmp/vlr-results-force.lock pnpm vlr:results --force --pages=3 >> /var/log/vlr-cron.log 2>&1
 
-# vlr:work — a cada 2 minutos. Consome a fila; falha isolada não derruba o lote.
-*/2 * * * * root cd /app && flock -n /tmp/vlr-work.lock pnpm vlr:work >> /var/log/vlr-cron.log 2>&1
+# vlr:revalidate — de hora em hora. Enfileira a releitura tardia (Decisão 5,
+# plano 17) de partida extraída entre 6h e 48h atrás; quem vai à rede depois
+# é `vlr:work`.
+0 * * * * root cd /app && flock -n /tmp/vlr-revalidate.lock pnpm vlr:revalidate >> /var/log/vlr-cron.log 2>&1
 
-# vlr:round — a cada 15 minutos. Rodada toda extraída → calculateRound + closeActiveRound.
-*/15 * * * * root cd /app && flock -n /tmp/vlr-round.lock pnpm vlr:round >> /var/log/vlr-cron.log 2>&1
+# vlr:work — a cada 1 minuto. Consome os três tipos de trabalho da fila
+# (partida, releitura, elenco); falha isolada não derruba o lote.
+* * * * * root cd /app && flock -n /tmp/vlr-work.lock pnpm vlr:work >> /var/log/vlr-cron.log 2>&1
 
-# vlr:doctor — diário às 07:00. Roda os parsers contra a rede; exit ≠ 0 se
-# algum seletor quebrou — é o que um alerta externo (ex. monitor do log) vigia.
+# vlr:round — a cada 5 minutos. Rodada toda extraída (e não descartada) →
+# calculateRound + closeActiveRound.
+*/5 * * * * root cd /app && flock -n /tmp/vlr-round.lock pnpm vlr:round >> /var/log/vlr-cron.log 2>&1
+
+# vlr:doctor — diário às 07:00. Roda os parsers contra a rede e confere se
+# algum job do batimento está atrasado (Decisão 7, plano 17); exit ≠ 0 se
+# qualquer um dos dois falhar.
 0 7 * * * root cd /app && flock -n /tmp/vlr-doctor.lock pnpm vlr:doctor >> /var/log/vlr-cron.log 2>&1

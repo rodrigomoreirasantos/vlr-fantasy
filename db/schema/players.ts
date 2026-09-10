@@ -104,6 +104,15 @@ export const player = pgTable(
       .default("available"),
     /** Detalhe opcional em pt-BR, ex. "Fora por lesão no pulso". */
     availabilityNote: text("availability_note"),
+    /**
+     * Saiu do elenco da organização em `team` (Decisão 4, plano 17) — desde
+     * quando. **Só sinalização**: nunca desativa nem tira do mercado, porque
+     * ele pode estar escalado no time de alguém agora mesmo. Volta a `null`
+     * assim que o elenco (`applyRoster`) o vir de novo na mesma organização.
+     */
+    rosterMissingSince: timestamp("roster_missing_since", {
+      withTimezone: true,
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

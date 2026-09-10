@@ -1,4 +1,4 @@
-import { and, eq, gte, lte, ne, sql } from "drizzle-orm";
+import { and, eq, gte, isNull, lte, ne, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { match, vlrEvent } from "@/db/schema";
@@ -59,6 +59,7 @@ export async function countMatchesInPlay(
         ne(match.status, "finished"),
         gte(match.scheduledAt, from),
         lte(match.scheduledAt, to),
+        isNull(match.dismissedAt),
       ),
     );
 

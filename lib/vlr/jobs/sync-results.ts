@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { match, vlrEvent } from "@/db/schema";
 import type { Querier } from "@/lib/team/queries";
 import { fetchHtml } from "@/lib/vlr/http/client";
+import { fingerprint } from "@/lib/vlr/http/fingerprint";
 import { logInfo } from "@/lib/vlr/http/log";
 import { enqueue } from "@/lib/vlr/jobs/queue";
 import { VLR_JOBS } from "@/lib/vlr/jobs/types";
@@ -12,6 +13,7 @@ import {
   toUpsertable,
 } from "@/lib/vlr/jobs/sync-schedule";
 import { upsertMatches } from "@/lib/vlr/persist/matches";
+import { pageChanged } from "@/lib/vlr/persist/page-state";
 import { parseMatchList } from "@/lib/vlr/scrapers/match-list";
 
 /**
@@ -66,6 +68,22 @@ export async function syncResults(
     const { html } = await fetchHtml(path);
     const items = parseMatchList(html, path);
     visited += 1;
+
+    // A digital desta página (Decisão 2, plano 17): idêntica à da última
+    // leitura → nenhum resultado novo aqui, então nem upsert nem
+    // enfileiramento têm o que fazer. A requisição já aconteceu; o que se
+    // evita é o resto do trabalho desta página em diante.
+    const hash = fingerprint(items);
+    const changed = await db.transaction((tx) =>
+      pageChanged(tx, { path, hash, at: new Date() }),
+    );
+    if (!changed) {
+      logInfo("vlr.page.unchanged", { path });
+      totalMatches += items.length;
+      quietPages += 1;
+      if (quietPages >= stopAfterKnown) break;
+      continue;
+    }
 
     const enqueued = await db.transaction(async (tx) => {
       const eventIds = await resolveEventIdsByName(

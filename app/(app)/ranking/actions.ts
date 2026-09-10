@@ -12,6 +12,8 @@ import {
   updateMembershipStatus,
 } from "@/lib/championship/queries";
 import { inviteBlockMessage } from "@/lib/championship/format";
+import { normalizeChampionshipName } from "@/lib/championship/name";
+import { isUniqueViolation } from "@/lib/db/errors";
 import { canonicalPair } from "@/lib/friendship/pair";
 import { ensureFriendship } from "@/lib/friendship/queries";
 import { ActionError, authActionClient } from "@/lib/safe-action";
@@ -23,18 +25,33 @@ import {
 
 /**
  * Cria um campeonato e já entra o criador como membro aceito — sem isso,
- * quem criou um campeonato não apareceria na própria classificação.
+ * quem criou um campeonato não apareceria na própria classificação. O banco
+ * (`championship_name_uidx`) é a autoridade sobre a unicidade do nome —
+ * checar antes com um `SELECT` deixaria brecha entre abas; a violação é
+ * capturada aqui e traduzida.
  */
 export const createChampionship = authActionClient
   .inputSchema(createChampionshipSchema)
   .action(async ({ parsedInput, ctx }) => {
-    const championshipId = await db.transaction((tx) =>
-      insertChampionshipWithOwner(tx, {
-        name: parsedInput.name,
-        ownerId: ctx.userId,
-        region: parsedInput.region,
-      }),
-    );
+    const name = normalizeChampionshipName(parsedInput.name);
+
+    let championshipId: string;
+    try {
+      championshipId = await db.transaction((tx) =>
+        insertChampionshipWithOwner(tx, {
+          name,
+          ownerId: ctx.userId,
+          region: parsedInput.region,
+        }),
+      );
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new ActionError(
+          "Já existe um campeonato com esse nome. Escolha outro.",
+        );
+      }
+      throw error;
+    }
 
     revalidatePath("/ranking");
     return { championshipId };

@@ -35,6 +35,8 @@ export type PendingInvite = {
   memberId: string;
   championshipId: string;
   championshipName: string;
+  /** A região do campeonato — quem aceita entra com o time dessa região. */
+  region: TeamRegion;
   invitedByUsername: string | null;
   invitedAt: Date;
 };

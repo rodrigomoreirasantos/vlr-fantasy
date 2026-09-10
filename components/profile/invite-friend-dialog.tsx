@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import type { ChampionshipSummary } from "@/lib/championship/types";
 import type { Friend } from "@/lib/friendship/types";
+import { regionLabel } from "@/lib/round/regions";
 
 export type InviteFriendDialogProps = {
   friend: Friend;
@@ -83,7 +84,7 @@ export function InviteFriendDialog({
             <SelectContent>
               {ownedChampionships.map((championship) => (
                 <SelectItem key={championship.id} value={championship.id}>
-                  {championship.name}
+                  {championship.name} · {regionLabel(championship.region)}
                 </SelectItem>
               ))}
             </SelectContent>

@@ -24,6 +24,16 @@ services:
       # `docker compose up` de novo, ou `pnpm vlr:reprocess` não tem o que
       # reprocessar.
       - vlr-raw-html:/app/storage/raw
+    healthcheck:
+      # `vlr:health` não vai à rede: lê `vlr_job_health` e reprova se algum
+      # job (Fase 0, plano 17) está atrasado, nunca rodou, ou falhou. Aparece
+      # como `unhealthy` no `docker ps` — este compose puro não reinicia
+      # sozinho por causa disso; quem quiser isso precisa de um vigia externo.
+      test: ["CMD", "pnpm", "vlr:health"]
+      interval: 5m
+      timeout: 30s
+      retries: 2
+      start_period: 10m
 
 volumes:
   vlr-raw-html:

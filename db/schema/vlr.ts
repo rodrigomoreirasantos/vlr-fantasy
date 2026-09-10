@@ -10,7 +10,10 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-import { VLR_JOB_STATUSES } from "@/lib/vlr/jobs/types";
+import {
+  VLR_JOB_HEALTH_STATUSES,
+  VLR_JOB_STATUSES,
+} from "@/lib/vlr/jobs/types";
 
 /**
  * A camada de ingestão do vlr.gg: o catálogo de eventos e a fila de trabalho.
@@ -38,6 +41,13 @@ export const vlrEvent = pgTable(
      * alguns poucos. O scraper nunca escreve nesta coluna.
      */
     tracked: boolean("tracked").notNull().default(false),
+    /**
+     * O veto humano sobre `applyAutoTracking` (Decisão 3, plano 17). `null` =
+     * o automático decide (regra de circuito, `lib/vlr/normalize/tracking.ts`);
+     * `true`/`false` = a pessoa decidiu, e o automático nunca escreve por cima
+     * — só ela muda esta coluna, pelo `pnpm db:studio`.
+     */
+    trackedOverride: boolean("tracked_override"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -90,4 +100,60 @@ export const vlrJobRun = pgTable(
     // O índice exato do `claim`: próximo pendente elegível deste job.
     index("vlr_job_run_claim_idx").on(t.job, t.status, t.runAfter),
   ],
+);
+
+export const vlrJobHealthStatus = pgEnum(
+  "vlr_job_health_status",
+  VLR_JOB_HEALTH_STATUSES,
+);
+
+/**
+ * O batimento de cada script `vlr:*` (Decisão 7, plano 17) — uma linha por
+ * job, sempre a **última** execução completa. `runScript`
+ * (`scripts/vlr/run.ts`) grava aqui no `finally`, para todo entrypoint, sem
+ * cada script individual precisar saber que isto existe. É o que faz
+ * "o container caiu" virar um fato no banco, e não um log que ninguém lê.
+ */
+export const vlrJobHealth = pgTable(
+  "vlr_job_health",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    job: text("job").notNull(),
+    lastStatus: vlrJobHealthStatus("last_status"),
+    lastStartedAt: timestamp("last_started_at", { withTimezone: true }),
+    lastFinishedAt: timestamp("last_finished_at", { withTimezone: true }),
+    lastDurationMs: integer("last_duration_ms"),
+    /** Resumo curto do que o job fez — o que hoje só existia no log JSON. */
+    lastSummary: text("last_summary"),
+    /** Mensagem de erro da última falha; `null` enquanto a última foi `ok`. */
+    lastError: text("last_error"),
+    /** Zera a cada sucesso — a base de "falhou 3x seguidas" do `vlr:health`. */
+    consecutiveFailures: integer("consecutive_failures").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (t) => [uniqueIndex("vlr_job_health_job_uidx").on(t.job)],
+);
+
+/**
+ * A impressão digital de uma página de **lista** (`/matches`, `/events`) —
+ * distinta de `match.contentHash`, que é por partida. Guarda a última digital
+ * vista de cada caminho, para `pageChanged` (`lib/vlr/persist/page-state.ts`)
+ * decidir se vale a pena reprocessar a resposta que acabou de chegar.
+ */
+export const vlrPageState = pgTable(
+  "vlr_page_state",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    path: text("path").notNull(),
+    contentHash: text("content_hash").notNull(),
+    fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull(),
+    /** Quando a digital mudou pela última vez — `null` até a primeira mudança. */
+    changedAt: timestamp("changed_at", { withTimezone: true }),
+    /** Quantas leituras seguidas vieram com a mesma digital. */
+    unchangedRuns: integer("unchanged_runs").notNull().default(0),
+  },
+  (t) => [uniqueIndex("vlr_page_state_path_uidx").on(t.path)],
 );

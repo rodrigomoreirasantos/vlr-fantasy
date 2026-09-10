@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   parseMatchList: vi.fn(),
   lastListPage: vi.fn(),
   upsertMatches: vi.fn(),
+  markMissingMatches: vi.fn(),
+  pageChanged: vi.fn(),
   syncRoundsFromMatches: vi.fn(),
   logWarn: vi.fn(),
   logInfo: vi.fn(),
@@ -45,6 +47,10 @@ vi.mock("@/lib/vlr/scrapers/match-list", () => ({
 }));
 vi.mock("@/lib/vlr/persist/matches", () => ({
   upsertMatches: mocks.upsertMatches,
+  markMissingMatches: mocks.markMissingMatches,
+}));
+vi.mock("@/lib/vlr/persist/page-state", () => ({
+  pageChanged: mocks.pageChanged,
 }));
 vi.mock("@/lib/vlr/persist/rounds", () => ({
   syncRoundsFromMatches: mocks.syncRoundsFromMatches,
@@ -54,7 +60,9 @@ vi.mock("@/lib/vlr/persist/rounds", () => ({
 const { syncSchedule } = await import("@/lib/vlr/jobs/sync-schedule");
 
 /** Um card mínimo e válido, com horário — o caso comum. */
-function item(overrides: Partial<ScrapedMatchListItem> = {}): ScrapedMatchListItem {
+function item(
+  overrides: Partial<ScrapedMatchListItem> = {},
+): ScrapedMatchListItem {
   return {
     vlrId: "1",
     teamA: "NRG",
@@ -75,6 +83,12 @@ beforeEach(() => {
     Promise.resolve({ html: `<!-- ${path} -->` }),
   );
   mocks.upsertMatches.mockResolvedValue(new Map());
+  mocks.markMissingMatches.mockResolvedValue({
+    flagged: 0,
+    dismissed: 0,
+    restored: 0,
+  });
+  mocks.pageChanged.mockResolvedValue(true);
   mocks.syncRoundsFromMatches.mockResolvedValue([]);
 });
 
@@ -93,9 +107,7 @@ describe("syncSchedule — paginação", () => {
   it("visita /matches e /matches/?page=2 quando a página 1 anuncia 2, e soma os cards", async () => {
     mocks.lastListPage.mockReturnValue(2);
     mocks.parseMatchList.mockImplementation((html: string) =>
-      html.includes("page=2")
-        ? [item({ vlrId: "2" })]
-        : [item({ vlrId: "1" })],
+      html.includes("page=2") ? [item({ vlrId: "2" })] : [item({ vlrId: "1" })],
     );
 
     const result = await syncSchedule();
@@ -106,10 +118,7 @@ describe("syncSchedule — paginação", () => {
     expect(result.matches).toBe(2);
 
     const [rows] = mocks.upsertMatches.mock.calls[0]!.slice(1);
-    expect(rows.map((row: { vlrId: string }) => row.vlrId)).toEqual([
-      "1",
-      "2",
-    ]);
+    expect(rows.map((row: { vlrId: string }) => row.vlrId)).toEqual(["1", "2"]);
   });
 
   it("`{ pages: 1 }` explícito não pagina, mesmo a página anunciando 2", async () => {
@@ -129,10 +138,10 @@ describe("syncSchedule — paginação", () => {
 
     expect(result.pages).toBe(12); // MAX_SCHEDULE_PAGES
     expect(mocks.fetchHtml).toHaveBeenCalledTimes(12);
-    expect(mocks.logWarn).toHaveBeenCalledWith(
-      "vlr.schedule.pages_truncated",
-      { announced: 999, visited: 12 },
-    );
+    expect(mocks.logWarn).toHaveBeenCalledWith("vlr.schedule.pages_truncated", {
+      announced: 999,
+      visited: 12,
+    });
   });
 
   it("card sem horário (TBD) continua fora do lote", async () => {
@@ -148,5 +157,69 @@ describe("syncSchedule — paginação", () => {
     const [rows] = mocks.upsertMatches.mock.calls[0]!.slice(1);
     expect(rows).toHaveLength(1);
     expect(rows[0].vlrId).toBe("1");
+  });
+});
+
+describe("syncSchedule — digital da página (Decisão 2, plano 17)", () => {
+  it("página 1 idêntica à última leitura: não pagina, não faz upsert nem marca sumida", async () => {
+    mocks.lastListPage.mockReturnValue(2);
+    mocks.parseMatchList.mockReturnValue([item()]);
+    mocks.pageChanged.mockResolvedValue(false);
+
+    const result = await syncSchedule();
+
+    expect(result).toEqual({ matches: 0, rounds: 0, pages: 1 });
+    expect(mocks.fetchHtml).toHaveBeenCalledTimes(1); // só a página 1
+    expect(mocks.upsertMatches).not.toHaveBeenCalled();
+    expect(mocks.markMissingMatches).not.toHaveBeenCalled();
+    expect(mocks.syncRoundsFromMatches).not.toHaveBeenCalled();
+  });
+
+  it("página 1 diferente da última leitura: segue o fluxo normal", async () => {
+    mocks.lastListPage.mockReturnValue(1);
+    mocks.parseMatchList.mockReturnValue([item()]);
+    mocks.pageChanged.mockResolvedValue(true);
+
+    const result = await syncSchedule();
+
+    expect(result.matches).toBe(1);
+    expect(mocks.upsertMatches).toHaveBeenCalled();
+  });
+});
+
+describe("syncSchedule — partida cancelada (Decisão 6, plano 17)", () => {
+  it("chama markMissingMatches com os vlrIds vistos e o horizonte da varredura", async () => {
+    mocks.lastListPage.mockReturnValue(1);
+    mocks.parseMatchList.mockReturnValue([
+      item({ vlrId: "1", scheduledAt: new Date("2026-09-10T20:00:00Z") }),
+      item({ vlrId: "2", scheduledAt: new Date("2026-09-12T20:00:00Z") }),
+    ]);
+
+    await syncSchedule();
+
+    expect(mocks.markMissingMatches).toHaveBeenCalledTimes(1);
+    const [, args] = mocks.markMissingMatches.mock.calls[0]!;
+    expect(args.seenVlrIds).toEqual(["1", "2"]);
+    expect(args.horizonAt).toEqual(new Date("2026-09-12T20:00:00Z"));
+  });
+
+  it("varredura truncada pula a marcação inteira — sem autoridade para declarar nada sumido", async () => {
+    mocks.lastListPage.mockReturnValue(1);
+    mocks.parseMatchList.mockReturnValue([item()]);
+
+    await syncSchedule({ pages: 999 }); // corta no MAX_SCHEDULE_PAGES
+
+    expect(mocks.markMissingMatches).not.toHaveBeenCalled();
+  });
+
+  it("sem nenhuma partida com horário, não há horizonte confiável — pula a marcação", async () => {
+    mocks.lastListPage.mockReturnValue(1);
+    mocks.parseMatchList.mockReturnValue([
+      item({ vlrId: "1", scheduledAt: null }),
+    ]);
+
+    await syncSchedule();
+
+    expect(mocks.markMissingMatches).not.toHaveBeenCalled();
   });
 });

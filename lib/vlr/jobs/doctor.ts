@@ -2,7 +2,10 @@ import { fetchHtml } from "@/lib/vlr/http/client";
 import { errorMessage, logError, logInfo } from "@/lib/vlr/http/log";
 import { countNeedsReview } from "@/lib/vlr/jobs/backfill";
 import { countScrapedMatches } from "@/lib/vlr/jobs/calculate-round";
+import { runHealth } from "@/lib/vlr/jobs/health";
 import { countPlayersOutOfRegion } from "@/lib/vlr/jobs/sync-player-regions";
+import { countDismissedMatches } from "@/lib/vlr/persist/matches";
+import { countRosterMissing } from "@/lib/vlr/persist/rosters";
 import { parseEventList } from "@/lib/vlr/scrapers/event-list";
 import { parseMatchDetail } from "@/lib/vlr/scrapers/match-detail";
 import { parseMatchList } from "@/lib/vlr/scrapers/match-list";
@@ -30,6 +33,12 @@ export async function runDoctor(): Promise<{
   needsReview: number;
   scrapedMatches: number;
   playersOutOfRegion: number;
+  /** Jobs atrasados, nunca rodados, ou em falha (Decisão 7, plano 17). */
+  staleJobs: string[];
+  /** Partidas marcadas como sumidas (Decisão 6, plano 17). */
+  dismissedMatches: number;
+  /** Jogadores fora do elenco da organização (Decisão 4, plano 17). */
+  rosterMissing: number;
 }> {
   const checks: DoctorCheck[] = [];
 
@@ -82,21 +91,41 @@ export async function runDoctor(): Promise<{
     ),
   );
 
-  const healthy = checks.every((row) => row.status === "ok");
+  const selectorsHealthy = checks.every((row) => row.status === "ok");
+  const { healthy: jobsHealthy, stale: staleJobs } = await runHealth();
+  // Um seletor quebrado é tão "não saudável" quanto um job que parou de
+  // rodar — as duas coisas tornam o pipeline não confiável, e o doctor é o
+  // único lugar que já olhava para o primeiro (Decisão 7, plano 17).
+  const healthy = selectorsHealthy && jobsHealthy;
+
   const needsReview = await countNeedsReview();
   const scrapedMatches = await countScrapedMatches();
   // Quantos jogadores `active` ainda estão fora das 5 abas de escalação —
   // `.claude/plans/10-time-por-regiao.md`. Não entra em `healthy`: um
   // catálogo novo começa assim, e cai conforme o scrap acumula histórico.
   const playersOutOfRegion = await countPlayersOutOfRegion();
+  const dismissedMatches = await countDismissedMatches();
+  const rosterMissing = await countRosterMissing();
 
   logInfo("vlr.doctor.finished", {
     healthy,
     needsReview,
     scrapedMatches,
     playersOutOfRegion,
+    staleJobs,
+    dismissedMatches,
+    rosterMissing,
   });
-  return { checks, healthy, needsReview, scrapedMatches, playersOutOfRegion };
+  return {
+    checks,
+    healthy,
+    needsReview,
+    scrapedMatches,
+    playersOutOfRegion,
+    staleJobs,
+    dismissedMatches,
+    rosterMissing,
+  };
 }
 
 async function check(

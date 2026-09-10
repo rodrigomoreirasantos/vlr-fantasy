@@ -67,4 +67,18 @@ describe("CreateChampionshipDialog", () => {
       region: "emea",
     });
   });
+
+  it("com defaultRegion='emea', o Select de região já abre em EMEA", async () => {
+    const user = userEvent.setup();
+    render(<CreateChampionshipDialog defaultRegion="emea" />);
+
+    await user.click(screen.getByRole("button", { name: /criar campeonato/i }));
+    await user.type(screen.getByLabelText("Nome"), "Liga dos Cria");
+    await user.click(screen.getByRole("button", { name: /^criar$/i }));
+
+    expect(executeMock).toHaveBeenCalledWith({
+      name: "Liga dos Cria",
+      region: "emea",
+    });
+  });
 });

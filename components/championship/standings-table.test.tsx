@@ -67,4 +67,88 @@ describe("StandingsTable", () => {
     expect(currentUserRow?.className).toMatch(/ring-primary/);
     expect(otherRow?.className).not.toMatch(/ring-primary/);
   });
+
+  it("com 5 membros, destaca o líder e o 2º/3º com a faixa de pódio", () => {
+    render(
+      <StandingsTable
+        standings={[
+          row({ userId: "a", teamName: "Time 1", position: 1 }),
+          row({ userId: "b", teamName: "Time 2", position: 2 }),
+          row({ userId: "c", teamName: "Time 3", position: 3 }),
+          row({ userId: "d", teamName: "Time 4", position: 4 }),
+          row({ userId: "e", teamName: "Time 5", position: 5 }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Time 1").closest("tr")?.className).toMatch(
+      /border-l-primary/,
+    );
+    expect(screen.getByText("Time 2").closest("tr")?.className).toMatch(
+      /border-l-success/,
+    );
+    expect(screen.getByText("Time 3").closest("tr")?.className).toMatch(
+      /border-l-success/,
+    );
+    const fourthRow = screen.getByText("Time 4").closest("tr")?.className;
+    expect(fourthRow).not.toMatch(/border-l-primary/);
+    expect(fourthRow).not.toMatch(/border-l-success/);
+  });
+
+  it("com 3 membros, nenhuma linha ganha faixa e a legenda não aparece", () => {
+    render(
+      <StandingsTable
+        standings={[
+          row({ userId: "a", teamName: "Time 1", position: 1 }),
+          row({ userId: "b", teamName: "Time 2", position: 2 }),
+          row({ userId: "c", teamName: "Time 3", position: 3 }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Time 1").closest("tr")?.className).not.toMatch(
+      /border-l-primary/,
+    );
+    expect(
+      screen.queryByText(/zona de classificação/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("empate em 2º lugar: as duas linhas de posição 2 ficam na faixa de pódio", () => {
+    render(
+      <StandingsTable
+        standings={[
+          row({ userId: "a", teamName: "Time 1", position: 1 }),
+          row({ userId: "b", teamName: "Time 2", position: 2 }),
+          row({ userId: "c", teamName: "Time 3", position: 2 }),
+          row({ userId: "d", teamName: "Time 4", position: 4 }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Time 2").closest("tr")?.className).toMatch(
+      /border-l-success/,
+    );
+    expect(screen.getByText("Time 3").closest("tr")?.className).toMatch(
+      /border-l-success/,
+    );
+    expect(screen.getByText("Time 4").closest("tr")?.className).not.toMatch(
+      /border-l-success/,
+    );
+  });
+
+  it("leitor de tela: a linha líder tem o texto '— líder'", () => {
+    render(
+      <StandingsTable
+        standings={[
+          row({ userId: "a", teamName: "Time 1", position: 1 }),
+          row({ userId: "b", teamName: "Time 2", position: 2 }),
+          row({ userId: "c", teamName: "Time 3", position: 3 }),
+          row({ userId: "d", teamName: "Time 4", position: 4 }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("— líder", { exact: false })).toBeInTheDocument();
+  });
 });

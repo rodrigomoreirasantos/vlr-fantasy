@@ -191,6 +191,22 @@ describe("syncRoundsFromMatches", () => {
     ).toEqual([8, 9]);
   });
 
+  it("marketClosesAt ignora o kickoff de uma partida descartada — ela não vem na consulta (Decisão 6, plano 17)", async () => {
+    // `isNull(match.dismissedAt)` já filtra no banco: uma partida cancelada
+    // que teria o kickoff mais cedo nunca chega às linhas que este stub
+    // representa. Sem esse filtro, `marketClosesAt` ficaria ancorado num
+    // jogo que não vai acontecer.
+    const { tx } = createTxStub(
+      [{ id: "m2", scheduledAt: LATER_KICKOFF, scrapedAt: null }],
+      [],
+    );
+
+    const [synced] = await syncRoundsFromMatches(tx as never);
+
+    expect(synced.marketClosesAt).toEqual(marketClosesAtFor(LATER_KICKOFF));
+    expect(synced.totalMatches).toBe(1);
+  });
+
   it("liga as partidas da semana à sua rodada", async () => {
     const { tx, calls } = createTxStub(
       [{ id: "m1", scheduledAt: FIRST_KICKOFF, scrapedAt: null }],

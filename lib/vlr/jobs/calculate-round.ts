@@ -1,4 +1,4 @@
-import { eq, isNotNull, sql } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { match, player, playerMatchStat } from "@/db/schema";
@@ -76,7 +76,9 @@ export async function runRoundJob(): Promise<
       pending: sql<number>`count(*) filter (where ${match.scrapedAt} is null)::int`,
     })
     .from(match)
-    .where(eq(match.roundId, activeRound.id));
+    // Partida descartada (Decisão 6, plano 17) nunca terá `scrapedAt` — sem
+    // este filtro, um card cancelado travaria a rodada para sempre.
+    .where(and(eq(match.roundId, activeRound.id), isNull(match.dismissedAt)));
 
   if (!counts || counts.total === 0 || counts.pending > 0) {
     const pending = counts?.pending ?? 0;

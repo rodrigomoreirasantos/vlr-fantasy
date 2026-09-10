@@ -10,7 +10,12 @@ import { PendingInvites } from "@/components/championship/pending-invites";
 import { StandingsTable } from "@/components/championship/standings-table";
 import { Panel } from "@/components/layout/panel";
 import { RegionDisplaySync } from "@/components/layout/region-display";
+import { RegionTabs } from "@/components/team/region-tabs";
 import { auth } from "@/lib/auth";
+import {
+  rankingRegionTabs,
+  resolveRankingRegion,
+} from "@/lib/championship/regions";
 import {
   getStandingRows,
   listPendingInvites,
@@ -18,7 +23,7 @@ import {
   listUserChampionships,
 } from "@/lib/championship/queries";
 import { rankStandings } from "@/lib/championship/standings";
-import { regionLabel } from "@/lib/round/regions";
+import { parseTeamRegion, regionColor, regionLabel } from "@/lib/round/regions";
 import { resolveRegion } from "@/lib/team/region-selection";
 import { getTeamOverview } from "@/lib/team/queries";
 
@@ -35,23 +40,42 @@ export default async function RankingPage(props: PageProps<"/ranking">) {
   const searchParams = await props.searchParams;
   const requestedId =
     typeof searchParams.c === "string" ? searchParams.c : undefined;
+  const explicit = parseTeamRegion(searchParams.region);
 
-  // Mesmos argumentos do layout logado (`app/(app)/layout.tsx`): a
-  // memoização por request de `getTeamOverview` evita uma segunda consulta
-  // ao time, só para manter o header em dia nesta navegação.
-  const { region } = await resolveRegion();
-  const [championships, pendingInvites, overview] = await Promise.all([
+  // Mesma resolução de cookie/header que `/my-team` usa — é o fallback
+  // quando nem `?c=` nem `?region=` decidem a aba.
+  const { region: fallback, available } = await resolveRegion(
+    searchParams.region,
+  );
+
+  const [championships, pendingInvites] = await Promise.all([
     listUserChampionships(session.user.id),
     listPendingInvites(session.user.id),
-    getTeamOverview(
-      session.user.id,
-      session.user.username ?? session.user.name,
-      region,
-    ),
   ]);
 
-  // Mantém o header na região desta navegação — ver
-  // `components/layout/region-display.tsx`.
+  // Um `?c=` de campeonato alheio nunca aparece aqui: `listUserChampionships`
+  // só traz campeonatos em que o usuário é membro aceito.
+  const requested = championships.find((c) => c.id === requestedId);
+  const region = resolveRankingRegion({
+    championships,
+    requested,
+    explicit,
+    fallback,
+  });
+  const tabs = rankingRegionTabs(championships, available);
+  const inRegion = championships.filter((c) => c.region === region);
+  const selected = requested ?? inRegion[0];
+
+  // Depois de saber a região da tela — o header tem de concordar com a aba.
+  // Memoizada por `(userId, userName, region)`: quando a aba pedida bate com
+  // a do layout, reaproveita a mesma consulta; quando difere, há uma segunda
+  // consulta — o preço de o header mostrar o saldo do time daquela aba.
+  const overview = await getTeamOverview(
+    session.user.id,
+    session.user.username ?? session.user.name,
+    region,
+  );
+
   const regionSync = overview ? (
     <RegionDisplaySync
       region={overview.region}
@@ -59,21 +83,27 @@ export default async function RankingPage(props: PageProps<"/ranking">) {
     />
   ) : null;
 
-  if (championships.length === 0) {
+  const regionChip = (
+    <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+      <span
+        aria-hidden
+        className="size-1.5 rounded-full"
+        style={{ backgroundColor: regionColor(region) }}
+      />
+      {regionLabel(region)}
+    </span>
+  );
+
+  if (!selected) {
     return (
       <main className="mx-auto max-w-7xl px-6 py-9">
         {regionSync}
         <PendingInvites invites={pendingInvites} />
-        <EmptyChampionships />
+        <RegionTabs current={region} available={tabs} pathname="/ranking" />
+        <EmptyChampionships region={region} />
       </main>
     );
   }
-
-  // Um `?c=` de campeonato alheio cai no primeiro da lista — nunca vaza
-  // classificação de fora (`listUserChampionships` só traz campeonatos em
-  // que o próprio usuário é membro aceito).
-  const selected =
-    championships.find((c) => c.id === requestedId) ?? championships[0];
 
   const rows = await getStandingRows(selected.id);
   const standings = rankStandings(rows, session.user.id);
@@ -85,15 +115,17 @@ export default async function RankingPage(props: PageProps<"/ranking">) {
       {regionSync}
       <PendingInvites invites={pendingInvites} />
 
+      <RegionTabs current={region} available={tabs} pathname="/ranking" />
+
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <ChampionshipSelector
-          championships={championships}
+          championships={inRegion}
           selectedId={selected.id}
         />
-        <CreateChampionshipDialog />
+        <CreateChampionshipDialog defaultRegion={region} />
       </div>
 
-      <Panel title="Classificação">
+      <Panel title="Classificação" actions={regionChip}>
         <StandingsTable standings={standings} />
         <p className="mt-3 text-xs text-muted-foreground">
           A pontuação considera o seu time de {regionLabel(selected.region)}{" "}
@@ -104,7 +136,10 @@ export default async function RankingPage(props: PageProps<"/ranking">) {
       {isOwner && (
         <div className="mt-6">
           <Panel title="Convidados">
-            <InviteMemberForm championshipId={selected.id} />
+            <InviteMemberForm
+              championshipId={selected.id}
+              region={selected.region}
+            />
             {pendingMembers.length > 0 && (
               <ul className="mt-4 flex flex-col gap-2">
                 {pendingMembers.map((member) => (
