@@ -108,6 +108,20 @@ export function evaluateSubstitution(
   return { netCostCents, balanceAfterCents, blockedBy };
 }
 
+/**
+ * Teto de compra: o maior preço que um candidato pode ter sem cair em
+ * `"insufficient-balance"`. Não é conta nova — é a mesma que
+ * `evaluateSubstitution` usa (`netCostCents > ctx.balanceCents`, com
+ * `netCostCents = incoming.priceCents - outgoing.priceCents`), isolada com
+ * nome para a UI mostrar "quanto dá para gastar" sem duplicar a aritmética.
+ */
+export function spendingCapCents(
+  balanceCents: number,
+  outgoing: Player | null,
+): number {
+  return balanceCents + (outgoing?.priceCents ?? 0);
+}
+
 export function canSubstitute(
   ctx: SubstitutionContext,
   incoming: Player,
