@@ -40,6 +40,7 @@ export type RoundScorer = {
   team: string;
   role: PlayerRole;
   points: number;
+  photoUrl: string | null;
 };
 
 /**
@@ -59,6 +60,7 @@ export type LiveRoundScore = {
   gamesPlayed: number;
   /** O campeonato em que ele jogou a rodada — de onde sai a região. */
   event: string | null;
+  photoUrl: string | null;
 };
 
 /** Um jogador que valorizou ou desvalorizou na rodada. */
@@ -68,6 +70,7 @@ export type PriceMover = {
   team: string;
   role: PlayerRole;
   priceDeltaCents: number;
+  photoUrl: string | null;
 };
 
 /** Uma linha de `round_team_result` — o resultado de um time numa rodada fechada. */

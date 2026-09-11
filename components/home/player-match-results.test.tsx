@@ -27,6 +27,7 @@ function performance(
     rating: 1.23,
     mapsWon: 2,
     mapsPlayed: 3,
+    photoUrl: null,
     ...overrides,
   };
 }
@@ -60,6 +61,20 @@ describe("PlayerMatchResults", () => {
     expect(
       screen.getByText("Este jogador ainda não tem partida pontuada."),
     ).toBeInTheDocument();
+  });
+
+  it("mostra a foto do jogador na linha, quando ele tem uma (plano 18)", () => {
+    const { container } = render(
+      <PlayerMatchResults
+        performances={[
+          performance({ photoUrl: "https://owcdn.net/img/x.png" }),
+        ]}
+        rosterSize={5}
+        selectedPlayerId={null}
+      />,
+    );
+
+    expect(container.querySelectorAll("img")).toHaveLength(1);
   });
 
   it("mostra o placar, a região e a linha de stats do jogador", () => {

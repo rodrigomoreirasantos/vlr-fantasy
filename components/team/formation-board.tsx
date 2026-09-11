@@ -1,5 +1,6 @@
 import { Plus, TriangleAlert } from "lucide-react";
 
+import { PlayerPhoto } from "@/components/player/player-photo";
 import { PlayerScore } from "@/components/team/player-score";
 import type { RosterSlot } from "@/lib/team/types";
 import { cn } from "@/lib/utils";
@@ -45,26 +46,33 @@ function Marker({
 }) {
   const { player, captain, warning } = slot;
 
-  const circle = (
-    <div
+  // Vaga cheia e vaga vazia são estados distintos o bastante para não
+  // dividirem um `cn()` só — separá-los tira cinco guardas `player &&`.
+  const circle = player ? (
+    <PlayerPhoto
+      photoUrl={player.photoUrl}
+      nickname={player.nickname}
+      shape="circle"
+      size={56}
       className={cn(
-        "flex size-14 items-center justify-center rounded-full",
-        player
-          ? "ring-2 [background-image:repeating-linear-gradient(135deg,var(--accent)_0_4px,var(--muted)_4px_8px)]"
-          : "border border-dashed border-border text-border transition-colors",
-        player && (captain ? "ring-primary" : "ring-border"),
+        "ring-2",
+        captain ? "ring-primary" : "ring-border",
         // O tabuleiro não pode contradizer a lista: o mesmo alerta de
         // `PlayerWarningBadge` (`components/team/player-row.tsx`) também
         // marca o círculo aqui.
-        player && warning && "ring-destructive",
-        player && selected && "ring-primary",
-        !player &&
-          onSelect &&
-          "group-hover:border-primary group-hover:text-primary",
-        !player && selected && "border-primary text-primary",
+        warning && "ring-destructive",
+        selected && "ring-primary",
+      )}
+    />
+  ) : (
+    <div
+      className={cn(
+        "flex size-14 items-center justify-center rounded-full border border-dashed border-border text-border transition-colors",
+        onSelect && "group-hover:border-primary group-hover:text-primary",
+        selected && "border-primary text-primary",
       )}
     >
-      {!player && <Plus aria-hidden className="size-5" />}
+      <Plus aria-hidden className="size-5" />
     </div>
   );
 

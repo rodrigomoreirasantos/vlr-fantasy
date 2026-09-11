@@ -101,4 +101,18 @@ describe("runDoctor", () => {
     expect(result.dismissedMatches).toBe(3);
     expect(result.rosterMissing).toBe(2);
   });
+
+  it("conta quantos jogadores do elenco de teste trouxeram foto (plano 18)", async () => {
+    mocks.parseTeamRoster.mockReturnValue({
+      players: [
+        { photoUrl: "https://owcdn.net/img/a.png" },
+        { photoUrl: null },
+        { photoUrl: "https://owcdn.net/img/b.png" },
+      ],
+    });
+
+    const result = await runDoctor();
+
+    expect(result.playersWithPhoto).toBe(2);
+  });
 });

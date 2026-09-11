@@ -16,6 +16,7 @@ if (isMain(import.meta.url)) {
       staleJobs,
       dismissedMatches,
       rosterMissing,
+      playersWithPhoto,
     } = await runDoctor();
 
     const lines = checks.map((check) => {
@@ -41,6 +42,7 @@ if (isMain(import.meta.url)) {
           : null,
         `  · ${scrapedMatches} partidas extraídas, ${needsReview} jogador(es) aguardando revisão, ${playersOutOfRegion} fora de região.`,
         `  · ${dismissedMatches} partida(s) descartada(s), ${rosterMissing} jogador(es) fora do elenco da organização.`,
+        `  · ${playersWithPhoto} jogador(es) com foto no elenco de teste.`,
       ]
         .filter((line): line is string => line !== null)
         .join("\n"),

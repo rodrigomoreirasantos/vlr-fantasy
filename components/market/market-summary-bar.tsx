@@ -1,4 +1,5 @@
 import { MarketCountdown } from "@/components/market/market-countdown";
+import { PlayerPhoto } from "@/components/player/player-photo";
 import { PlayerPrice } from "@/components/team/player-price";
 import { spendingCapCents } from "@/lib/market/eligibility";
 import { formatCreditsDelta } from "@/lib/market/money";
@@ -87,7 +88,14 @@ export function MarketSummaryBar({
             priceCents={spendingCapCents(balanceCents, outgoing)}
             className="text-base"
           />
-          <p className="mt-0.5 truncate text-[10px] font-semibold text-muted-foreground tabular-nums">
+          <p className="mt-0.5 flex items-center justify-center gap-1 truncate text-[10px] font-semibold text-muted-foreground tabular-nums">
+            <PlayerPhoto
+              photoUrl={outgoing.photoUrl}
+              nickname={outgoing.nickname}
+              size={16}
+              shape="circle"
+              className="flex-none"
+            />
             {formatCreditsDelta(outgoing.priceCents)} com {outgoing.nickname}
           </p>
         </Stat>

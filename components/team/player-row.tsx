@@ -1,5 +1,6 @@
 import { HandCoins, Plus } from "lucide-react";
 
+import { PlayerPhoto } from "@/components/player/player-photo";
 import { PlayerScore } from "@/components/team/player-score";
 import { PlayerWarningBadge } from "@/components/team/player-warning-badge";
 import { Button } from "@/components/ui/button";
@@ -68,18 +69,6 @@ export function CaptainBadge({
   );
 }
 
-/** Retrato do jogador. Placeholder hachurado até existirem imagens. */
-function PlayerPortrait({ className }: { className?: string }) {
-  return (
-    <div
-      className={cn(
-        "clip-corner bg-accent [--clip:6px] [background-image:repeating-linear-gradient(135deg,var(--accent)_0_4px,var(--muted)_4px_8px)]",
-        className,
-      )}
-    />
-  );
-}
-
 export type PlayerPortraitBadgeProps = {
   player: Player;
   captain?: boolean;
@@ -98,7 +87,11 @@ export function PlayerPortraitBadge({
 }: PlayerPortraitBadgeProps) {
   return (
     <div className="relative flex-none">
-      <PlayerPortrait className="size-[46px]" />
+      <PlayerPhoto
+        photoUrl={player.photoUrl}
+        nickname={player.nickname}
+        size={46}
+      />
       <CaptainBadge
         nickname={player.nickname}
         captain={captain}

@@ -7,8 +7,8 @@ import type { RoundRecap } from "@/lib/home/types";
 import type { PlayerMatchPerformance } from "@/lib/player/types";
 
 const ROSTER = [
-  { playerId: "aspas", nickname: "aspas" },
-  { playerId: "tenz", nickname: "TenZ" },
+  { playerId: "aspas", nickname: "aspas", photoUrl: null },
+  { playerId: "tenz", nickname: "TenZ", photoUrl: null },
 ];
 
 function recap(overrides: Partial<RoundRecap> = {}): RoundRecap {
@@ -45,6 +45,7 @@ function performance(
     rating: 1.23,
     mapsWon: 2,
     mapsPlayed: 3,
+    photoUrl: null,
     ...overrides,
   };
 }
@@ -178,7 +179,10 @@ describe("TeamPerformance", () => {
         recap={recap()}
         hasFinishedRound
         performances={BOTH}
-        roster={[...ROSTER, { playerId: "sacy", nickname: "Sacy" }]}
+        roster={[
+          ...ROSTER,
+          { playerId: "sacy", nickname: "Sacy", photoUrl: null },
+        ]}
       />,
     );
 
@@ -188,6 +192,28 @@ describe("TeamPerformance", () => {
         .getAllByRole("button")
         .map((button) => button.textContent),
     ).toEqual(["Todos", "aspas", "TenZ"]);
+  });
+
+  it("o chip do jogador mostra a foto dele, quando ele tem uma (plano 18)", () => {
+    const { container } = render(
+      <TeamPerformance
+        recap={recap()}
+        hasFinishedRound
+        performances={BOTH}
+        roster={[
+          {
+            playerId: "aspas",
+            nickname: "aspas",
+            photoUrl: "https://owcdn.net/img/x.png",
+          },
+          { playerId: "tenz", nickname: "TenZ", photoUrl: null },
+        ]}
+      />,
+    );
+
+    const players = screen.getByRole("group", { name: "Filtrar por jogador" });
+    expect(within(players).getAllByRole("button")).toHaveLength(3);
+    expect(container.querySelectorAll("img")).toHaveLength(1);
   });
 
   it("escolher um jogador recorta gráfico e placares juntos", async () => {

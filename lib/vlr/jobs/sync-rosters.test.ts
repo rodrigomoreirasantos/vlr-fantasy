@@ -81,3 +81,32 @@ describe("syncRosters", () => {
     );
   });
 });
+
+describe("syncRosters — backfill --all (Decisão 4, plano 18)", () => {
+  /** `findAllTeams` faz `select().from(vlrTeam)` e não chama `.where()`. */
+  function createAllTeamsTxStub(teamRows: { vlrId: string }[]) {
+    return {
+      select: () => ({
+        from: () => Promise.resolve(teamRows),
+      }),
+    };
+  }
+
+  it("com all: true, ignora a janela e enfileira todo vlr_team conhecido", async () => {
+    txHolder.tx = createAllTeamsTxStub([
+      { vlrId: "101" },
+      { vlrId: "102" },
+      { vlrId: "999" }, // fora da janela de relevância — entra mesmo assim
+    ]);
+    enqueueMock.mockResolvedValue(3);
+
+    const result = await syncRosters(new Date(), { all: true });
+
+    expect(result).toEqual({ enqueued: 3 });
+    expect(enqueueMock).toHaveBeenCalledWith(
+      txHolder.tx,
+      VLR_JOBS.scrapeRoster,
+      ["101", "102", "999"],
+    );
+  });
+});

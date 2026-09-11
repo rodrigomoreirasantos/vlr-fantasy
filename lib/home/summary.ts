@@ -102,6 +102,7 @@ export function projectRoundHighlights(scores: readonly LiveRoundScore[]): {
         team: score.team,
         role: score.role,
         points: Math.round(score.points * 10) / 10,
+        photoUrl: score.photoUrl,
         region: eventRegion(score.event ?? ""),
       })),
     movers: scores.map((score) => ({
@@ -109,6 +110,7 @@ export function projectRoundHighlights(scores: readonly LiveRoundScore[]): {
       nickname: score.nickname,
       team: score.team,
       role: score.role,
+      photoUrl: score.photoUrl,
       priceDeltaCents: priceDeltaCents({
         priceCents: score.priceCents,
         points: score.points,

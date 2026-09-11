@@ -146,6 +146,7 @@ export function RoundHighlights({ highlights }: RoundHighlightsProps) {
                   nickname: topScorer.nickname,
                   role: topScorer.role,
                   score: topScorer.points,
+                  photoUrl: topScorer.photoUrl,
                 }
               : null
           }

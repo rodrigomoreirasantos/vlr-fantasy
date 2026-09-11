@@ -10,9 +10,15 @@ import {
 import { PlayerMatchResults } from "@/components/home/player-match-results";
 import { RoundRecap } from "@/components/home/round-recap";
 import { Panel } from "@/components/layout/panel";
+import { PlayerPhoto } from "@/components/player/player-photo";
 import { Separator } from "@/components/ui/separator";
 import type { RoundRecap as RoundRecapData } from "@/lib/home/types";
-import { FORM_METRICS, metricLabel, type FormMetric } from "@/lib/player/form";
+import {
+  FORM_METRICS,
+  metricLabel,
+  type FormMetric,
+  type RosterChartPlayer,
+} from "@/lib/player/form";
 import type { PlayerMatchPerformance } from "@/lib/player/types";
 import { ROSTER_SIZE } from "@/lib/team/types";
 
@@ -21,7 +27,7 @@ export type TeamPerformanceProps = {
   hasFinishedRound: boolean;
   performances: PlayerMatchPerformance[];
   /** Os seus 5, na ordem da escalação — define a cor de cada linha. */
-  roster: readonly { playerId: string; nickname: string }[];
+  roster: readonly RosterChartPlayer[];
 };
 
 /**
@@ -91,6 +97,14 @@ export function TeamPerformance({
                   <FilterChip
                     key={slot.playerId}
                     label={slot.nickname}
+                    leading={
+                      <PlayerPhoto
+                        photoUrl={slot.photoUrl}
+                        nickname={slot.nickname}
+                        size={20}
+                        shape="circle"
+                      />
+                    }
                     accent={seriesColor(roster, slot.playerId)}
                     active={selectedPlayerId === slot.playerId}
                     onSelect={() => setSelectedPlayerId(slot.playerId)}

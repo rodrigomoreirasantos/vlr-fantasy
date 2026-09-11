@@ -5,8 +5,8 @@ import { PlayerFormChart } from "@/components/home/player-form-chart";
 import type { PlayerMatchPerformance } from "@/lib/player/types";
 
 const ROSTER = [
-  { playerId: "aspas", nickname: "aspas" },
-  { playerId: "tenz", nickname: "TenZ" },
+  { playerId: "aspas", nickname: "aspas", photoUrl: null },
+  { playerId: "tenz", nickname: "TenZ", photoUrl: null },
 ];
 
 function performance(
@@ -32,6 +32,7 @@ function performance(
     rating: 1.23,
     mapsWon: 2,
     mapsPlayed: 3,
+    photoUrl: null,
     ...overrides,
   };
 }

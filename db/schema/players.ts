@@ -51,6 +51,14 @@ export const player = pgTable(
     realName: text("real_name"),
     /** Código de duas letras da bandeira do vlr, ex. "br". */
     country: text("country"),
+    /**
+     * URL absoluta da foto do jogador, vinda do elenco (`/team/{vlrId}` —
+     * `applyRoster`, `lib/vlr/persist/rosters.ts`). `null` para quem nunca
+     * apareceu num elenco raspado, ou cujo retrato no vlr é a silhueta
+     * genérica (`vlrImageUrl`, `lib/vlr/scrapers/parse.ts`) — nunca aponta
+     * para o sentinela "sem foto".
+     */
+    photoUrl: text("photo_url"),
     /** Organização do jogador na vida real, ex. "FNATIC". */
     team: text("team").notNull(),
     agent: text("agent").notNull(),

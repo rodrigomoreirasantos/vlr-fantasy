@@ -217,6 +217,7 @@ export async function getTopRoundScorers(
       team: player.team,
       role: player.role,
       points: roundPlayerScore.points,
+      photoUrl: player.photoUrl,
     })
     .from(roundPlayerScore)
     .innerJoin(player, eq(player.id, roundPlayerScore.playerId))
@@ -243,6 +244,7 @@ export async function getRoundPriceMovers(
       team: player.team,
       role: player.role,
       priceDeltaCents: roundPlayerScore.priceDeltaCents,
+      photoUrl: player.photoUrl,
     })
     .from(roundPlayerScore)
     .innerJoin(player, eq(player.id, roundPlayerScore.playerId))
@@ -283,6 +285,7 @@ export async function listLiveRoundScores(
       // por rodada, então o `min` é exato na prática — e determinístico se um
       // dia deixar de ser.
       event: sql<string>`min(${match.event})`,
+      photoUrl: player.photoUrl,
     })
     .from(playerMatchStat)
     .innerJoin(match, eq(match.id, playerMatchStat.matchId))

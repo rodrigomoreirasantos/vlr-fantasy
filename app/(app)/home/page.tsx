@@ -39,7 +39,13 @@ export default async function HomePage() {
 
   const roster = (overview?.roster ?? []).flatMap((slot) =>
     slot.player
-      ? [{ playerId: slot.player.id, nickname: slot.player.nickname }]
+      ? [
+          {
+            playerId: slot.player.id,
+            nickname: slot.player.nickname,
+            photoUrl: slot.player.photoUrl,
+          },
+        ]
       : [],
   );
 

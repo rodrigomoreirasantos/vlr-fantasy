@@ -18,6 +18,7 @@ function makePlayer(overrides: Partial<Player> = {}): Player {
     availability: "available",
     availabilityNote: null,
     region: "emea",
+    photoUrl: null,
     ...overrides,
   };
 }
@@ -125,6 +126,21 @@ describe("MarketSummaryBar", () => {
     // 10.000 + 4.000 centavos = 140.0 créditos.
     expect(screen.getByText("140.0")).toBeInTheDocument();
     expect(screen.getByText(/com Derke/)).toBeInTheDocument();
+  });
+
+  it("substituição: mostra a foto de quem sai, quando ele tem uma (plano 18)", () => {
+    const { container } = render(
+      <MarketSummaryBar
+        region="americas"
+        balanceCents={10_000}
+        outgoing={makePlayer({ photoUrl: "https://owcdn.net/img/x.png" })}
+        marketOpen
+        closesIn="7h 0m"
+        closesAt={CLOSES_AT}
+      />,
+    );
+
+    expect(container.querySelectorAll("img")).toHaveLength(1);
   });
 
   it("vaga vazia: só duas células — a segunda continua sendo a região", () => {

@@ -113,6 +113,14 @@ export const scrapedRosterPlayerSchema = z.object({
   nickname: z.string().min(1),
   realName: z.string().nullable(),
   country: z.string().nullable(),
+  /**
+   * Já normalizada por `vlrImageUrl` — `z.string()`, não `z.url()`: o
+   * `parseScraped` lança em qualquer falha de validação, e `scrapeRoster`
+   * grava o elenco inteiro numa única transação. Um `src` esquisito de um
+   * jogador não pode derrubar a organização inteira por causa de uma
+   * validação de formato de URL.
+   */
+  photoUrl: z.string().nullable(),
 });
 
 export const scrapedTeamRosterSchema = z.object({

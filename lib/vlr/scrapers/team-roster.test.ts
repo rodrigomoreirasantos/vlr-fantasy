@@ -38,6 +38,16 @@ describe("parseTeamRoster", () => {
     expect(kram.realName).toBeNull();
   });
 
+  it("lê a foto do jogador, já normalizada para https", () => {
+    const captain = roster.players.find((row) => row.vlrId === "22381")!;
+    expect(captain.photoUrl).toBe("https://owcdn.net/img/668b9efe31f02.png");
+  });
+
+  it("a silhueta padrão do vlr (sem foto de verdade) vira null", () => {
+    const yuno = roster.players.find((row) => row.vlrId === "49871")!;
+    expect(yuno.photoUrl).toBeNull();
+  });
+
   it("uma página sem elenco lança SelectorMissError", () => {
     expect(() =>
       parseTeamRoster("<html><body></body></html>", "17037"),

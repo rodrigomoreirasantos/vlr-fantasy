@@ -123,6 +123,7 @@ function liveScore(overrides: Partial<LiveRoundScore> = {}): LiveRoundScore {
     priceCents: 100_000,
     gamesPlayed: 10,
     event: "VCT 2026: Americas Stage 2",
+    photoUrl: null,
     ...overrides,
   };
 }
@@ -194,6 +195,7 @@ describe("highlightsFor", () => {
         role: "Duelista",
         points: 50,
         region: "americas",
+        photoUrl: null,
       },
       {
         playerId: "b",
@@ -202,6 +204,7 @@ describe("highlightsFor", () => {
         role: "Duelista",
         points: 80,
         region: "emea",
+        photoUrl: null,
       },
     ],
     movers: [
@@ -212,6 +215,7 @@ describe("highlightsFor", () => {
         role: "Duelista",
         priceDeltaCents: 500,
         region: "americas",
+        photoUrl: null,
       },
       {
         playerId: "b",
@@ -220,6 +224,7 @@ describe("highlightsFor", () => {
         role: "Duelista",
         priceDeltaCents: -800,
         region: "emea",
+        photoUrl: null,
       },
       {
         playerId: "c",
@@ -228,6 +233,7 @@ describe("highlightsFor", () => {
         role: "Duelista",
         priceDeltaCents: 900,
         region: "americas",
+        photoUrl: null,
       },
     ],
   });
@@ -264,6 +270,7 @@ describe("highlightsFor", () => {
           role: "Duelista",
           priceDeltaCents: 0,
           region: "americas",
+          photoUrl: null,
         },
       ],
     });

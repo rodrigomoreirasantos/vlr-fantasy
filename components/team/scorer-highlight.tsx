@@ -1,5 +1,6 @@
 import { ThumbsDown, ThumbsUp } from "lucide-react";
 
+import { PlayerPhoto } from "@/components/player/player-photo";
 import { formatScore } from "@/lib/team/score";
 import type { Player } from "@/lib/team/types";
 import { cn } from "@/lib/utils";
@@ -12,7 +13,7 @@ export type ScorerHighlightProps = {
    * componente para o maior pontuador do jogo inteiro, que vem de
    * `round_player_score` (sem preço, sem disponibilidade).
    */
-  player: Pick<Player, "nickname" | "role" | "score"> | null;
+  player: Pick<Player, "nickname" | "role" | "score" | "photoUrl"> | null;
   /** `true` para o maior pontuador, `false` para o menor. */
   positive: boolean;
 };
@@ -33,7 +34,11 @@ export function ScorerHighlight({
 
       {player ? (
         <div className="flex items-center gap-3">
-          <div className="clip-corner size-13 flex-none [--clip:6px] [background-image:repeating-linear-gradient(135deg,var(--accent)_0_4px,var(--muted)_4px_8px)]" />
+          <PlayerPhoto
+            photoUrl={player.photoUrl}
+            nickname={player.nickname}
+            size={52}
+          />
           <div className="min-w-0 flex-1">
             <p className="text-[15px] font-bold uppercase">{player.nickname}</p>
             <p className="mt-px text-[11px] font-semibold text-muted-foreground">

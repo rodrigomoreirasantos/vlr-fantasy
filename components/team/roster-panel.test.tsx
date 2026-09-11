@@ -86,6 +86,7 @@ function makePlayer(overrides: Partial<Player> = {}): Player {
     availability: "available",
     availabilityNote: null,
     region: "americas",
+    photoUrl: null,
     ...overrides,
   };
 }

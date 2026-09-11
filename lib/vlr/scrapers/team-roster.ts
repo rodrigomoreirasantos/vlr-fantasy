@@ -12,6 +12,7 @@ import {
   requireText,
   text,
   vlrIdFromHref,
+  vlrImageUrl,
 } from "@/lib/vlr/scrapers/parse";
 
 /**
@@ -58,6 +59,9 @@ export function parseTeamRoster(
       country: regionFromFlagClass(
         item.find(TEAM_ROSTER.flag).first().attr("class"),
       ),
+      // Nunca `requireWithin`: a ausência do bloco de foto não pode derrubar
+      // o elenco inteiro — vira `null`, o mesmo que "sem foto".
+      photoUrl: vlrImageUrl(item.find(TEAM_ROSTER.img).first().attr("src")),
     });
   });
 

@@ -34,6 +34,7 @@ function performance(
     rating: 1.234,
     mapsWon: 2,
     mapsPlayed: 3,
+    photoUrl: null,
     ...overrides,
   };
 }
@@ -189,8 +190,8 @@ describe("buildFormSeries", () => {
 
     // `localeCompare("pt-BR")` ignora caixa: "aspas" vem antes de "TenZ".
     expect(series).toEqual([
-      { playerId: "p1", nickname: "aspas" },
-      { playerId: "p2", nickname: "TenZ" },
+      { playerId: "p1", nickname: "aspas", photoUrl: null },
+      { playerId: "p2", nickname: "TenZ", photoUrl: null },
     ]);
   });
 

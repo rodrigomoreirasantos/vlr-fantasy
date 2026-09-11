@@ -2,6 +2,7 @@
 
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 
+import { PlayerPhoto } from "@/components/player/player-photo";
 import {
   ChartContainer,
   ChartTooltip,
@@ -11,6 +12,8 @@ import {
   buildFormSeries,
   metricLabel,
   type FormMetric,
+  type FormSeries,
+  type RosterChartPlayer,
 } from "@/lib/player/form";
 import type { PlayerMatchPerformance } from "@/lib/player/types";
 import { formatMatchKickoff } from "@/lib/round/format";
@@ -51,7 +54,7 @@ export function seriesColor(
 export type PlayerFormChartProps = {
   performances: readonly PlayerMatchPerformance[];
   /** Os seus 5, na ordem da escalação — define a cor de cada linha. */
-  roster: readonly { playerId: string; nickname: string }[];
+  roster: readonly RosterChartPlayer[];
   metric: FormMetric;
   /** `null` = todos. Filtrar esconde a linha; nunca refaz a consulta. */
   selectedPlayerId: string | null;
@@ -132,7 +135,9 @@ export function PlayerFormChart({
           />
           <ChartTooltip
             cursor={{ stroke: "var(--border)" }}
-            content={<FormTooltip points={points} metric={metric} />}
+            content={
+              <FormTooltip points={points} metric={metric} series={series} />
+            }
           />
           {visible.map((row) => (
             <Line
@@ -192,6 +197,8 @@ function FormTick({ x = 0, y = 0, payload }: FormTickProps) {
 
 type FormTooltipProps = {
   points: ReturnType<typeof buildFormSeries>["points"];
+  /** De onde sai o retrato de cada jogador — a mesma lista que colore as linhas. */
+  series: readonly FormSeries[];
   metric: FormMetric;
   active?: boolean;
   label?: string;
@@ -208,6 +215,7 @@ type FormTooltipProps = {
  */
 function FormTooltip({
   points,
+  series,
   metric,
   active,
   label,
@@ -226,13 +234,20 @@ function FormTooltip({
         {payload.map((item) => {
           const playerId = String(item.dataKey);
           const played = point?.matches[playerId];
+          const player = series.find((row) => row.playerId === playerId);
 
           return (
-            <li key={playerId} className="flex items-baseline gap-2 text-xs">
+            <li key={playerId} className="flex items-center gap-2 text-xs">
               <span
                 aria-hidden
                 className="size-1.5 shrink-0 rounded-full"
                 style={{ backgroundColor: item.color }}
+              />
+              <PlayerPhoto
+                photoUrl={player?.photoUrl ?? null}
+                nickname={player?.nickname ?? playerId}
+                size={20}
+                shape="circle"
               />
               <span className="flex flex-1 flex-col">
                 <span className="text-muted-foreground">

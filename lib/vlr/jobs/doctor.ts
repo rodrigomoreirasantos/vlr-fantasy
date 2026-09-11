@@ -39,8 +39,16 @@ export async function runDoctor(): Promise<{
   dismissedMatches: number;
   /** Jogadores fora do elenco da organização (Decisão 4, plano 17). */
   rosterMissing: number;
+  /**
+   * Quantos jogadores do elenco de teste trouxeram foto (plano 18). Um
+   * `photoUrl` universalmente `null` passaria pelo check de `team-roster`
+   * como saudável (o total de jogadores continua > 0) — este é o único
+   * alarme que existiria se o seletor da foto morresse sozinho.
+   */
+  playersWithPhoto: number;
 }> {
   const checks: DoctorCheck[] = [];
+  let playersWithPhoto = 0;
 
   checks.push(
     await check(
@@ -84,11 +92,11 @@ export async function runDoctor(): Promise<{
   }
 
   checks.push(
-    await check(
-      "team-roster",
-      "/team/17037/glacial-guardians",
-      (html) => parseTeamRoster(html, "17037").players.length,
-    ),
+    await check("team-roster", "/team/17037/glacial-guardians", (html) => {
+      const players = parseTeamRoster(html, "17037").players;
+      playersWithPhoto = players.filter((row) => row.photoUrl !== null).length;
+      return players.length;
+    }),
   );
 
   const selectorsHealthy = checks.every((row) => row.status === "ok");
@@ -115,6 +123,7 @@ export async function runDoctor(): Promise<{
     staleJobs,
     dismissedMatches,
     rosterMissing,
+    playersWithPhoto,
   });
   return {
     checks,
@@ -125,6 +134,7 @@ export async function runDoctor(): Promise<{
     staleJobs,
     dismissedMatches,
     rosterMissing,
+    playersWithPhoto,
   };
 }
 

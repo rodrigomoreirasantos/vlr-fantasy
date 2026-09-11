@@ -5,6 +5,7 @@ import { Search, TriangleAlert } from "lucide-react";
 
 import { MarketPlayerRow } from "@/components/market/market-player-row";
 import { MarketSummaryBar } from "@/components/market/market-summary-bar";
+import { PlayerPhoto } from "@/components/player/player-photo";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -235,14 +236,21 @@ export function MarketSheet({
 
               {outgoing && saleVerdict && (
                 <div className="clip-corner flex flex-col gap-2 bg-secondary p-3 ring-1 ring-border [--clip:10px]">
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-                      Vender {outgoing.nickname}
-                    </p>
-                    <p className="mt-1 truncate text-lg font-extrabold text-primary tabular-nums">
-                      Você recebe{" "}
-                      {formatCreditsDelta(saleVerdict.proceedsCents)}
-                    </p>
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <PlayerPhoto
+                      photoUrl={outgoing.photoUrl}
+                      nickname={outgoing.nickname}
+                      size={28}
+                    />
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                        Vender {outgoing.nickname}
+                      </p>
+                      <p className="mt-1 truncate text-lg font-extrabold text-primary tabular-nums">
+                        Você recebe{" "}
+                        {formatCreditsDelta(saleVerdict.proceedsCents)}
+                      </p>
+                    </div>
                   </div>
                   <Button
                     type="button"

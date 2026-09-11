@@ -87,6 +87,7 @@ export async function applyRoster(
         team: roster.name,
         realName: item.realName ?? existing.realName,
         country: item.country ?? existing.country,
+        photoUrl: item.photoUrl ?? existing.photoUrl,
         rosterMissingSince: null,
       })
       .where(eq(player.id, existing.id));

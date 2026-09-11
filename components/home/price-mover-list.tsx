@@ -1,3 +1,4 @@
+import { PlayerPhoto } from "@/components/player/player-photo";
 import { PlayerIdentity } from "@/components/team/player-row";
 import { formatCreditsDelta } from "@/lib/market/money";
 import type { PriceMover } from "@/lib/round/types";
@@ -26,6 +27,11 @@ export function PriceMoverList({ title, movers, tone }: PriceMoverListProps) {
         <ul className="flex flex-col gap-2">
           {movers.map((mover) => (
             <li key={mover.playerId} className="flex items-center gap-2.5">
+              <PlayerPhoto
+                photoUrl={mover.photoUrl}
+                nickname={mover.nickname}
+                size={28}
+              />
               <PlayerIdentity
                 player={{
                   nickname: mover.nickname,

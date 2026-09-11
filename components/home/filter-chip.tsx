@@ -14,6 +14,8 @@ export type FilterChipProps = {
   disabled?: boolean;
   /** Marca o chip com a cor da sua série/região (`regionColor`, `--chart-N`). */
   accent?: string;
+  /** Conteúdo antes do `label` — o filtro por jogador usa para o retrato. */
+  leading?: React.ReactNode;
   onSelect: () => void;
 };
 
@@ -32,6 +34,7 @@ export function FilterChip({
   active,
   disabled = false,
   accent,
+  leading,
   onSelect,
 }: FilterChipProps) {
   return (
@@ -43,6 +46,7 @@ export function FilterChip({
       onClick={onSelect}
       className={chipClasses({ active, disabled })}
     >
+      {leading}
       {accent && (
         // O ponto colorido amarra o chip à linha do gráfico (ou à etiqueta da
         // região no card) sem depender de o usuário distinguir cores no texto.

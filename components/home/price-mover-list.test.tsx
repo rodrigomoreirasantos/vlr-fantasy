@@ -11,6 +11,7 @@ function mover(overrides: Partial<PriceMover> = {}): PriceMover {
     team: "SENTINELS",
     role: "Duelista",
     priceDeltaCents: 750,
+    photoUrl: null,
     ...overrides,
   };
 }
@@ -41,6 +42,18 @@ describe("PriceMoverList", () => {
 
     expect(screen.getByText("TenZ")).toBeInTheDocument();
     expect(screen.getByText("+7.5")).toBeInTheDocument();
+  });
+
+  it("mostra a foto do jogador quando ele tem uma (plano 18)", () => {
+    const { container } = render(
+      <PriceMoverList
+        title="Maiores Valorizações"
+        movers={[mover({ photoUrl: "https://owcdn.net/img/x.png" })]}
+        tone="positive"
+      />,
+    );
+
+    expect(container.querySelectorAll("img")).toHaveLength(1);
   });
 
   it("sinal '−' nas quedas", () => {

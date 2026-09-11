@@ -26,6 +26,7 @@ function slot(nickname: string, score: number): RosterSlot {
       availability: "available",
       availabilityNote: null,
       region: "emea",
+      photoUrl: null,
     },
   };
 }

@@ -21,6 +21,7 @@ function makePlayer(overrides: Partial<Player> = {}): Player {
     availability: "available",
     availabilityNote: null,
     region: "americas",
+    photoUrl: null,
     ...overrides,
   };
 }
@@ -703,6 +704,42 @@ describe("MarketSheet — vender sem substituir", () => {
 
     await user.click(screen.getByRole("button", { name: /vender derke/i }));
     expect(onSell).toHaveBeenCalledWith(outgoing);
+  });
+
+  it("mostra a foto de quem sai no cartão de venda, quando ele tem uma (plano 18)", () => {
+    const withPhoto: MarketSelection = {
+      position: 1,
+      outgoing: makePlayer({
+        id: "derke",
+        nickname: "Derke",
+        priceCents: 4000,
+        photoUrl: "https://owcdn.net/img/x.png",
+      }),
+    };
+
+    render(
+      <MarketSheet
+        region="americas"
+        open
+        onOpenChange={vi.fn()}
+        selection={withPhoto}
+        market={emptyMarket()}
+        balanceCents={10_000}
+        marketOpen
+        lockedTeams={[]}
+        scope={AMERICAS_SCOPE}
+        closesIn="36h 12m"
+        closesAt={CLOSES_AT}
+        rosteredPlayerIds={["derke"]}
+        onConfirm={vi.fn()}
+        onSell={vi.fn()}
+      />,
+    );
+
+    // O Sheet renderiza num portal fora do container local — busca-se em
+    // `document`. Duas fotos: a barra de resumo ("Pode gastar... com
+    // Derke") e o cartão de venda ("Vender Derke"), cada um no seu lugar.
+    expect(document.querySelectorAll("img")).toHaveLength(2);
   });
 
   it("mercado fechado: o botão de vender fica desabilitado", () => {

@@ -67,6 +67,13 @@ export type Player = {
    * (`.claude/plans/10-time-por-regiao.md`). Nunca `"international"`.
    */
   region: PlayerRegion;
+  /**
+   * URL absoluta da foto do jogador, vinda do elenco raspado
+   * (`vlrImageUrl`, `lib/vlr/scrapers/parse.ts`). `null` para quem nunca foi
+   * visto num elenco do vlr, ou cujo retrato lá é a silhueta genérica —
+   * cai no placeholder hachurado (`components/player/player-photo.tsx`).
+   */
+  photoUrl: string | null;
 };
 
 /**

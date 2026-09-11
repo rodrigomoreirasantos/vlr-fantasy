@@ -43,6 +43,7 @@ export async function listRosterPerformances(
       playerId: player.id,
       nickname: player.nickname,
       team: player.team,
+      photoUrl: player.photoUrl,
       matchId: match.id,
       event: match.event,
       scheduledAt: match.scheduledAt,

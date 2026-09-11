@@ -1,3 +1,4 @@
+import { PlayerPhoto } from "@/components/player/player-photo";
 import { Badge } from "@/components/ui/badge";
 import {
   groupPerformancesByMatch,
@@ -130,7 +131,13 @@ function SideName({ name, winner }: { name: string; winner: boolean }) {
 
 function PlayerLine({ player }: { player: RosterMatchPlayer }) {
   return (
-    <li className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-xs">
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
+      <PlayerPhoto
+        photoUrl={player.photoUrl}
+        nickname={player.nickname}
+        size={20}
+        shape="circle"
+      />
       <span className="font-bold">{player.nickname}</span>
       <span className="text-muted-foreground">{player.team}</span>
 

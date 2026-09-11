@@ -31,6 +31,7 @@ export function toDomainPlayer(row: PlayerRow): Player {
     availability: row.availability,
     availabilityNote: row.availabilityNote,
     region: toPlayerRegion(row.region),
+    photoUrl: row.photoUrl,
   };
 }
 

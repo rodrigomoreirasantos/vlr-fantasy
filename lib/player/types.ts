@@ -38,6 +38,7 @@ export type PlayerMatchPerformance = {
   rating: number | null;
   mapsWon: number;
   mapsPlayed: number;
+  photoUrl: string | null;
 };
 
 /** Um dos seus jogadores dentro de uma partida — a linha dele no placar. */
@@ -45,6 +46,7 @@ export type RosterMatchPlayer = {
   playerId: string;
   nickname: string;
   team: string;
+  photoUrl: string | null;
   /**
    * De que lado do placar ele estava. Decide qual número é "o dele".
    * `null` quando `player.team` não casa com nenhum dos dois lados — um

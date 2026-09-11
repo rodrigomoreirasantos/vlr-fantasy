@@ -3,14 +3,17 @@
 import "dotenv/config";
 
 import { syncRosters } from "@/lib/vlr/jobs/sync-rosters";
-import { isMain, runScript } from "@/scripts/vlr/run";
+import { boolArg, isMain, runScript } from "@/scripts/vlr/run";
 
 if (isMain(import.meta.url)) {
   void runScript("vlr:rosters", async () => {
-    const { enqueued } = await syncRosters();
+    // `--all`: backfill único (Decisão 4, plano 18) — todo `vlr_team`
+    // conhecido, não só quem tem partida na janela de relevância.
+    const all = boolArg("all");
+    const { enqueued } = await syncRosters(new Date(), { all });
     return {
       ok: true,
-      summary: `✓ ${enqueued} elenco(s) enfileirado(s) para atualização.`,
+      summary: `✓ ${enqueued} elenco(s) enfileirado(s) para atualização${all ? " (--all)" : ""}.`,
     };
   });
 }

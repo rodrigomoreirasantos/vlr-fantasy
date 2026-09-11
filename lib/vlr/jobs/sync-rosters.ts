@@ -52,19 +52,33 @@ export async function findRosterTeams(
   return teams.map((row) => row.vlrId);
 }
 
+/** Todo time já conhecido — o universo inteiro, sem filtro de janela. */
+async function findAllTeams(tx: Querier): Promise<string[]> {
+  const teams = await tx.select({ vlrId: vlrTeam.vlrId }).from(vlrTeam);
+  return teams.map((row) => row.vlrId);
+}
+
 /**
  * `vlr:rosters` — diário, de manhã. Enfileira o elenco de todo time relevante
  * (~40 a 60 organizações, ~1 minuto de fila ao ritmo de 1,1s). Uma consulta
  * de banco por passada; quem vai à rede é `scrapeRoster`, via `vlr:work`.
+ *
+ * `all: true` é o backfill único (Decisão 4, plano 18): ignora a janela de
+ * relevância e enfileira **todo** `vlr_team` já conhecido — o jeito de
+ * preencher a foto de quem está fora da janela ±45/+30 dias logo no dia 1,
+ * sem esperar a organização voltar a jogar.
  */
 export async function syncRosters(
   now: Date = new Date(),
+  options: { all?: boolean } = {},
 ): Promise<{ enqueued: number }> {
   const enqueued = await db.transaction(async (tx) => {
-    const teamVlrIds = await findRosterTeams(tx, now);
+    const teamVlrIds = options.all
+      ? await findAllTeams(tx)
+      : await findRosterTeams(tx, now);
     return enqueue(tx, VLR_JOBS.scrapeRoster, teamVlrIds);
   });
 
-  logInfo("vlr.rosters.enqueued", { enqueued });
+  logInfo("vlr.rosters.enqueued", { enqueued, all: options.all ?? false });
   return { enqueued };
 }

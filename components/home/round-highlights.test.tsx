@@ -19,6 +19,7 @@ function highlights(
         role: "Controlador",
         points: 24.6,
         region: "emea",
+        photoUrl: null,
       },
       {
         playerId: "aspas",
@@ -27,6 +28,7 @@ function highlights(
         role: "Duelista",
         points: 19.2,
         region: "americas",
+        photoUrl: null,
       },
     ],
     movers: [
@@ -37,6 +39,7 @@ function highlights(
         role: "Duelista",
         priceDeltaCents: 750,
         region: "americas",
+        photoUrl: null,
       },
       {
         playerId: "sacy",
@@ -45,6 +48,7 @@ function highlights(
         role: "Iniciador",
         priceDeltaCents: -300,
         region: "americas",
+        photoUrl: null,
       },
       {
         playerId: "derke",
@@ -53,6 +57,7 @@ function highlights(
         role: "Duelista",
         priceDeltaCents: 400,
         region: "emea",
+        photoUrl: null,
       },
     ],
     ...overrides,
@@ -153,6 +158,7 @@ describe("RoundHighlights", () => {
               role: "Controlador",
               points: 24.6,
               region: "emea",
+              photoUrl: null,
             },
           ],
         })}

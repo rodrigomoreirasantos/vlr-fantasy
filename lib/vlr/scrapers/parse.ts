@@ -1,5 +1,7 @@
 import type { Cheerio, CheerioAPI } from "cheerio";
 
+import { logWarn } from "@/lib/vlr/http/log";
+
 /**
  * O `AnyNode` do `domhandler`, alcançado pelos tipos que o próprio cheerio
  * expõe. O cheerio 1.x não reexporta esse tipo, e adicionar `domhandler` ao
@@ -99,6 +101,36 @@ export function requireText<T extends VlrNode>(
   const value = text(requireWithin(scope, selector, context).first());
   if (value.length === 0) throw new SelectorMissError(selector, context);
   return value;
+}
+
+/** A silhueta padrão do vlr para quem não tem foto — "sem foto", não uma foto. */
+const VLR_PLACEHOLDER_IMG = "/img/base/ph/";
+
+/**
+ * `src` de uma `<img>` do vlr → URL absoluta pronta para `next/image`, ou
+ * `null` quando não há foto de verdade.
+ *
+ * - Protocol-relative (`"//owcdn.net/..."`) ganha o esquema: é como o vlr
+ *   sempre serve foto de jogador.
+ * - O sentinela `/img/base/ph/*` é a silhueta genérica que o vlr devolve para
+ *   quem não tem retrato — vira `null`, nunca uma "foto" repetida para vários
+ *   jogadores.
+ * - Qualquer outro caminho raiz-relativo (`/img/vlr/...`) não é uma foto de
+ *   jogador conhecida hoje; vira `null` com aviso, para o dia em que o vlr
+ *   trocar de CDN aparecer no log em vez de simplesmente sumir a foto.
+ */
+export function vlrImageUrl(src: string | undefined | null): string | null {
+  const trimmed = src?.trim();
+  if (!trimmed) return null;
+
+  if (trimmed.startsWith(VLR_PLACEHOLDER_IMG)) return null;
+
+  if (trimmed.startsWith("//")) return `https:${trimmed}`;
+  if (trimmed.startsWith("http://")) return `https://${trimmed.slice(7)}`;
+  if (trimmed.startsWith("https://")) return trimmed;
+
+  logWarn("vlr.roster.unknown_image_host", { src: trimmed });
+  return null;
 }
 
 /**

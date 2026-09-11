@@ -129,6 +129,19 @@ export type FormPoint = {
 export type FormSeries = {
   playerId: string;
   nickname: string;
+  photoUrl: string | null;
+};
+
+/**
+ * O jogador como o gráfico/chips da Home precisam identificá-lo — nada de
+ * pontuação nem preço. Nomeado para matar a duplicação tripla de um tipo
+ * anônimo `{ playerId, nickname }` que existia em três arquivos
+ * (`app/(app)/home/page.tsx`, `team-performance.tsx`, `player-form-chart.tsx`).
+ */
+export type RosterChartPlayer = {
+  playerId: string;
+  nickname: string;
+  photoUrl: string | null;
 };
 
 /**
@@ -155,6 +168,7 @@ export function buildFormSeries(
     .map(([playerId, matches]) => ({
       playerId,
       nickname: matches[matches.length - 1]!.nickname,
+      photoUrl: matches[matches.length - 1]!.photoUrl,
     }))
     .sort((a, b) => a.nickname.localeCompare(b.nickname, "pt-BR"));
 
@@ -237,6 +251,7 @@ export function groupPerformancesByMatch(
       playerId: row.playerId,
       nickname: row.nickname,
       team: row.team,
+      photoUrl: row.photoUrl,
       side: sideOf(row),
       points: row.points,
       kills: row.kills,

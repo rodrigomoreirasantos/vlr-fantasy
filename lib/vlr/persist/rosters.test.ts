@@ -52,7 +52,15 @@ const ROSTER: ScrapedTeamRoster = {
   name: "Glacial Guardians",
   tag: "GG",
   region: "kr",
-  players: [{ vlrId: "1", nickname: "yuno", realName: null, country: "kr" }],
+  players: [
+    {
+      vlrId: "1",
+      nickname: "yuno",
+      realName: null,
+      country: "kr",
+      photoUrl: "https://owcdn.net/img/x.png",
+    },
+  ],
 };
 
 beforeEach(() => {
@@ -70,6 +78,7 @@ describe("applyRoster", () => {
       nickname: "yuno",
       realName: null,
       country: null,
+      photoUrl: null,
     });
 
     const result = await applyRoster(tx as never, ROSTER);
@@ -85,10 +94,32 @@ describe("applyRoster", () => {
           team: "Glacial Guardians",
           realName: null,
           country: "kr",
+          photoUrl: "https://owcdn.net/img/x.png",
           rosterMissingSince: null,
         },
       },
     ]);
+  });
+
+  it("não apaga a foto existente quando o scrape vem sem foto", async () => {
+    const { tx, updateCalls } = createTxStub();
+    findFirstMock.mockResolvedValue({
+      id: "player-1",
+      nickname: "yuno",
+      realName: null,
+      country: null,
+      photoUrl: "https://owcdn.net/img/existing.png",
+    });
+    const rosterWithoutPhoto: ScrapedTeamRoster = {
+      ...ROSTER,
+      players: [{ ...ROSTER.players[0], photoUrl: null }],
+    };
+
+    await applyRoster(tx as never, rosterWithoutPhoto);
+
+    expect(updateCalls[0].values.photoUrl).toBe(
+      "https://owcdn.net/img/existing.png",
+    );
   });
 
   it("jogador de elenco sem registro em `player` é ignorado — nunca criado", async () => {
@@ -186,6 +217,7 @@ describe("applyRoster", () => {
         team: "Glacial Guardians",
         realName: null,
         country: "kr",
+        photoUrl: "https://owcdn.net/img/x.png",
         rosterMissingSince: null,
       },
     });

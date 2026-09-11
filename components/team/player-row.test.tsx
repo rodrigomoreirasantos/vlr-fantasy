@@ -17,6 +17,7 @@ const player: Player = {
   availability: "available",
   availabilityNote: null,
   region: "americas",
+  photoUrl: null,
 };
 
 describe("PlayerRow", () => {

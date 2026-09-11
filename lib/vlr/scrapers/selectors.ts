@@ -119,6 +119,7 @@ export const TEAM_ROSTER = {
   headerCountryFlag: ".team-header-country i.flag",
   item: ".team-roster-item",
   link: "a[href]",
+  img: ".team-roster-item-img img",
   alias: ".team-roster-item-name-alias",
   realName: ".team-roster-item-name-real",
   /** **Presente = staff** (coach, manager). É o filtro que impede treinador virar jogador. */
