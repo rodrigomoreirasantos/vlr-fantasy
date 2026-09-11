@@ -25,6 +25,14 @@ repo): `DATABASE_URL` e `VLR_CONTACT_EMAIL`. As demais (`VLR_BASE_URL`,
 `VLR_RATE_LIMIT_MS`, …) têm default e só precisam ser tocadas para mudar o
 comportamento padrão.
 
+`DATABASE_URL` é a connection string do **Session pooler** do Supabase, com
+`?sslmode=no-verify` no fim (ver comentário em `.env.example`) — o mesmo
+banco que a app usa, não mais o Postgres do `docker-compose.yml` da raiz. Se
+o container já estiver rodando com a `DATABASE_URL` antiga, um
+`docker compose up -d --force-recreate` depois de trocar o `.env` é
+necessário: o `entrypoint.sh` só lê o ambiente na subida, `restart` sozinho
+não pega variável nova.
+
 `docker compose logs -f vlr-cron` mostra a saída de toda execução — o
 `entrypoint.sh` encaminha o log do cron para o stdout do container. O HTML
 bruto fica no volume nomeado `vlr-raw-html`, que sobrevive a
