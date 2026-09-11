@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { LiveRefresh } from "@/components/layout/live-refresh";
 import { RegionDisplaySync } from "@/components/layout/region-display";
+import { BudgetBar } from "@/components/team/budget-bar";
 import { RegionTabs } from "@/components/team/region-tabs";
 import { RosterPanel } from "@/components/team/roster-panel";
 import { ScorerHighlight } from "@/components/team/scorer-highlight";
@@ -63,6 +64,12 @@ export default async function MyTeamPage(props: PageProps<"/my-team">) {
           fechamento, no ritmo de `myTeamRefreshMs` (rápido perto do
           fechamento, parado longe dele). */}
       <LiveRefresh intervalMs={myTeamRefreshMs(summary.market.closesAt)} />
+
+      <BudgetBar
+        balanceCents={summary.balanceCents}
+        squadValueCents={summary.squadValueCents}
+        budgetTrimmedCents={summary.budgetTrimmedCents}
+      />
 
       <RosterPanel
         region={region}

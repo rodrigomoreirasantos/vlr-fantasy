@@ -98,14 +98,19 @@ export const player = pgTable(
     needsReview: boolean("needs_review").notNull().default(false),
     /** Rodadas já pontuadas — alimenta o amortecimento de `dampingFactor`. */
     gamesPlayed: integer("games_played").notNull().default(0),
-    /** Média histórica de pontos, base do preço inicial do backfill. */
-    averageScore: numeric("average_score", {
+    /**
+     * Média de pontos das últimas 5 séries (`formPoints`,
+     * `lib/scoring/form.ts`) — o alvo que `targetPriceCents` persegue
+     * (Decisão 1, `.claude/plans/20-preco-dos-jogadores-e-orcamento.md`).
+     * **Nullable:** `null` é "sem série nenhuma", nunca `0` — os dois levam a
+     * preços diferentes. Grava só `refreshPlayerForm`
+     * (`lib/vlr/jobs/calculate-round.ts`).
+     */
+    formPoints: numeric("form_points", {
       precision: 6,
       scale: 1,
       mode: "number",
-    })
-      .notNull()
-      .default(0),
+    }),
     /** Disponibilidade para a próxima rodada — alimenta os alertas da Home. */
     availability: playerAvailability("availability")
       .notNull()
@@ -142,7 +147,16 @@ export const player = pgTable(
     ),
     // O mercado do time Internacional filtra por organização, não por região.
     index("player_team_idx").on(table.team),
-    check("player_price_cents_positive", sql`${table.priceCents} > 0`),
+    // Faixa de preço (Decisão 2, plano 20) — trocou
+    // `player_price_cents_positive` depois que a Fase 3 (`pnpm db:reprice`)
+    // repreçou todo o catálogo para dentro dela. ⚠️ Um `CHECK` não aceita
+    // parâmetro de query — os literais têm de bater exatamente com
+    // `MIN_PRICE_CENTS`/`MAX_PRICE_CENTS` (`lib/scoring/pricing.ts`); mudar um
+    // lado sem o outro é o próprio bug que este `CHECK` existe para evitar.
+    check(
+      "player_price_cents_range",
+      sql`${table.priceCents} BETWEEN 2000 AND 9000`,
+    ),
     check(
       "player_region_not_international",
       sql`${table.region} <> 'international'`,

@@ -52,6 +52,12 @@ export type Player = {
   /** Preço no catálogo, em centavos de crédito. */
   priceCents: number;
   /**
+   * Forma atual — média das últimas 5 séries (`lib/scoring/form.ts`), o alvo
+   * que `targetPriceCents` persegue (Decisão 1, plano 20). `null` sem
+   * histórico nenhum, nunca `0`.
+   */
+  formPoints: number | null;
+  /**
    * Disponível para escalar/contratar nesta rodada. Candidatos inativos não
    * aparecem no mercado, mas o campo viaja com o jogador para que
    * `evaluateSubstitution` (lib/market/eligibility.ts) tenha como bloquear a
@@ -103,6 +109,14 @@ export type TeamSummary = {
   points: number;
   /** Saldo em moeda virtual disponível para o mercado, em centavos de crédito. */
   balanceCents: number;
+  /** Soma dos preços das 5 vagas — junto com `balanceCents`, forma o patrimônio (Decisão 3, plano 20). */
+  squadValueCents: number;
+  /**
+   * Quanto o teto de patrimônio (`MAX_PATRIMONY_CENTS`, `lib/market/budget.ts`)
+   * cortou do caixa na última rodada fechada — `0` quando não cortou, ou
+   * quando ainda não houve nenhuma rodada fechada.
+   */
+  budgetTrimmedCents: number;
   /** A região deste time — Americas, EMEA, Pacific, China ou Internacional. */
   region: TeamRegion;
   market: {

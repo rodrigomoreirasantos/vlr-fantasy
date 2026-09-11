@@ -13,6 +13,7 @@ const player: Player = {
   role: "Duelista",
   score: 18.2,
   priceCents: 5000,
+  formPoints: null,
   active: true,
   availability: "available",
   availabilityNote: null,

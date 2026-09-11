@@ -1,4 +1,5 @@
 import { db } from "@/db";
+import { refreshPlayerForm } from "@/lib/vlr/jobs/calculate-round";
 import { errorMessage, logError, logInfo } from "@/lib/vlr/http/log";
 import { claim, complete, fail } from "@/lib/vlr/jobs/queue";
 import { revalidateMatch, scrapeMatch } from "@/lib/vlr/jobs/scrape-match";
@@ -61,6 +62,12 @@ export async function workQueue(
         error: message,
       });
     }
+  }
+
+  // Uma vez por lote, nunca por partida (fato 12, plano 20): a função varre
+  // o catálogo inteiro, e só vale a pena rodar se algo mudou de fato.
+  if (done > 0) {
+    await db.transaction((tx) => refreshPlayerForm(tx));
   }
 
   logInfo("vlr.work.finished", { done, failed });

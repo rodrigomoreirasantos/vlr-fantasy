@@ -6,24 +6,29 @@ import { pathToFileURL } from "node:url";
 
 import { db, pool } from "@/db";
 import {
+  fantasyTeam,
   player,
   round,
   roundPlayerScore,
   roundRoster,
   roundTeamResult,
 } from "@/db/schema";
+import { budgetTrimCents, trimmedBalanceCents } from "@/lib/market/budget";
 import { isMarketOpen } from "@/lib/market/window";
-import { averagePoints, nextPriceCents } from "@/lib/scoring/pricing";
+import { nextPriceCents } from "@/lib/scoring/pricing";
 import { teamPoints } from "@/lib/scoring/team";
 import { getActiveRound, type Transaction } from "@/lib/team/queries";
+import { refreshPlayerForm } from "@/lib/vlr/jobs/calculate-round";
 
 /** Janela de mercado da rodada criada quando não há nenhuma `upcoming` esperando. */
 const DEFAULT_MARKET_WINDOW_DAYS = 3;
 
 /**
- * Fecha a rodada ativa: congela os três snapshots (`round_player_score`,
- * `round_roster`, `round_team_result`), reprecifica o catálogo, zera os
- * scores e promove a próxima rodada — tudo dentro de uma única transação.
+ * Fecha a rodada ativa: atualiza a forma do catálogo, congela os três
+ * snapshots (`round_player_score`, `round_roster`, `round_team_result`),
+ * reprecifica pelo alvo da forma (com passo e teto de patrimônio —
+ * `.claude/plans/20-preco-dos-jogadores-e-orcamento.md`), zera os scores e
+ * promove a próxima rodada — tudo dentro de uma única transação.
  * Idempotente por construção: sem rodada `active`, não faz nada e devolve
  * `null`. Dois consumidores: o script `pnpm db:round:close` (abaixo) e
  * `db/seed.ts`, que a chama uma vez para o ambiente de desenvolvimento
@@ -39,27 +44,28 @@ export async function closeActiveRound(
   const activeRound = await getActiveRound(tx);
   if (!activeRound) return null;
 
-  // 1. Catálogo + preços — a média da rodada e o novo preço de cada jogador,
-  // calculados uma única vez e reaproveitados no snapshot e na repreçificação.
+  // 1. Forma do catálogo (Fase 2, plano 20) — antes de qualquer coisa: é ela
+  // quem grava `formPoints` e `gamesPlayed`, e o preço novo depende dos dois.
+  // `closeActiveRound` deixa de incrementar `gamesPlayed` ele mesmo: o
+  // contador passa a ter um dono só, e sai certo por construção.
+  await refreshPlayerForm(tx);
+
+  // 2. Catálogo + preços — o alvo pela forma de cada jogador, calculado uma
+  // única vez e reaproveitado no snapshot e na repreçificação. Só quem
+  // pontuou na rodada tem o preço mexido (Decisão 7): quem ficou de fora
+  // fica com o preço idêntico e delta 0 — nunca valoriza nem desvaloriza sem
+  // ter entrado em quadra.
   const players = await tx.select().from(player);
-  // A média é a **da rodada**, não a do catálogo: só entra quem pontuou. Com o
-  // catálogo real do vlr (centenas de jogadores, a maioria sem jogo na semana)
-  // incluir os zeros puxaria a média para perto de zero, e praticamente todo
-  // jogador que atuou bateria o teto de +15% — inflação sistêmica, toda rodada.
-  const average = averagePoints(
-    players.filter((row) => row.score !== 0).map((row) => row.score),
-  );
   const nextPriceById = new Map(
     players.map((row) => [
       row.id,
-      nextPriceCents({
-        priceCents: row.priceCents,
-        points: row.score,
-        averagePoints: average,
-        // Amortece as primeiras rodadas de quem acabou de entrar no catálogo:
-        // um preço derivado do backfill ainda é um chute.
-        gamesPlayed: row.gamesPlayed,
-      }),
+      row.score !== 0
+        ? nextPriceCents({
+            priceCents: row.priceCents,
+            formPoints: row.formPoints,
+            gamesPlayed: row.gamesPlayed,
+          })
+        : row.priceCents,
     ]),
   );
 
@@ -79,7 +85,7 @@ export async function closeActiveRound(
     );
   }
 
-  // 2. Times — escalação congelada e resultado, com os preços de **antes**
+  // 3. Times — escalação congelada e resultado, com os preços de **antes**
   // da repreçificação (o valor do elenco durante a rodada que acabou).
   const teams = await tx.query.fantasyTeam.findMany({
     with: {
@@ -118,32 +124,59 @@ export async function closeActiveRound(
       );
     }
 
+    // Patrimônio depois da repreçificação — recomputado com os preços
+    // **novos** (`nextPriceById`, já pronto), para aplicar o teto (Decisões
+    // 3 e 5, plano 20). `squadValueCents` acima continua com os preços de
+    // antes: é o valor do elenco durante a rodada que acabou.
+    const squadAfterCents = team.slots.reduce(
+      (total, slot) =>
+        total + (slot.playerId ? nextPriceById.get(slot.playerId)! : 0),
+      0,
+    );
+    const trimmedCents = budgetTrimCents({
+      balanceCents: team.balanceCents,
+      squadValueCents: squadAfterCents,
+    });
+
     await tx.insert(roundTeamResult).values({
       roundId: activeRound.id,
       fantasyTeamId: team.id,
       points,
       balanceCents: team.balanceCents,
       squadValueCents,
+      budgetTrimmedCents: trimmedCents,
     });
+
+    // O corte mexe **só no caixa**, nunca vende jogador (Decisão 4): entra
+    // no `UPDATE fantasy_team` da mesma transação, nunca num update solto
+    // (CLAUDE.md).
+    if (trimmedCents > 0) {
+      await tx
+        .update(fantasyTeam)
+        .set({
+          balanceCents: trimmedBalanceCents({
+            balanceCents: team.balanceCents,
+            squadValueCents: squadAfterCents,
+          }),
+        })
+        .where(eq(fantasyTeam.id, team.id));
+    }
   }
 
-  // 3. Repreça o catálogo e zera os scores — depois de gravar os snapshots,
-  // que precisavam do preço e da pontuação de antes.
+  // 4. Repreça o catálogo e zera os scores — depois de gravar os snapshots,
+  // que precisavam do preço e da pontuação de antes. `gamesPlayed` não é
+  // tocado aqui: `refreshPlayerForm` (passo 1) já é o dono desse contador.
   for (const row of players) {
     await tx
       .update(player)
       .set({
         priceCents: nextPriceById.get(row.id)!,
         score: 0,
-        // Só conta rodada para quem de fato atuou: é o contador que alimenta
-        // `dampingFactor`, e incrementá-lo para o catálogo inteiro faria todo
-        // jogador "amadurecer" sem nunca ter entrado em quadra.
-        gamesPlayed: row.score !== 0 ? row.gamesPlayed + 1 : row.gamesPlayed,
       })
       .where(eq(player.id, row.id));
   }
 
-  // 4. Finaliza a rodada ativa **antes** de promover a próxima —
+  // 5. Finaliza a rodada ativa **antes** de promover a próxima —
   // `round_single_active_uidx` só admite uma linha `active`.
   await tx
     .update(round)

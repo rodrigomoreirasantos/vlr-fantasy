@@ -19,10 +19,11 @@ import { ensureFantasyTeam } from "@/lib/team/queries";
 import type { PlayerAvailability, PlayerRole } from "@/lib/team/types";
 
 /**
- * Catálogo de demonstração: 6 jogadores por função, com pelo menos um preço
- * fora do alcance do saldo inicial (INITIAL_BALANCE_CENTS) em cada função —
- * é o que faz o estado "sem saldo" do mercado aparecer de verdade na tela.
- * Os cinco primeiros reproduzem o roster do antigo `lib/team/placeholder.ts`,
+ * Catálogo de demonstração: 6 jogadores por função, preços na faixa
+ * 20,0–90,0 créditos (Decisão 2, `.claude/plans/20-preco-dos-jogadores-e-orcamento.md`)
+ * — nenhum consome sozinho o orçamento inicial de 300,0 (é a regra), mas
+ * contratar mais de um "caro" por função já aperta o saldo de verdade. Os
+ * cinco primeiros reproduzem o roster do antigo `lib/team/placeholder.ts`,
  * para a tela continuar reconhecível.
  *
  * A maioria fica `available` (o default da coluna, por isso omitido). Um
@@ -57,7 +58,7 @@ const PLAYERS: {
     agent: "Jett",
     role: "Duelista",
     region: "americas",
-    priceCents: 18000,
+    priceCents: 4120,
     score: 18.2,
     availability: "injured",
     availabilityNote: "Fora por lesão no pulso",
@@ -68,7 +69,7 @@ const PLAYERS: {
     agent: "Raze",
     role: "Duelista",
     region: "emea",
-    priceCents: 21000,
+    priceCents: 4600,
     score: 15.8,
   },
   {
@@ -77,7 +78,7 @@ const PLAYERS: {
     agent: "Reyna",
     role: "Duelista",
     region: "emea",
-    priceCents: 9000,
+    priceCents: 2650,
     score: 11.5,
   },
   {
@@ -86,7 +87,7 @@ const PLAYERS: {
     agent: "Neon",
     role: "Duelista",
     region: "china",
-    priceCents: 24500,
+    priceCents: 5170,
     score: 13.7,
   },
   {
@@ -95,7 +96,7 @@ const PLAYERS: {
     agent: "Iso",
     role: "Duelista",
     region: "americas",
-    priceCents: 26000,
+    priceCents: 5420,
     score: 20.1,
   },
   {
@@ -104,7 +105,7 @@ const PLAYERS: {
     agent: "Yoru",
     role: "Duelista",
     region: "americas",
-    priceCents: 48000,
+    priceCents: 9000,
     score: 22.9,
   },
 
@@ -115,7 +116,7 @@ const PLAYERS: {
     agent: "Skye",
     role: "Iniciador",
     region: "americas",
-    priceCents: 12000,
+    priceCents: 3140,
     score: 9.4,
     availability: "bench",
     availabilityNote: "Preparando a estreia do substituto",
@@ -126,7 +127,7 @@ const PLAYERS: {
     agent: "Fade",
     role: "Iniciador",
     region: "pacific",
-    priceCents: 8000,
+    priceCents: 2490,
     score: 7.2,
   },
   {
@@ -135,7 +136,7 @@ const PLAYERS: {
     agent: "Breach",
     role: "Iniciador",
     region: "china",
-    priceCents: 6000,
+    priceCents: 2160,
     score: 5.8,
   },
   {
@@ -144,7 +145,7 @@ const PLAYERS: {
     agent: "KAY/O",
     role: "Iniciador",
     region: "pacific",
-    priceCents: 15500,
+    priceCents: 3710,
     score: 12.9,
   },
   {
@@ -153,7 +154,7 @@ const PLAYERS: {
     agent: "Sova",
     role: "Iniciador",
     region: "americas",
-    priceCents: 40000,
+    priceCents: 7700,
     score: 19.6,
   },
   {
@@ -162,7 +163,7 @@ const PLAYERS: {
     agent: "Gekko",
     role: "Iniciador",
     region: "americas",
-    priceCents: 5000,
+    priceCents: 2000,
     score: 4.3,
   },
 
@@ -173,7 +174,7 @@ const PLAYERS: {
     agent: "Astra",
     role: "Controlador",
     region: "emea",
-    priceCents: 14000,
+    priceCents: 3470,
     score: 24.6,
   },
   {
@@ -182,7 +183,7 @@ const PLAYERS: {
     agent: "Omen",
     role: "Controlador",
     region: "americas",
-    priceCents: 9500,
+    priceCents: 2730,
     score: 9.1,
   },
   {
@@ -191,7 +192,7 @@ const PLAYERS: {
     agent: "Viper",
     role: "Controlador",
     region: "china",
-    priceCents: 7000,
+    priceCents: 2330,
     score: 6.4,
   },
   {
@@ -200,7 +201,7 @@ const PLAYERS: {
     agent: "Harbor",
     role: "Controlador",
     region: "pacific",
-    priceCents: 13000,
+    priceCents: 3300,
     score: 10.2,
   },
   {
@@ -209,7 +210,7 @@ const PLAYERS: {
     agent: "Clove",
     role: "Controlador",
     region: "emea",
-    priceCents: 11000,
+    priceCents: 2980,
     score: 8.0,
     availability: "injured",
     availabilityNote: "Fora por lesão no ombro",
@@ -220,7 +221,7 @@ const PLAYERS: {
     agent: "Astra",
     role: "Controlador",
     region: "emea",
-    priceCents: 42000,
+    priceCents: 8020,
     score: 21.3,
     availability: "eliminated",
     availabilityNote: "Eliminado nas quartas de final",
@@ -233,7 +234,7 @@ const PLAYERS: {
     agent: "Cypher",
     role: "Sentinela",
     region: "emea",
-    priceCents: 10000,
+    priceCents: 2810,
     score: 6.1,
   },
   {
@@ -242,7 +243,7 @@ const PLAYERS: {
     agent: "Killjoy",
     role: "Sentinela",
     region: "americas",
-    priceCents: 7000,
+    priceCents: 2330,
     score: 5.0,
     availability: "bench",
   },
@@ -252,7 +253,7 @@ const PLAYERS: {
     agent: "Sage",
     role: "Sentinela",
     region: "pacific",
-    priceCents: 6000,
+    priceCents: 2160,
     score: 4.8,
   },
   {
@@ -261,7 +262,7 @@ const PLAYERS: {
     agent: "Chamber",
     role: "Sentinela",
     region: "china",
-    priceCents: 12500,
+    priceCents: 3220,
     score: 9.9,
     availability: "eliminated",
     availabilityNote: "Eliminado nas quartas de final",
@@ -272,7 +273,7 @@ const PLAYERS: {
     agent: "Deadlock",
     role: "Sentinela",
     region: "china",
-    priceCents: 5000,
+    priceCents: 2000,
     score: 3.9,
   },
   {
@@ -281,7 +282,7 @@ const PLAYERS: {
     agent: "Vyse",
     role: "Sentinela",
     region: "pacific",
-    priceCents: 45000,
+    priceCents: 8510,
     score: 18.4,
   },
 ];

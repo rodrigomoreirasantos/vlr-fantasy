@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   scrapeMatch: vi.fn(),
   revalidateMatch: vi.fn(),
   scrapeRoster: vi.fn(),
+  refreshPlayerForm: vi.fn(),
   logInfo: vi.fn(),
   logError: vi.fn(),
 }));
@@ -26,6 +27,9 @@ vi.mock("@/lib/vlr/jobs/queue", () => ({
   claim: mocks.claim,
   complete: mocks.complete,
   fail: mocks.fail,
+}));
+vi.mock("@/lib/vlr/jobs/calculate-round", () => ({
+  refreshPlayerForm: mocks.refreshPlayerForm,
 }));
 vi.mock("@/lib/vlr/jobs/scrape-match", () => ({
   scrapeMatch: mocks.scrapeMatch,
@@ -52,6 +56,7 @@ beforeEach(() => {
   mocks.scrapeMatch.mockResolvedValue({ matchId: "m", statCount: 1 });
   mocks.revalidateMatch.mockResolvedValue({ changed: false });
   mocks.scrapeRoster.mockResolvedValue({ updated: 1, unknown: 0, left: 0 });
+  mocks.refreshPlayerForm.mockResolvedValue({ players: 0 });
 });
 
 describe("workQueue", () => {
@@ -75,6 +80,8 @@ describe("workQueue", () => {
     expect(mocks.revalidateMatch).toHaveBeenCalledWith("m2");
     expect(mocks.scrapeRoster).toHaveBeenCalledWith("t1");
     expect(mocks.complete).toHaveBeenCalledTimes(3);
+    // Uma vez por lote, nunca por partida (fato 12, plano 20).
+    expect(mocks.refreshPlayerForm).toHaveBeenCalledTimes(1);
   });
 
   it("falha isolada num tipo não impede os outros dois", async () => {
@@ -112,5 +119,7 @@ describe("workQueue", () => {
     expect(mocks.scrapeMatch).not.toHaveBeenCalled();
     expect(mocks.revalidateMatch).not.toHaveBeenCalled();
     expect(mocks.scrapeRoster).not.toHaveBeenCalled();
+    // done === 0: nada mudou, não vale a pena varrer o catálogo.
+    expect(mocks.refreshPlayerForm).not.toHaveBeenCalled();
   });
 });

@@ -127,6 +127,20 @@
       "when": 1789128860089,
       "tag": "0017_verify_existing_users",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1789145909677,
+      "tag": "0018_player_form_and_budget",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1789146612363,
+      "tag": "0019_player_price_range_and_drop_average_score",
+      "breakpoints": true
     }
   ]
 }

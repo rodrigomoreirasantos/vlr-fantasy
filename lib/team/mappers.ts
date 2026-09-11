@@ -27,6 +27,7 @@ export function toDomainPlayer(row: PlayerRow): Player {
     role: row.role,
     score: row.score,
     priceCents: row.priceCents,
+    formPoints: row.formPoints,
     active: row.active,
     availability: row.availability,
     availabilityNote: row.availabilityNote,
@@ -70,6 +71,10 @@ export function toTeamSummary(
   points: number,
   /** O próximo fechamento entre as partidas do circuito (`nextMarketClose`). */
   market: { closesAt: Date | null },
+  /** Soma dos preços das 5 vagas — ver `TeamSummary.squadValueCents`. */
+  squadValueCents: number,
+  /** O corte do teto na última rodada fechada — `0` sem corte ou sem rodada. */
+  budgetTrimmedCents: number,
 ): TeamSummary {
   return {
     name: identity.name,
@@ -82,6 +87,8 @@ export function toTeamSummary(
     }),
     points,
     balanceCents: team.balanceCents,
+    squadValueCents,
+    budgetTrimmedCents,
     region,
     market: {
       // "Operando", não "aberto para todos": quem tranca é a regra do dia,

@@ -2,7 +2,7 @@ import { and, eq, isNull } from "drizzle-orm";
 
 import { player } from "@/db/schema";
 import { isUniqueViolation } from "@/lib/db/errors";
-import { MIN_PRICE_CENTS } from "@/lib/scoring/pricing";
+import { DEBUT_PRICE_CENTS } from "@/lib/scoring/pricing";
 import type { Querier } from "@/lib/team/queries";
 import { PLAYER_ROLES, type PlayerRole } from "@/lib/team/types";
 import { logWarn } from "@/lib/vlr/http/log";
@@ -161,9 +161,11 @@ async function createPlayer(
     role: role ?? FALLBACK_ROLE,
     realName: scraped.realName ?? null,
     country: scraped.country ?? null,
-    // Preço no piso: o backfill recalcula a partir da média real de pontos
-    // (`averageScore × PRICE_PER_POINT_CENTS`) assim que houver histórico.
-    priceCents: MIN_PRICE_CENTS,
+    // Preço de estreia: vale até existir forma (`formPoints`). O
+    // `refreshPlayerForm` do fim do lote da fila (`lib/vlr/jobs/work.ts`) já
+    // produz essa forma — não depende de alguém rodar `pnpm vlr:backfill`
+    // de novo (fato 16, plano 20).
+    priceCents: DEBUT_PRICE_CENTS,
     active: confident,
     needsReview: !confident,
   };

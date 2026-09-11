@@ -26,6 +26,7 @@ function result(overrides: Partial<RoundTeamResult> = {}): RoundTeamResult {
     points: 0,
     balanceCents: 10_000,
     squadValueCents: 5_000,
+    budgetTrimmedCents: 0,
     ...overrides,
   };
 }
@@ -120,8 +121,9 @@ function liveScore(overrides: Partial<LiveRoundScore> = {}): LiveRoundScore {
     team: "SENTINELS",
     role: "Duelista",
     points: 20,
-    priceCents: 100_000,
+    priceCents: 3_000, // 30,0 cr — faixa 20,0-90,0 (Decisão 2, plano 20)
     gamesPlayed: 10,
+    formPoints: null,
     event: "VCT 2026: Americas Stage 2",
     photoUrl: null,
     ...overrides,
@@ -144,7 +146,10 @@ describe("projectRoundHighlights", () => {
     expect(scorers[0]!.points).toBe(31.3);
   });
 
-  it("quem ficou acima da média sobe, quem ficou abaixo cai", () => {
+  it("quem está acima do alvo pela forma sobe, quem está abaixo cai", () => {
+    // priceCents default (3.000) ~ forma 34; 40 pontos projeta acima disso,
+    // 5 pontos projeta abaixo — sem forma anterior (`formPoints: null`), a
+    // projeção é o próprio placar parcial.
     const { movers } = projectRoundHighlights([
       liveScore({ playerId: "aspas", nickname: "aspas", points: 40 }),
       liveScore({ playerId: "sacy", nickname: "Sacy", points: 5 }),

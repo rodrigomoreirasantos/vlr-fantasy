@@ -1,0 +1,10 @@
+## Visao Geral
+
+Como o website seria baseado em compra e venda de players no mercado e o player se valoriza de acordo com os stats do proprio player feito em jogo. Devemos pensar um pouco sobre o preço desses players e como ele se valoriza e como ele se desvaloriza. O mesmo vale para valor monetario que o usuario tem para a compra de jogadores, onde eu gostaria que fosse algo mais pensado pelo usuario com relacao ao gasto de seu dinheiro para contratação. Deve haver um balanço nos times para impossibilitar de uma escalação muito forte onde voce sempre tem os mais caros players em seu time. O usuario ganha mais dinheiro vendendo players que performaram bem e contratando players que estao em baixa por jogarem mal porem isso pode mudar em um jogo, mas o usuario precisa ter um limite/teto de dinheiro que ele pode ter para que o time dele em si seja mais balanceado. Preciso que seja possivel o usuario contratar players e vender player com base em seu dinheiro mas tambem preciso que esse valor seja um pouco mais real para que os usuario se divirtam fazendo contas de encaixe de time para que o time dele sempre acumule mais pontuacao. Pois na realiadade ganha posicao no ranking o usuario que mais pontuar e nao o que compra jogadores mais caros. Para isso os valores dos players tem que fazer sentido para que ele possa se divertir e pensar um pouco em como montar o elenco dele com base nos creditos dele
+
+## Task
+
+- O usuario sempre deve ter um time montado de 5 players porem deve haver um balanceamento de valores de jogadroes com base no dinheiro do usuairo
+- O dinheiro do usuario precisa ser mais real de acordo com os players pois ele precisa se divertir e pensar como montar seu time com base no dinheiro
+- **NUNCA** pode ser possivel o usuairio escalar apenas 1 player em seu time que consuma todo os seu dinheiro
+- O usuario sempre ganha posicoes no ranking de campeonatos criados caso ele pontue mais, entao o ranking seria baseado nos pontos e nao no dinheiro do usuairo, porem a escalação deve ser baseada no dinheiro do usuario.

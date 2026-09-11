@@ -16,7 +16,8 @@ import type {
   RoundScorer,
   RoundTeamResult,
 } from "@/lib/round/types";
-import { averagePoints, priceDeltaCents } from "@/lib/scoring/pricing";
+import { FORM_WINDOW } from "@/lib/scoring/form";
+import { priceDeltaCents } from "@/lib/scoring/pricing";
 
 /**
  * Regras puras da Home — sem banco, sem React. `lib/home/queries.ts` é o
@@ -72,16 +73,32 @@ export function placementChanges(
 }
 
 /**
+ * A forma "de agora": mistura a forma já registrada (`formPoints`, calculada
+ * até a rodada anterior) com o que o jogador já fez na rodada em curso — no
+ * mesmo peso que uma série a mais teria na janela de `FORM_WINDOW`
+ * (`lib/scoring/form.ts`). Sem forma anterior, a projeção é o próprio placar
+ * parcial: é tudo que existe até aqui.
+ *
+ * **Projeção, não a forma de verdade** — só `refreshPlayerForm`
+ * (`lib/vlr/jobs/calculate-round.ts`), a partir das séries reais já
+ * fechadas, grava `player.formPoints`.
+ */
+function projectedFormPoints(score: LiveRoundScore): number {
+  if (score.formPoints === null) return score.points;
+  return (score.formPoints * (FORM_WINDOW - 1) + score.points) / FORM_WINDOW;
+}
+
+/**
  * Os destaques da rodada **ainda aberta**, projetados a partir do que já foi
  * jogado. Existe porque o usuário não pode esperar o fechamento para saber
  * quem está indo bem: os jogos terminam ao longo da semana e a Home tem que
  * andar junto.
  *
  * A projeção de preço reusa `priceDeltaCents` — a mesma função que
- * `closeActiveRound` aplica de verdade — com a média **da rodada**, calculada
- * só sobre quem jogou (mesmo recorte do fechamento). Ela é uma previsão, não
- * uma promessa: enquanto faltar jogo, a média muda e o delta muda com ela. É
- * por isso que a tela rotula esses destaques como parciais.
+ * `closeActiveRound` aplica de verdade — com a forma projetada
+ * (`projectedFormPoints`) no lugar da forma final. Ela é uma previsão, não
+ * uma promessa: enquanto faltar jogo, a forma projetada muda e o delta muda
+ * com ela. É por isso que a tela rotula esses destaques como parciais.
  *
  * Devolve as listas **inteiras**: quem corta é `highlightsFor`, depois de
  * escolhida a região. Cortar aqui deixaria uma região inteira de fora só por
@@ -91,8 +108,6 @@ export function projectRoundHighlights(scores: readonly LiveRoundScore[]): {
   scorers: RegionalScorer[];
   movers: RegionalPriceMover[];
 } {
-  const average = averagePoints(scores.map((score) => score.points));
-
   return {
     scorers: [...scores]
       .sort((a, b) => b.points - a.points)
@@ -113,8 +128,7 @@ export function projectRoundHighlights(scores: readonly LiveRoundScore[]): {
       photoUrl: score.photoUrl,
       priceDeltaCents: priceDeltaCents({
         priceCents: score.priceCents,
-        points: score.points,
-        averagePoints: average,
+        formPoints: projectedFormPoints(score),
         gamesPlayed: score.gamesPlayed,
       }),
       region: eventRegion(score.event ?? ""),

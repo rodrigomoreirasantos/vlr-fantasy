@@ -80,6 +80,13 @@ export const roundTeamResult = pgTable(
     balanceCents: integer("balance_cents").notNull(),
     /** Soma dos preços das 5 vagas antes da repreçificação: o valor do elenco durante a rodada. */
     squadValueCents: integer("squad_value_cents").notNull(),
+    /**
+     * Quanto o teto de patrimônio (`MAX_PATRIMONY_CENTS`, `lib/market/budget.ts`)
+     * cortou do caixa nesta virada — `0` quando não cortou (Decisões 3 e 5,
+     * plano 20). É o que permite a Home explicar o corte em vez de o saldo
+     * simplesmente encolher em silêncio.
+     */
+    budgetTrimmedCents: integer("budget_trimmed_cents").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

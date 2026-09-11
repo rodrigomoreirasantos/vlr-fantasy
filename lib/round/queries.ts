@@ -28,6 +28,7 @@ import type {
   RoundScorer,
   RoundTeamResult,
 } from "@/lib/round/types";
+import { FORM_WINDOW } from "@/lib/scoring/form";
 import type { Querier } from "@/lib/team/queries";
 
 /**
@@ -138,6 +139,7 @@ export async function getTeamRoundResult(
     points: row.points,
     balanceCents: row.balanceCents,
     squadValueCents: row.squadValueCents,
+    budgetTrimmedCents: row.budgetTrimmedCents,
   };
 }
 
@@ -281,6 +283,7 @@ export async function listLiveRoundScores(
       points: sql<number>`sum(${playerMatchStat.fantasyPoints})::float8`,
       priceCents: player.priceCents,
       gamesPlayed: player.gamesPlayed,
+      formPoints: player.formPoints,
       // De onde sai a região dos destaques. Um jogador disputa um campeonato
       // por rodada, então o `min` é exato na prática — e determinístico se um
       // dia deixar de ser.
@@ -292,6 +295,54 @@ export async function listLiveRoundScores(
     .innerJoin(player, eq(player.id, playerMatchStat.playerId))
     .where(eq(match.roundId, roundId))
     .groupBy(player.id);
+}
+
+/**
+ * A forma de todo o catálogo — média dos pontos das últimas `FORM_WINDOW`
+ * séries de cada jogador (mais recente primeiro), o alvo que
+ * `targetPriceCents` persegue (Decisão 1, `.claude/plans/20-preco-dos-jogadores-e-orcamento.md`).
+ *
+ * Duas etapas na mesma consulta: agrupa `player_match_stat` por (jogador,
+ * partida) — uma partida é uma série — e ranqueia com `row_number()`, que no
+ * Postgres roda **depois** do `GROUP BY`; a consulta de fora filtra
+ * `rn <= FORM_WINDOW` e tira a média. Drizzle puro, sem SQL cru solto fora do
+ * `sql` template já usado em `listLiveRoundScores`.
+ *
+ * Devolve `Map<string, number>` — só quem tem série entra; quem não tem
+ * nenhuma some do mapa, e o chamador trata a ausência como forma `null`
+ * (nunca `0`).
+ */
+export async function listPlayerFormPoints(
+  q: Querier = db,
+): Promise<Map<string, number>> {
+  const ranked = q
+    .select({
+      playerId: playerMatchStat.playerId,
+      points: sql<number>`sum(${playerMatchStat.fantasyPoints})::float8`.as(
+        "points",
+      ),
+      rn: sql<number>`row_number() over (
+        partition by ${playerMatchStat.playerId}
+        order by max(${match.scheduledAt}) desc
+      )`.as("rn"),
+    })
+    .from(playerMatchStat)
+    .innerJoin(match, eq(match.id, playerMatchStat.matchId))
+    .groupBy(playerMatchStat.playerId, playerMatchStat.matchId)
+    .as("ranked");
+
+  const rows = await q
+    .select({
+      playerId: ranked.playerId,
+      formPoints: sql<number>`avg(${ranked.points})::float8`,
+    })
+    .from(ranked)
+    .where(sql`${ranked.rn} <= ${FORM_WINDOW}`)
+    .groupBy(ranked.playerId);
+
+  return new Map(
+    rows.map((row) => [row.playerId, Math.round(row.formPoints * 10) / 10]),
+  );
 }
 
 /**

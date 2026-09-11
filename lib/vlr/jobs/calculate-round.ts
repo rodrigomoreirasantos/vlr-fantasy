@@ -1,8 +1,9 @@
-import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { match, player, playerMatchStat } from "@/db/schema";
-import { MIN_PRICE_CENTS, PRICE_PER_POINT_CENTS } from "@/lib/scoring/pricing";
+import { listPlayerFormPoints } from "@/lib/round/queries";
+import { targetPriceCents } from "@/lib/scoring/pricing";
 import { logInfo } from "@/lib/vlr/http/log";
 import type { Transaction } from "@/lib/team/queries";
 import { getActiveRound } from "@/lib/team/queries";
@@ -98,53 +99,105 @@ export async function runRoundJob(): Promise<
 }
 
 /**
- * Recalcula `gamesPlayed` (rodadas distintas em que o jogador pontuou) e
- * `averageScore` a partir de todo o histórico de `player_match_stat`, e deriva
- * daí o preço de quem ainda está no preço de nascimento.
+ * Recalcula `formPoints` (média das últimas 5 séries, `listPlayerFormPoints`)
+ * e `gamesPlayed` (rodadas distintas em que o jogador pontuou) de todo o
+ * catálogo — **nunca mexe em preço** (Fase 2, `.claude/plans/20-preco-dos-jogadores-e-orcamento.md`).
  *
- * É o passo final do backfill: sem ele o catálogo inteiro custaria o piso, e o
- * amortecimento de `dampingFactor` não teria em que se apoiar.
+ * A separação de `rebasePlayerPrices` é a decisão que sustenta esta fase: o
+ * preço não pode andar no meio de uma rodada aberta (o usuário compra e vende
+ * na janela de mercado, `evaluateSubstitution`), então só quem reprecifica é
+ * `rebasePlayerPrices` (rebase de manutenção, fora de rodada) ou
+ * `closeActiveRound` (fechamento, com passo).
+ *
+ * Chamada **uma vez por lote** — ao fim de `workQueue` e depois de
+ * `reprocessMatch` (`scripts/vlr/reprocess.ts`) — nunca por partida: a
+ * consulta varre o catálogo inteiro, e chamá-la por partida faria N vezes o
+ * mesmo trabalho.
+ *
+ * Um único `UPDATE` com `CASE` por coluna, não um `UPDATE` por jogador
+ * (fato 12 do plano 20: esta função passou a rodar a cada lote, não mais só
+ * numa carga histórica).
  */
-export async function refreshPlayerAggregates(
+export async function refreshPlayerForm(
+  tx: Transaction,
+): Promise<{ players: number }> {
+  const [formByPlayer, gamesRows] = await Promise.all([
+    listPlayerFormPoints(tx),
+    tx
+      .select({
+        playerId: playerMatchStat.playerId,
+        rounds: sql<number>`count(distinct ${match.roundId})::int`,
+        matches: sql<number>`count(distinct ${playerMatchStat.matchId})::int`,
+      })
+      .from(playerMatchStat)
+      .innerJoin(match, eq(match.id, playerMatchStat.matchId))
+      .groupBy(playerMatchStat.playerId),
+  ]);
+
+  if (gamesRows.length === 0) return { players: 0 };
+
+  const rows = gamesRows.map((row) => ({
+    playerId: row.playerId,
+    // Partidas, não rodadas, quando a partida ainda não pertence a nenhuma:
+    // o backfill roda antes de `syncRoundsFromMatches` ter o que agrupar.
+    games: Math.max(row.rounds, row.matches, 1),
+    form: formByPlayer.get(row.playerId) ?? null,
+  }));
+
+  const gamesCase = sql.join(
+    rows.map(
+      (row) => sql`when ${player.id} = ${row.playerId} then ${row.games}::int`,
+    ),
+    sql` `,
+  );
+  const formCase = sql.join(
+    rows.map((row) =>
+      row.form === null
+        ? sql`when ${player.id} = ${row.playerId} then null`
+        : sql`when ${player.id} = ${row.playerId} then ${row.form}::numeric`,
+    ),
+    sql` `,
+  );
+
+  await tx
+    .update(player)
+    .set({
+      gamesPlayed: sql`case ${gamesCase} else ${player.gamesPlayed} end`,
+      formPoints: sql`case ${formCase} else ${player.formPoints} end`,
+    })
+    .where(
+      inArray(
+        player.id,
+        rows.map((row) => row.playerId),
+      ),
+    );
+
+  logInfo("vlr.players.form_refreshed", { players: rows.length });
+  return { players: rows.length };
+}
+
+/**
+ * Rebase de manutenção: leva `priceCents` direto ao alvo pela forma
+ * (`targetPriceCents`), **sem passo** — é um recomeço de escala, não uma
+ * rodada. Só dois chamadores: `backfill()` (abaixo) e `pnpm db:reprice`
+ * (Fase 3 do plano 20). O fechamento normal de rodada usa `nextPriceCents`,
+ * com passo e amortecimento, em `db/close-round.ts` — nunca este rebase.
+ */
+export async function rebasePlayerPrices(
   tx: Transaction,
 ): Promise<{ players: number }> {
   const rows = await tx
-    .select({
-      playerId: playerMatchStat.playerId,
-      rounds: sql<number>`count(distinct ${match.roundId})::int`,
-      matches: sql<number>`count(distinct ${playerMatchStat.matchId})::int`,
-      total: sql<number>`sum(${playerMatchStat.fantasyPoints})::float8`,
-    })
-    .from(playerMatchStat)
-    .innerJoin(match, eq(match.id, playerMatchStat.matchId))
-    .groupBy(playerMatchStat.playerId);
+    .select({ id: player.id, formPoints: player.formPoints })
+    .from(player);
 
   for (const row of rows) {
-    // Partidas, não rodadas, quando a partida ainda não pertence a nenhuma:
-    // o backfill roda antes de `syncRoundsFromMatches` ter o que agrupar.
-    const games = Math.max(row.rounds, row.matches, 1);
-    const average = Math.round((row.total / games) * 10) / 10;
-
-    // O preço inicial só é derivado para quem ainda está no preço de
-    // nascimento (o piso): reprecificar quem já passou por um fechamento de
-    // rodada apagaria a valorização que o jogador conquistou.
-    const derivedPriceCents = Math.max(
-      MIN_PRICE_CENTS,
-      Math.round(average * PRICE_PER_POINT_CENTS),
-    );
-
     await tx
       .update(player)
-      .set({
-        gamesPlayed: games,
-        averageScore: average,
-        priceCents: sql`case when ${player.priceCents} = ${MIN_PRICE_CENTS}
-          then ${derivedPriceCents} else ${player.priceCents} end`,
-      })
-      .where(eq(player.id, row.playerId));
+      .set({ priceCents: targetPriceCents(row.formPoints) })
+      .where(eq(player.id, row.id));
   }
 
-  logInfo("vlr.players.aggregated", { players: rows.length });
+  logInfo("vlr.players.prices_rebased", { players: rows.length });
   return { players: rows.length };
 }
 

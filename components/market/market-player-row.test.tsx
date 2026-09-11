@@ -15,6 +15,7 @@ function makePlayer(overrides: Partial<Player> = {}): Player {
     role: "Duelista",
     score: 18.2,
     priceCents: 5000,
+    formPoints: null,
     active: true,
     availability: "available",
     availabilityNote: null,
@@ -137,6 +138,60 @@ describe("MarketPlayerRow", () => {
     );
 
     expect(screen.getByText("148.2")).toBeInTheDocument();
+  });
+
+  it("um candidato cujo alvo pela forma é maior que o preço anuncia valorização", () => {
+    // priceCents no piso (20,0) e forma alta (90) → alvo bem acima do preço.
+    const candidate = makePlayer({ priceCents: 2_000, formPoints: 90 });
+
+    render(
+      <ul>
+        <MarketPlayerRow
+          ctx={makeContext()}
+          candidate={candidate}
+          onConfirm={vi.fn()}
+        />
+      </ul>,
+    );
+
+    expect(screen.getByTitle("Valorizando")).toBeInTheDocument();
+    expect(screen.queryByTitle("Desvalorizando")).not.toBeInTheDocument();
+  });
+
+  it("um candidato cujo alvo pela forma é menor que o preço anuncia desvalorização", () => {
+    // priceCents no teto (90,0) e forma baixa (0) → alvo bem abaixo do preço.
+    const candidate = makePlayer({ priceCents: 9_000, formPoints: 0 });
+
+    render(
+      <ul>
+        <MarketPlayerRow
+          ctx={makeContext()}
+          candidate={candidate}
+          onConfirm={vi.fn()}
+        />
+      </ul>,
+    );
+
+    expect(screen.getByTitle("Desvalorizando")).toBeInTheDocument();
+  });
+
+  it("o bloqueio 'Sem saldo' continua aparecendo quando o preço passa do teto de compra", () => {
+    const candidate = makePlayer({ priceCents: 9_000 });
+
+    render(
+      <ul>
+        <MarketPlayerRow
+          ctx={makeContext({ balanceCents: 100, outgoing: null })}
+          candidate={candidate}
+          onConfirm={vi.fn()}
+        />
+      </ul>,
+    );
+
+    expect(screen.getByText("Sem saldo")).toBeInTheDocument();
+    expect(
+      screen.getByText("Saldo insuficiente para esta contratação."),
+    ).toBeInTheDocument();
   });
 
   it("não mostra a pontuação da rodada nem custo líquido/saldo projetado", () => {

@@ -14,6 +14,7 @@ function makePlayer(overrides: Partial<Player> = {}): Player {
     role: "Duelista",
     score: 15.8,
     priceCents: 4000,
+    formPoints: null,
     active: true,
     availability: "available",
     availabilityNote: null,

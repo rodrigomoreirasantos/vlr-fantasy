@@ -5,12 +5,14 @@ const {
   refreshRoundMatchCountsMock,
   getActiveRoundMock,
   closeActiveRoundMock,
+  listPlayerFormPointsMock,
   dbSelectMock,
   dbTransactionMock,
 } = vi.hoisted(() => ({
   refreshRoundMatchCountsMock: vi.fn(),
   getActiveRoundMock: vi.fn(),
   closeActiveRoundMock: vi.fn(),
+  listPlayerFormPointsMock: vi.fn(),
   dbSelectMock: vi.fn(),
   dbTransactionMock: vi.fn(),
 }));
@@ -21,12 +23,21 @@ vi.mock("@/db", () => ({
 }));
 vi.mock("@/db/close-round", () => ({ closeActiveRound: closeActiveRoundMock }));
 vi.mock("@/lib/team/queries", () => ({ getActiveRound: getActiveRoundMock }));
+vi.mock("@/lib/round/queries", () => ({
+  listPlayerFormPoints: listPlayerFormPointsMock,
+}));
 vi.mock("@/lib/vlr/persist/rounds", () => ({
   refreshRoundMatchCounts: refreshRoundMatchCountsMock,
 }));
 
 import { player as playerTable } from "@/db/schema";
-import { calculateRound, runRoundJob } from "@/lib/vlr/jobs/calculate-round";
+import { DEBUT_PRICE_CENTS, targetPriceCents } from "@/lib/scoring/pricing";
+import {
+  calculateRound,
+  rebasePlayerPrices,
+  refreshPlayerForm,
+  runRoundJob,
+} from "@/lib/vlr/jobs/calculate-round";
 
 type Call = { op: string; payload: unknown; scoped: boolean };
 
@@ -184,5 +195,143 @@ describe("runRoundJob", () => {
 
     expect(result.status).toBe("closed");
     expect(closeActiveRoundMock).toHaveBeenCalledWith(tx);
+  });
+});
+
+/** `tx` falso para `refreshPlayerForm`: um único `select` (as `games`),
+ * `listPlayerFormPoints` mockado à parte, e um único `update` gravado. */
+function createFormTxStub(gamesRows: {
+  playerId: string;
+  rounds: number;
+  matches: number;
+}[]) {
+  const calls: Call[] = [];
+  const selectChain = {
+    from: () => selectChain,
+    innerJoin: () => selectChain,
+    groupBy: () => Promise.resolve(gamesRows),
+  };
+
+  const tx = {
+    select: () => selectChain,
+    update: (table: unknown) => ({
+      set: (values: unknown) => ({
+        where: () => {
+          calls.push({
+            op: `update:${table === playerTable ? "player" : "?"}`,
+            payload: values,
+            scoped: true,
+          });
+          return Promise.resolve();
+        },
+      }),
+    }),
+  };
+
+  return { tx, calls };
+}
+
+describe("refreshPlayerForm", () => {
+  it("grava forma e games_played num único UPDATE — nunca mexe em preço", async () => {
+    listPlayerFormPointsMock.mockResolvedValue(
+      new Map([
+        ["p1", 52.1],
+        ["p2", 80.2],
+      ]),
+    );
+    const { tx, calls } = createFormTxStub([
+      { playerId: "p1", rounds: 3, matches: 3 },
+      { playerId: "p2", rounds: 1, matches: 1 },
+    ]);
+
+    const result = await refreshPlayerForm(tx as never);
+
+    expect(result).toEqual({ players: 2 });
+    const updates = calls.filter((c) => c.op === "update:player");
+    // Um único UPDATE, não um por jogador (fato 12 do plano 20).
+    expect(updates).toHaveLength(1);
+    // Nunca grava priceCents.
+    expect(Object.keys(updates[0].payload as object).sort()).toEqual(
+      ["formPoints", "gamesPlayed"].sort(),
+    );
+  });
+
+  it("cai para partidas distintas quando a partida ainda não pertence a rodada nenhuma", async () => {
+    // O backfill roda antes de `syncRoundsFromMatches` ter o que agrupar —
+    // rounds=0 e matches=2 devem virar games=2, nunca 0.
+    listPlayerFormPointsMock.mockResolvedValue(new Map());
+    const { tx } = createFormTxStub([
+      { playerId: "p1", rounds: 0, matches: 2 },
+    ]);
+
+    const result = await refreshPlayerForm(tx as never);
+
+    expect(result).toEqual({ players: 1 });
+  });
+
+  it("sem estatística nenhuma no catálogo, não escreve nada", async () => {
+    listPlayerFormPointsMock.mockResolvedValue(new Map());
+    const { tx, calls } = createFormTxStub([]);
+
+    const result = await refreshPlayerForm(tx as never);
+
+    expect(result).toEqual({ players: 0 });
+    expect(calls.filter((c) => c.op === "update:player")).toHaveLength(0);
+  });
+});
+
+/** `tx` falso para `rebasePlayerPrices`: um `select` que já resolve (sem
+ * `groupBy`), e um `update` por jogador — o rebase é operação rara, o laço
+ * por jogador continua sendo o suficiente aqui. */
+function createRebaseTxStub(rows: { id: string; formPoints: number | null }[]) {
+  const calls: Call[] = [];
+  const selectChain: Promise<typeof rows> & { from: () => typeof selectChain } =
+    Object.assign(Promise.resolve(rows), {
+      from: () => selectChain,
+    });
+
+  const tx = {
+    select: () => selectChain,
+    update: (table: unknown) => ({
+      set: (values: unknown) => ({
+        where: () => {
+          calls.push({
+            op: `update:${table === playerTable ? "player" : "?"}`,
+            payload: values,
+            scoped: true,
+          });
+          return Promise.resolve();
+        },
+      }),
+    }),
+  };
+
+  return { tx, calls };
+}
+
+describe("rebasePlayerPrices", () => {
+  it("leva todo jogador ao alvo pela forma, inclusive quem está acima do piso", async () => {
+    // p1 está acima do piso — exatamente o caso que o antigo `case when
+    // price_cents = MIN_PRICE_CENTS` (fato 4/12 do plano 20) deixava passar.
+    const { tx, calls } = createRebaseTxStub([
+      { id: "p1", formPoints: 52.1 },
+      { id: "p2", formPoints: null },
+    ]);
+
+    const result = await rebasePlayerPrices(tx as never);
+
+    expect(result).toEqual({ players: 2 });
+    expect(calls).toEqual([
+      {
+        op: "update:player",
+        payload: { priceCents: targetPriceCents(52.1) },
+        scoped: true,
+      },
+      {
+        op: "update:player",
+        payload: { priceCents: DEBUT_PRICE_CENTS },
+        scoped: true,
+      },
+    ]);
   });
 });

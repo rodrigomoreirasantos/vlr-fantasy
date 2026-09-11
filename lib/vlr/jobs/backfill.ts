@@ -3,7 +3,7 @@ import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { player } from "@/db/schema";
 import { logInfo, logWarn } from "@/lib/vlr/http/log";
-import { refreshPlayerAggregates } from "@/lib/vlr/jobs/calculate-round";
+import { rebasePlayerPrices } from "@/lib/vlr/jobs/calculate-round";
 import { syncPlayerRegions } from "@/lib/vlr/jobs/sync-player-regions";
 import { syncResults } from "@/lib/vlr/jobs/sync-results";
 import { workQueue } from "@/lib/vlr/jobs/work";
@@ -30,9 +30,13 @@ export async function backfill(options: { pages?: number } = {}): Promise<{
   // `stopAfterKnown` alto: no backfill queremos varrer as páginas todas, não
   // parar na primeira que já conhecemos.
   const results = await syncResults({ pages, stopAfterKnown: pages + 1 });
+  // `workQueue` já chama `refreshPlayerForm` uma vez ao fim do lote (quando
+  // há trabalho) — a forma do catálogo já está fresca antes do rebase abaixo.
   const work = await workQueue({ limit: results.enqueued });
 
-  const aggregates = await db.transaction((tx) => refreshPlayerAggregates(tx));
+  // Rebase de manutenção: leva o preço de todo o catálogo direto ao alvo
+  // pela forma, sem passo — é uma carga histórica, não uma rodada.
+  const aggregates = await db.transaction((tx) => rebasePlayerPrices(tx));
   // Depois dos agregados: o catálogo inteiro tem partida extraída agora, e
   // esta é a chance de resolver a região de todo mundo de uma vez —
   // `.claude/plans/10-time-por-regiao.md`.

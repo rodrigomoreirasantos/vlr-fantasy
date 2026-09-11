@@ -20,6 +20,8 @@ import {
   qualifiedOrganizations,
 } from "@/lib/round/international";
 import {
+  getLatestFinishedRound,
+  getTeamRoundResult,
   listInternationalWindowMatches,
   listMarketLockMatches,
 } from "@/lib/round/queries";
@@ -134,18 +136,32 @@ async function loadTeamOverview(
   });
   if (!team || !team.identity) return null;
 
-  const [activeRound, lockMatches, scope] = await Promise.all([
-    getActiveRound(),
-    // As partidas que trancam o mercado hoje — a regra do dia
-    // (`lockedOrganizations`) substituiu a janela da rodada.
-    listMarketLockMatches(),
-    resolveMarketScope(region),
-  ]);
+  const [activeRound, lockMatches, scope, latestFinishedRound] =
+    await Promise.all([
+      getActiveRound(),
+      // As partidas que trancam o mercado hoje — a regra do dia
+      // (`lockedOrganizations`) substituiu a janela da rodada.
+      listMarketLockMatches(),
+      resolveMarketScope(region),
+      // Para o corte do teto de patrimônio (`BudgetBar`) — precisa da
+      // última rodada **fechada**, não da ativa: o corte só acontece no
+      // fechamento (Decisão 5, plano 20).
+      getLatestFinishedRound(),
+    ]);
   const lockedTeams = lockedOrganizations(lockMatches);
   const roster = toRosterSlots(team.slots, scope);
   // A braçadeira dobra a pontuação de quem a usa — única fonte da regra
   // (lib/scoring/team.ts), a mesma que a classificação usa.
   const points = teamPoints(roster);
+  // Patrimônio = saldo + valor do elenco (Decisão 3, plano 20) — soma direto
+  // dos preços atuais, sem consulta extra.
+  const squadValueCents = team.slots.reduce(
+    (total, slot) => total + (slot.player?.priceCents ?? 0),
+    0,
+  );
+  const lastResult = latestFinishedRound
+    ? await getTeamRoundResult(team.id, latestFinishedRound.id)
+    : null;
 
   return {
     teamId: team.id,
@@ -166,6 +182,8 @@ async function loadTeamOverview(
           marketMatchesFor(lockMatches, region, scopeOrganizations(scope)),
         ),
       },
+      squadValueCents,
+      lastResult?.budgetTrimmedCents ?? 0,
     ),
     roster,
     lockedTeams,

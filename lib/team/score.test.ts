@@ -22,6 +22,7 @@ function slot(nickname: string, score: number): RosterSlot {
       role: "Controlador",
       score,
       priceCents: 5000,
+      formPoints: null,
       active: true,
       availability: "available",
       availabilityNote: null,

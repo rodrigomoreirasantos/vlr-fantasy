@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // conexão nenhuma. Banco sempre mockado — CLAUDE.md.
 vi.mock("@/db", () => ({ db: {}, pool: { end: vi.fn() } }));
 
-import { MIN_PRICE_CENTS } from "@/lib/scoring/pricing";
+import { DEBUT_PRICE_CENTS } from "@/lib/scoring/pricing";
 import { resolvePlayer } from "@/lib/vlr/persist/players";
 
 type Call = { op: string; payload: unknown };
@@ -172,7 +172,7 @@ describe("resolvePlayer", () => {
       role: "Duelista",
       active: true,
       needsReview: false,
-      priceCents: MIN_PRICE_CENTS,
+      priceCents: DEBUT_PRICE_CENTS,
     });
   });
 
