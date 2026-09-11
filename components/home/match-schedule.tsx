@@ -11,6 +11,7 @@ import {
   matchesInRegion,
   regionColor,
   regionFilterOptions,
+  regionLabel,
 } from "@/lib/round/regions";
 import { groupMatchesByDay, nextMatchId } from "@/lib/round/schedule";
 import type { RoundMatch } from "@/lib/round/types";
@@ -90,15 +91,25 @@ export function MatchSchedule({
       )}
 
       {/* A `key` zera o "ver mais" a cada troca de filtro: a lista recomeça do
-          topo, não no meio da anterior. */}
-      <ScheduleDays
-        key={selectedRegion ?? "all"}
-        matches={filtered}
-        allMatches={matches}
-        myOrganizations={myOrganizations}
-        closesBy={closesBy}
-        now={now}
-      />
+          topo, não no meio da anterior. Chip sem jogo (Decisão do plano de
+          sempre oferecer as quatro ligas) precisa dizer isso — a grade nunca
+          fica um vazio mudo embaixo do chip que acabou de ser clicado. */}
+      {filtered.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          {selectedRegion
+            ? `Nenhum jogo de ${regionLabel(selectedRegion)} agendado no momento.`
+            : "Nenhum jogo confirmado no circuito agora."}
+        </p>
+      ) : (
+        <ScheduleDays
+          key={selectedRegion ?? "all"}
+          matches={filtered}
+          allMatches={matches}
+          myOrganizations={myOrganizations}
+          closesBy={closesBy}
+          now={now}
+        />
+      )}
     </div>
   );
 }

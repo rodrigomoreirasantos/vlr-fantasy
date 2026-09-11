@@ -125,6 +125,9 @@ describe("regionFilterOptions", () => {
     expect(options).toEqual([
       { region: "americas", label: "Americas", count: 2 },
       { region: "emea", label: "EMEA", count: 1 },
+      // Pacific e China não têm jogo esta semana, mas continuam na lista.
+      { region: "pacific", label: "Pacific", count: 0 },
+      { region: "china", label: "China", count: 0 },
     ]);
   });
 
@@ -138,6 +141,9 @@ describe("regionFilterOptions", () => {
     expect(options.map((option) => option.region)).toEqual([
       "international",
       "americas",
+      "emea",
+      "pacific",
+      "china",
     ]);
   });
 
@@ -152,11 +158,43 @@ describe("regionFilterOptions", () => {
       { region: "international", label: "Internacional", count: 1 },
       { region: "americas", label: "Americas", count: 2 },
       { region: "emea", label: "EMEA", count: 2 },
+      // Pacific e China não jogam nada próprio, mas o Champions é de todo
+      // mundo — quem clicar em "China" ainda vê essa partida.
+      { region: "pacific", label: "Pacific", count: 1 },
+      { region: "china", label: "China", count: 1 },
     ]);
   });
 
-  it("calendário vazio não oferece filtro nenhum", () => {
-    expect(regionFilterOptions([])).toEqual([]);
+  it("uma liga sem jogo agendado aparece mesmo assim, com contagem zero", () => {
+    const options = regionFilterOptions([
+      match("VCT 2026: Americas Stage 2", "a"),
+    ]);
+
+    expect(options.find((o) => o.region === "emea")).toEqual({
+      region: "emea",
+      label: "EMEA",
+      count: 0,
+    });
+  });
+
+  it("calendário vazio ainda oferece as quatro ligas, com contagem zero", () => {
+    expect(regionFilterOptions([])).toEqual([
+      { region: "americas", label: "Americas", count: 0 },
+      { region: "emea", label: "EMEA", count: 0 },
+      { region: "pacific", label: "Pacific", count: 0 },
+      { region: "china", label: "China", count: 0 },
+    ]);
+  });
+
+  it("'Outros' entra quando tem jogo próprio, mas não é forçado como as quatro ligas", () => {
+    // Não bate nenhum padrão de região nem bandeira — cai em "other".
+    const withOther = regionFilterOptions([match("Rivais 2026: Rio de Setup")]);
+    expect(withOther.some((o) => o.region === "other")).toBe(true);
+
+    const withoutOther = regionFilterOptions([
+      match("VCT 2026: Americas Stage 2"),
+    ]);
+    expect(withoutOther.some((o) => o.region === "other")).toBe(false);
   });
 });
 

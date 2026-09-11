@@ -292,6 +292,14 @@ export type RegionFilterOption = {
  * As regiões do calendário, na ordem de `EVENT_REGIONS` (internacional
  * primeiro: Masters e Champions são o que move o mercado), com a contagem de
  * jogos que cada chip **entrega** — a mesma regra de `matchesInRegion`.
+ *
+ * **As quatro ligas (`LEAGUE_REGIONS`) sempre aparecem, mesmo com zero jogos
+ * agendados agora.** O usuário tem time em cada uma delas
+ * (`.claude/plans/10-time-por-regiao.md`) — uma liga sem jogo esta semana
+ * (fim de stage, folga entre torneios) precisa continuar filtrável, para o
+ * usuário confirmar "não tem nada mesmo" em vez de a aba simplesmente sumir.
+ * "Internacional" e "Outros" continuam só aparecendo quando têm partida
+ * própria: não são ligas do usuário.
  */
 export function regionFilterOptions(
   matches: readonly RoundMatch[],
@@ -304,14 +312,18 @@ export function regionFilterOptions(
 
   const international = own.get("international") ?? 0;
 
-  // O chip nasce da região ter jogo **próprio**: "EMEA" não deveria aparecer
-  // numa semana em que só há Champions. Mas o número que ele mostra é o que o
-  // clique entrega — os dela mais os internacionais.
-  return [...own.entries()]
-    .map(([region, count]) => ({
+  const regions = new Set<EventRegion>(LEAGUE_REGIONS);
+  for (const region of own.keys()) {
+    regions.add(region);
+  }
+
+  // O número que cada chip mostra é o que o clique entrega — os jogos
+  // próprios da liga mais os internacionais (mesma regra de `matchesInRegion`).
+  return [...regions]
+    .map((region) => ({
       region,
       label: regionLabel(region),
-      count: count + (isLeagueRegion(region) ? international : 0),
+      count: (own.get(region) ?? 0) + (isLeagueRegion(region) ? international : 0),
     }))
     .sort((a, b) => REGION_ORDER[a.region] - REGION_ORDER[b.region]);
 }

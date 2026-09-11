@@ -42,12 +42,15 @@ describe("UpcomingMatches", () => {
   it("lista os jogos com times, região, campeonato e horário", () => {
     renderPanel([match()]);
 
-    expect(screen.getByText(/NRG/)).toBeInTheDocument();
+    // Escopado na linha do jogo: "Americas" também aparece no chip de
+    // filtro agora que as quatro ligas sempre são oferecidas.
+    const row = screen.getByRole("listitem");
+    expect(within(row).getByText(/NRG/)).toBeInTheDocument();
     // 17:00Z = 14:00 em America/Sao_Paulo (UTC-3), o fuso do jogo.
-    expect(screen.getByText("14:00")).toBeInTheDocument();
+    expect(within(row).getByText("14:00")).toBeInTheDocument();
     // A origem do jogo, evidente: a liga em destaque e o nome curto embaixo.
-    expect(screen.getByText("Americas")).toBeInTheDocument();
-    expect(screen.getByText("Americas Stage 2")).toBeInTheDocument();
+    expect(within(row).getByText("Americas")).toBeInTheDocument();
+    expect(within(row).getByText("Americas Stage 2")).toBeInTheDocument();
   });
 
   it("o nome longo do campeonato continua ao alcance, no title", () => {
@@ -240,12 +243,23 @@ describe("UpcomingMatches", () => {
     expect(within(hoje).queryByText(/LOUD/)).not.toBeInTheDocument();
   });
 
-  it("uma única região na grade não merece filtro", () => {
+  it("mesmo com uma única região na grade, as quatro ligas aparecem no filtro", () => {
     renderPanel([match({ id: "a" }), match({ id: "b" })]);
 
-    expect(
-      screen.queryByRole("group", { name: "Filtrar por região" }),
-    ).not.toBeInTheDocument();
+    const filters = screen.getByRole("group", { name: "Filtrar por região" });
+    const labels = within(filters)
+      .getAllByRole("button")
+      .map((button) => button.textContent);
+
+    // Só Americas jogou, mas as outras três ligas continuam oferecidas —
+    // o usuário tem time nelas e precisa poder conferir "não tem nada".
+    expect(labels).toEqual([
+      "Todos2",
+      "Americas2",
+      "EMEA0",
+      "Pacific0",
+      "China0",
+    ]);
   });
 
   it("oferece as regiões com a internacional à frente, e cada liga soma os internacionais", () => {
@@ -260,8 +274,28 @@ describe("UpcomingMatches", () => {
       .getAllByRole("button")
       .map((button) => button.textContent);
 
-    // Cada liga entrega os dela + o Champions: é o que a seleção de fato mostra.
-    expect(labels).toEqual(["Todos3", "Internacional1", "Americas2", "EMEA2"]);
+    // Cada liga entrega os dela + o Champions — inclusive Pacific e China,
+    // que não têm jogo próprio nesta grade.
+    expect(labels).toEqual([
+      "Todos3",
+      "Internacional1",
+      "Americas2",
+      "EMEA2",
+      "Pacific1",
+      "China1",
+    ]);
+  });
+
+  it("clicar numa liga sem jogo agendado explica isso, em vez de mostrar uma grade vazia", async () => {
+    const user = userEvent.setup();
+    renderPanel([match({ id: "a", event: "VCT 2026: Americas Stage 2" })]);
+
+    await user.click(screen.getByRole("button", { name: /^EMEA/ }));
+
+    expect(
+      screen.getByText("Nenhum jogo de EMEA agendado no momento."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/NRG/)).not.toBeInTheDocument();
   });
 
   it("o jogo de Champions aparece com Americas selecionado", async () => {
@@ -296,7 +330,13 @@ describe("UpcomingMatches", () => {
 
     // VCT Americas e Challengers Brazil somam no mesmo chip: era isso que
     // obrigava o usuário a alternar dois filtros para ver a própria liga.
-    expect(labels).toEqual(["Todos3", "Americas2", "EMEA1"]);
+    expect(labels).toEqual([
+      "Todos3",
+      "Americas2",
+      "EMEA1",
+      "Pacific0",
+      "China0",
+    ]);
   });
 
   it("escolher uma região deixa só os jogos dela na lista", async () => {
