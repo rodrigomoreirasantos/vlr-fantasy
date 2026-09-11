@@ -35,7 +35,8 @@ function renderHeader(
       <AppHeader
         teamName="Rodrigo FC"
         crest={DEFAULT_CREST}
-        userName="Rodrigo"
+        displayName="Rodrigo"
+        username="rodrigo"
         available={LEAGUE_REGIONS}
         {...overrides}
       />
@@ -110,7 +111,7 @@ describe("AppHeader", () => {
     );
   });
 
-  it("mostra o nome do time, o brasão, o saldo e a saudação", () => {
+  it("mostra o nome do time, o brasão, o saldo e o menu de conta", () => {
     usePathnameMock.mockReturnValue("/my-team");
     renderHeader();
 
@@ -120,7 +121,21 @@ describe("AppHeader", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("148.2")).toBeInTheDocument();
     expect(screen.queryByText("pts")).not.toBeInTheDocument();
-    expect(screen.getByText("Rodrigo")).toBeInTheDocument();
+    // A saudação "Olá, {nome}" saiu — o menu de conta (plano 21) assumiu o
+    // canto direito.
+    expect(screen.queryByText(/olá/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Abrir menu da conta (@rodrigo)" }),
+    ).toBeInTheDocument();
+  });
+
+  it("não existe mais um botão 'Sair' solto — só depois de abrir o menu", () => {
+    usePathnameMock.mockReturnValue("/my-team");
+    renderHeader();
+
+    expect(
+      screen.queryByRole("button", { name: /^sair$/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("mostra a região e o saldo do time em exibição", () => {

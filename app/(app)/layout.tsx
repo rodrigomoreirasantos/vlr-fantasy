@@ -55,7 +55,8 @@ export default async function AppLayout({
         <AppHeader
           teamName={overview.summary.name}
           crest={overview.summary.crest}
-          userName={session.user.name}
+          displayName={session.user.name}
+          username={session.user.username ?? null}
           available={available}
         />
         {children}

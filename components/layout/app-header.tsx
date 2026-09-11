@@ -4,8 +4,8 @@ import { Crosshair, Home, Trophy, User, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { SignOutButton } from "@/components/auth/sign-out-button";
 import { TeamCrest } from "@/components/crest/team-crest";
+import { AccountMenu } from "@/components/layout/account-menu";
 import { RegionSwitcher } from "@/components/layout/region-switcher";
 import { useRegionDisplay } from "@/components/layout/region-display";
 import { PlayerPrice } from "@/components/team/player-price";
@@ -25,7 +25,10 @@ const SECTIONS: Section[] = [
 export type AppHeaderProps = {
   teamName: string;
   crest: Crest;
-  userName: string;
+  /** `user.name` — o nome de exibição, editável em `/profile`. */
+  displayName: string;
+  /** `user.username` — o `@login` imutável, exibido no `AccountMenu` (plano 21). */
+  username: string | null;
   /** As regiões que o menu de troca pode oferecer agora — vem do layout (`resolveRegion`). */
   available: readonly TeamRegion[];
 };
@@ -40,7 +43,8 @@ export type AppHeaderProps = {
 export function AppHeader({
   teamName,
   crest,
-  userName,
+  displayName,
+  username,
   available,
 }: AppHeaderProps) {
   const pathname = usePathname();
@@ -104,12 +108,7 @@ export function AppHeader({
         })}
       </nav>
 
-      <div className="flex items-center gap-4">
-        <span className="text-sm text-muted-foreground">
-          Olá, <span className="text-foreground">{userName}</span>
-        </span>
-        <SignOutButton />
-      </div>
+      <AccountMenu displayName={displayName} username={username} />
     </header>
   );
 }
