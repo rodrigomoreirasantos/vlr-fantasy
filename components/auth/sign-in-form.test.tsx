@@ -72,6 +72,35 @@ describe("SignInForm", () => {
     expect(pushMock).not.toHaveBeenCalled();
   });
 
+  it("EMAIL_NOT_VERIFIED renderiza um link para /check-email com o e-mail digitado", async () => {
+    const user = userEvent.setup();
+    signInEmailMock.mockResolvedValue({
+      data: null,
+      error: { code: "EMAIL_NOT_VERIFIED" },
+    });
+    render(<SignInForm />);
+
+    await user.type(screen.getByLabelText("E-mail"), "joao@example.com");
+    await user.type(screen.getByLabelText("Senha"), "senha1234");
+    await user.click(screen.getByRole("button", { name: /entrar/i }));
+
+    const link = await screen.findByRole("link", {
+      name: /não recebeu\? reenviar/i,
+    });
+    expect(link).toHaveAttribute(
+      "href",
+      "/check-email?email=joao%40example.com",
+    );
+  });
+
+  it("existe um link acessível 'Esqueci minha senha' apontando para /forgot-password", () => {
+    render(<SignInForm />);
+
+    expect(
+      screen.getByRole("link", { name: /esqueci minha senha/i }),
+    ).toHaveAttribute("href", "/forgot-password");
+  });
+
   it("desabilita o botão durante o envio", async () => {
     const user = userEvent.setup();
     let resolvePromise!: (value: { data: unknown; error: null }) => void;

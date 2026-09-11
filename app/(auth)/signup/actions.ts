@@ -48,11 +48,19 @@ export const signUpWithTeam = actionClient
           username: parsedInput.username,
           email: parsedInput.email,
           password: parsedInput.password,
+          // Para onde o link do e-mail de verificação leva depois de validar
+          // o token (ver `app/(auth)/verify-email/page.tsx`).
+          callbackURL: "/verify-email",
         },
         headers: await headers(),
       });
       userId = user.id;
     } catch (error) {
+      // Com `requireEmailVerification: true`, e-mail duplicado não lança
+      // mais `USER_ALREADY_EXISTS` aqui — o better-auth devolve um sucesso
+      // sintético (proteção contra enumeração de e-mail) e quem avisa o dono
+      // do e-mail é `onExistingUserSignUp` (lib/auth.ts). Este catch trata
+      // só falhas de verdade (senha fraca, rate limit etc).
       if (error instanceof APIError) {
         throw new ActionError(translateAuthError(error.body?.code));
       }
@@ -65,16 +73,19 @@ export const signUpWithTeam = actionClient
       await db.transaction((tx) => updateTeamNameForUser(tx, userId, teamName));
     } catch (error) {
       // Janela mínima entre a checagem lá em cima e este `UPDATE`: outro
-      // cadastro levou o nome. A conta já está criada e a sessão ativa, então
-      // não dá para "desfazer" o cadastro — o time fica com o nome derivado e a
-      // mensagem manda renomear no perfil.
+      // cadastro levou o nome. A conta já está criada, então não dá para
+      // "desfazer" o cadastro — o time fica com o nome derivado e a mensagem
+      // manda renomear no perfil depois de verificar o e-mail.
       if (isUniqueViolation(error)) {
         throw new ActionError(
-          "Sua conta foi criada, mas esse nome de time acabou de ser escolhido por outra pessoa. Entre e renomeie o time no seu perfil.",
+          "Sua conta foi criada, mas esse nome de time acabou de ser escolhido por outra pessoa. Confirme seu e-mail e renomeie o time no seu perfil.",
         );
       }
       throw error;
     }
 
-    return { success: true as const };
+    // Quando o e-mail já existe, `userId` é um id sintético e este `UPDATE`
+    // acerta 0 linhas de propósito. Não tentar detectar isso: detectar é
+    // vazar que a conta já existia.
+    return { email: parsedInput.email };
   });

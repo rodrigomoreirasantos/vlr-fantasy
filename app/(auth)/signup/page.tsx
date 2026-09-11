@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { AuthCard } from "@/components/auth/auth-card";
-import { GoogleButton } from "@/components/auth/google-button";
+import { AuthShell } from "@/components/auth/auth-shell";
+import { ProviderButtons } from "@/components/auth/provider-buttons";
 import { SignUpForm } from "@/components/auth/sign-up-form";
-import { Separator } from "@/components/ui/separator";
-import { auth, isGoogleConfigured } from "@/lib/auth";
+import { auth, configuredSocialProviders } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "Criar conta | VLR Fantasy",
@@ -20,27 +20,25 @@ export default async function SignUpPage() {
   }
 
   return (
-    <AuthCard
+    <AuthShell
       title="Criar conta"
-      subtitle="Monte seu time dos sonhos e dispute o topo do ranking."
-      footerText="Já tem uma conta?"
-      footerLinkText="Entrar"
-      footerLinkHref="/login"
+      description="Monte seu time dos sonhos e dispute o topo do ranking."
+      footer={
+        <>
+          Já tem uma conta?{" "}
+          <Link
+            href="/login"
+            className="font-medium text-primary hover:underline"
+          >
+            Entrar
+          </Link>
+        </>
+      }
     >
       <div className="space-y-4">
         <SignUpForm />
-        {isGoogleConfigured && (
-          <>
-            <div className="relative">
-              <Separator />
-              <span className="absolute inset-x-0 top-1/2 mx-auto w-fit -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
-                OU
-              </span>
-            </div>
-            <GoogleButton />
-          </>
-        )}
+        <ProviderButtons providers={configuredSocialProviders} />
       </div>
-    </AuthCard>
+    </AuthShell>
   );
 }

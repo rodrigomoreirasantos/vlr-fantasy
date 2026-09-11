@@ -21,18 +21,22 @@ vi.mock("next-safe-action/hooks", () => ({
     _action: unknown,
     options: {
       onExecute?: () => void;
-      onSuccess?: () => void;
+      onSuccess?: (result: { data: { email: string } }) => void;
       onError?: (result: { error: { serverError?: string } }) => void;
     },
   ) => ({
     isExecuting: false,
-    execute: (input: unknown) => {
+    execute: (input: { email: string }) => {
       executeMock(input);
       options.onExecute?.();
       if (serverErrorRef.current) {
         options.onError?.({ error: { serverError: serverErrorRef.current } });
       } else {
-        options.onSuccess?.();
+        // O servidor sempre devolve sucesso com o e-mail informado — mesmo
+        // quando ele já existe (sucesso sintético, ver
+        // `app/(auth)/signup/actions.ts`). Do ponto de vista do cliente os
+        // dois casos são indistinguíveis, de propósito.
+        options.onSuccess?.({ data: { email: input.email } });
       }
     },
   }),
@@ -121,7 +125,29 @@ describe("SignUpForm", () => {
         confirmPassword: "senha1234",
       }),
     );
-    expect(pushMock).toHaveBeenCalledWith("/home");
+    expect(pushMock).toHaveBeenCalledWith(
+      "/check-email?email=joao%40example.com",
+    );
+  });
+
+  it("e-mail duplicado leva para /check-email do mesmo jeito, sem mostrar erro", async () => {
+    // A action devolve sucesso (sintético) mesmo quando o e-mail já existe —
+    // é a proteção contra enumeração de e-mail (`onExistingUserSignUp`,
+    // lib/auth.ts). Este teste trava esse comportamento no cliente: nenhum
+    // alerta deve aparecer, e o redirecionamento é idêntico ao de um cadastro
+    // novo.
+    const user = userEvent.setup();
+    render(<SignUpForm />);
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole("button", { name: /criar conta/i }));
+
+    await waitFor(() =>
+      expect(pushMock).toHaveBeenCalledWith(
+        "/check-email?email=joao%40example.com",
+      ),
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("mostra a mensagem do servidor quando o nome do time já existe", async () => {

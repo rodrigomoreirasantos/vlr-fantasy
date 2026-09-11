@@ -1,7 +1,6 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -14,44 +13,40 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { signIn } from "@/lib/auth-client";
+import { resetPassword } from "@/lib/auth-client";
 import { translateAuthError } from "@/lib/auth-errors";
-import { signInSchema, type SignInInput } from "@/lib/validations/auth";
+import {
+  resetPasswordSchema,
+  type ResetPasswordInput,
+} from "@/lib/validations/auth";
 
-export function SignInForm() {
+type ResetPasswordFormProps = {
+  token: string;
+};
+
+export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
-  // Guarda o e-mail digitado só quando o erro é EMAIL_NOT_VERIFIED — é o que
-  // permite montar o link para `/check-email?email=...`.
-  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
 
-  const form = useForm<SignInInput>({
-    resolver: zodResolver(signInSchema),
-    defaultValues: { email: "", password: "" },
+  const form = useForm<ResetPasswordInput>({
+    resolver: zodResolver(resetPasswordSchema),
+    defaultValues: { password: "", confirmPassword: "" },
   });
 
-  const onSubmit = async (values: SignInInput) => {
+  const onSubmit = async (values: ResetPasswordInput) => {
     setServerError(null);
-    setUnverifiedEmail(null);
 
-    const { error } = await signIn.email({
-      email: values.email,
-      password: values.password,
+    const { error } = await resetPassword({
+      newPassword: values.password,
+      token,
     });
 
     if (error) {
       setServerError(translateAuthError(error.code));
-      // `emailVerification.sendOnSignIn: true` (lib/auth.ts) já reenviou o
-      // link sozinho — por isso o rótulo do link é "Não recebeu? Reenviar",
-      // não "Enviar".
-      if (error.code === "EMAIL_NOT_VERIFIED") {
-        setUnverifiedEmail(values.email);
-      }
       return;
     }
 
-    router.push("/home");
-    router.refresh();
+    router.push("/login?reset=1");
   };
 
   return (
@@ -66,30 +61,22 @@ export function SignInForm() {
           aria-live="polite"
           className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
         >
-          <p>{serverError}</p>
-          {unverifiedEmail && (
-            <Link
-              href={`/check-email?email=${encodeURIComponent(unverifiedEmail)}`}
-              className="font-medium underline underline-offset-2"
-            >
-              Não recebeu? Reenviar
-            </Link>
-          )}
+          {serverError}
         </div>
       )}
 
       <FieldGroup>
         <Controller
-          name="email"
+          name="password"
           control={form.control}
           render={({ field, fieldState }) => (
             <Field data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor={field.name}>E-mail</FieldLabel>
+              <FieldLabel htmlFor={field.name}>Nova senha</FieldLabel>
               <Input
                 {...field}
                 id={field.name}
-                type="email"
-                autoComplete="email"
+                type="password"
+                autoComplete="new-password"
                 aria-invalid={fieldState.invalid}
               />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
@@ -98,24 +85,16 @@ export function SignInForm() {
         />
 
         <Controller
-          name="password"
+          name="confirmPassword"
           control={form.control}
           render={({ field, fieldState }) => (
             <Field data-invalid={fieldState.invalid}>
-              <div className="flex items-center justify-between gap-2">
-                <FieldLabel htmlFor={field.name}>Senha</FieldLabel>
-                <Link
-                  href="/forgot-password"
-                  className="text-xs font-medium text-primary hover:underline"
-                >
-                  Esqueci minha senha
-                </Link>
-              </div>
+              <FieldLabel htmlFor={field.name}>Confirmar nova senha</FieldLabel>
               <Input
                 {...field}
                 id={field.name}
                 type="password"
-                autoComplete="current-password"
+                autoComplete="new-password"
                 aria-invalid={fieldState.invalid}
               />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
@@ -124,12 +103,16 @@ export function SignInForm() {
         />
       </FieldGroup>
 
+      <p className="text-xs text-muted-foreground">
+        Por segurança, você será desconectado de todos os outros aparelhos.
+      </p>
+
       <Button
         type="submit"
         className="w-full"
         disabled={form.formState.isSubmitting}
       >
-        {form.formState.isSubmitting ? "Entrando…" : "Entrar"}
+        {form.formState.isSubmitting ? "Redefinindo…" : "Redefinir senha"}
       </Button>
     </form>
   );

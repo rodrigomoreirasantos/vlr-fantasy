@@ -120,6 +120,13 @@
       "when": 1789087812843,
       "tag": "0016_bumpy_wendell_rand",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1789128860089,
+      "tag": "0017_verify_existing_users",
+      "breakpoints": true
     }
   ]
 }

@@ -1,46 +1,70 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { AuthCard } from "@/components/auth/auth-card";
-import { GoogleButton } from "@/components/auth/google-button";
+import { AuthShell } from "@/components/auth/auth-shell";
+import { ProviderButtons } from "@/components/auth/provider-buttons";
 import { SignInForm } from "@/components/auth/sign-in-form";
-import { Separator } from "@/components/ui/separator";
-import { auth, isGoogleConfigured } from "@/lib/auth";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { auth, configuredSocialProviders } from "@/lib/auth";
+import { translateOAuthError } from "@/lib/auth-errors";
 
 export const metadata: Metadata = {
   title: "Entrar | VLR Fantasy",
 };
 
-export default async function LoginPage() {
+export default async function LoginPage(props: PageProps<"/login">) {
   const session = await auth.api.getSession({ headers: await headers() });
 
   if (session) {
     redirect("/home");
   }
 
+  const searchParams = await props.searchParams;
+  const oauthErrorParam = searchParams?.error;
+  const oauthError = Array.isArray(oauthErrorParam)
+    ? oauthErrorParam[0]
+    : oauthErrorParam;
+  const resetSuccess = searchParams?.reset === "1";
+
   return (
-    <AuthCard
+    <AuthShell
       title="Entrar"
-      subtitle="Acesse sua conta para gerenciar seu time."
-      footerText="Ainda não tem uma conta?"
-      footerLinkText="Criar conta"
-      footerLinkHref="/signup"
+      description="Acesse sua conta para gerenciar seu time."
+      footer={
+        <>
+          Ainda não tem uma conta?{" "}
+          <Link
+            href="/signup"
+            className="font-medium text-primary hover:underline"
+          >
+            Criar conta
+          </Link>
+        </>
+      }
     >
       <div className="space-y-4">
-        <SignInForm />
-        {isGoogleConfigured && (
-          <>
-            <div className="relative">
-              <Separator />
-              <span className="absolute inset-x-0 top-1/2 mx-auto w-fit -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
-                OU
-              </span>
-            </div>
-            <GoogleButton />
-          </>
+        {oauthError && (
+          // O callback OAuth (`errorCallbackURL`, `provider-buttons.tsx`) devolve
+          // o erro como `?error=<codigo>` em minúsculas com underscore — formato
+          // diferente do `$ERROR_CODES` do better-auth, daí o tradutor à parte.
+          <Alert variant="destructive">
+            <AlertDescription>
+              {translateOAuthError(oauthError)}
+            </AlertDescription>
+          </Alert>
         )}
+        {resetSuccess && (
+          <Alert>
+            <AlertDescription>
+              Senha redefinida. Entre com a nova senha.
+            </AlertDescription>
+          </Alert>
+        )}
+        <SignInForm />
+        <ProviderButtons providers={configuredSocialProviders} />
       </div>
-    </AuthCard>
+    </AuthShell>
   );
 }
