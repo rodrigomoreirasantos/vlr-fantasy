@@ -43,6 +43,9 @@ yarn-error.log*
 # claude code local settings
 .claude/settings.local.json
 
+# serena mcp local config
+/.serena
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

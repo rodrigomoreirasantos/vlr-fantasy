@@ -70,16 +70,22 @@ export default async function HomePage() {
       <LiveRefresh intervalMs={refreshIntervalMs(summary)} />
 
       <PendingInvites invites={summary.pendingInvites} />
+
+      {/* Jogos vêm antes do Desempenho do time de propósito: "quando é o
+          próximo jogo e até quando dá para mexer no time" é a pergunta mais
+          frequente ao abrir a Home, e o painel de Desempenho (gráfico +
+          histórico de partidas) é alto o bastante para empurrar o calendário
+          inteiro para fora da primeira dobra se vier primeiro.
+          O `now` vem do servidor para o primeiro paint e a hidratação
+          usarem exatamente o mesmo instante — mesmo motivo do
+          `initialCountdown` de `<MarketCountdown>`. */}
+      <UpcomingMatches upcoming={summary.upcoming} now={new Date()} />
       <TeamPerformance
         recap={summary.recap}
         hasFinishedRound={summary.hasFinishedRound}
         performances={summary.performances}
         roster={roster}
       />
-      {/* O `now` vem do servidor para o primeiro paint e a hidratação
-          usarem exatamente o mesmo instante — mesmo motivo do
-          `initialCountdown` de `<MarketCountdown>`. */}
-      <UpcomingMatches upcoming={summary.upcoming} now={new Date()} />
       <RoundHighlights highlights={summary.highlights} />
     </main>
   );
