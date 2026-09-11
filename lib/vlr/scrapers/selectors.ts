@@ -117,12 +117,17 @@ export const TEAM_ROSTER = {
   headerTag: ".team-header-tag",
   headerCountry: ".team-header-country",
   headerCountryFlag: ".team-header-country i.flag",
+  /**
+   * A página tem duas seções sob o mesmo `.wf-card` — "players" e "staff" —
+   * cada uma com um rótulo seguido do `<div>` que lista os itens. É essa
+   * posição, não a presença de tag nenhuma, que diz quem é jogador: ver o
+   * comentário de `parseTeamRoster`.
+   */
+  moduleLabel: ".wf-module-label",
   item: ".team-roster-item",
   link: "a[href]",
   img: ".team-roster-item-img img",
   alias: ".team-roster-item-name-alias",
   realName: ".team-roster-item-name-real",
-  /** **Presente = staff** (coach, manager). É o filtro que impede treinador virar jogador. */
-  staffRole: ".team-roster-item-name-role",
   flag: ".team-roster-item-name-alias i.flag",
 } as const;

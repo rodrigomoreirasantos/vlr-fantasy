@@ -8,8 +8,9 @@ import {
 import { TEAM_ROSTER } from "@/lib/vlr/scrapers/selectors";
 import {
   regionFromFlagClass,
-  requireAll,
   requireText,
+  requireWithin,
+  SelectorMissError,
   text,
   vlrIdFromHref,
   vlrImageUrl,
@@ -20,9 +21,15 @@ import {
  * organização**, o que finalmente torna confiável o cruzamento por igualdade
  * de texto entre `player.team` e `match.teamA`/`teamB`.
  *
- * Só jogadores entram: quem tem `.team-roster-item-name-role` ("head coach",
- * "manager") é staff, e é esse filtro que impede um treinador de virar
- * jogador do fantasy.
+ * Só jogadores entram — mas **não** por presença de tag nenhuma. A página tem
+ * duas seções sob o mesmo `.wf-card`, cada uma com um rótulo
+ * (`.wf-module-label`, "players"/"staff") seguido do `<div>` que lista os
+ * itens; só a de "players" é lida. **Verificado ao vivo**: a tag
+ * `.team-roster-item-name-role` que marca o cargo do staff ("head coach",
+ * "manager") é a **mesma classe** que o vlr usa para o status de um jogador
+ * dentro da própria seção de players (ex. "loan" — emprestado a outro time).
+ * Filtrar por essa tag excluía jogador emprestado como se fosse staff; a
+ * posição na seção certa é o único sinal confiável.
  */
 export function parseTeamRoster(
   html: string,
@@ -33,12 +40,18 @@ export function parseTeamRoster(
   const root = $.root();
 
   const tag = text($(TEAM_ROSTER.headerTag).first());
-  const items = requireAll($, TEAM_ROSTER.item, context);
+
+  const playersLabel = $(TEAM_ROSTER.moduleLabel)
+    .filter((_, el) => text($(el)).toLowerCase() === "players")
+    .first();
+  if (playersLabel.length === 0) {
+    throw new SelectorMissError(TEAM_ROSTER.moduleLabel, context);
+  }
+  const items = requireWithin(playersLabel.next(), TEAM_ROSTER.item, context);
   const players: ScrapedTeamRoster["players"] = [];
 
   items.each((_, node) => {
     const item = $(node);
-    if (item.find(TEAM_ROSTER.staffRole).length > 0) return;
 
     const playerVlrId = vlrIdFromHref(
       item.find(TEAM_ROSTER.link).first().attr("href"),
