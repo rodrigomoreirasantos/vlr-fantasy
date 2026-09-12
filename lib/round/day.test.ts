@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 
-import { APP_TZ, dayKey, isSameDay } from "@/lib/round/day";
+import { dayKey, GAME_DAY_TZ, isSameDay } from "@/lib/round/day";
 
 describe("dayKey", () => {
   it("conta o dia no fuso do jogo, não no do servidor", () => {
@@ -41,8 +41,8 @@ describe("isSameDay", () => {
   });
 });
 
-describe("APP_TZ", () => {
+describe("GAME_DAY_TZ", () => {
   it("é constante — servidor e cliente têm que chegar ao mesmo dia", () => {
-    expect(APP_TZ).toBe("America/Sao_Paulo");
+    expect(GAME_DAY_TZ).toBe("America/Sao_Paulo");
   });
 });

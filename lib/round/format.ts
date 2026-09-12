@@ -1,7 +1,7 @@
 import dayjs from "dayjs";
 import "dayjs/locale/pt-br";
 
-import { APP_TZ } from "@/lib/round/day";
+import { DISPLAY_FALLBACK_TZ } from "@/lib/round/timezone";
 import type { PlayerAvailability } from "@/lib/team/types";
 
 // Nenhum componente formata data na mão — sempre via dayjs, no mesmo padrão
@@ -9,20 +9,29 @@ import type { PlayerAvailability } from "@/lib/team/types";
 dayjs.locale("pt-br");
 
 /**
- * Sempre no fuso do jogo (`APP_TZ`), nunca no do runtime. Servidor e cliente
- * têm de chegar ao mesmo texto — o mesmo motivo de `lib/round/day.ts` — ou o
- * primeiro paint (servidor, quase sempre UTC) diverge da hidratação (o fuso
- * de quem está lendo).
+ * Sempre no fuso de EXIBIÇÃO, nunca no do runtime. O fuso é **resolvido no
+ * servidor** (`lib/round/timezone-selection.ts`) e desce como argumento —
+ * nunca lido aqui dentro via `dayjs.tz.guess()` ou coisa parecida. É essa
+ * garantia, e não o valor em si, que impede o mismatch de hidratação: se cada
+ * chamador já recebe a mesma string (via `useTimezone()` no cliente, que veio
+ * do mesmo servidor), servidor e cliente sempre chegam ao mesmo texto. Trocar
+ * o parâmetro por uma leitura local do fuso do processo é como esse bug volta.
  */
 
-/** Horário de uma partida, ex. "qua, 12/03 às 21:00". */
-export function formatMatchKickoff(scheduledAt: Date): string {
-  return dayjs(scheduledAt).tz(APP_TZ).format("ddd, DD/MM [às] HH:mm");
+/** Horário de uma partida, ex. "qua, 12/03 às 21:00", no fuso de quem lê. */
+export function formatMatchKickoff(
+  scheduledAt: Date,
+  tz: string = DISPLAY_FALLBACK_TZ,
+): string {
+  return dayjs(scheduledAt).tz(tz).format("ddd, DD/MM [às] HH:mm");
 }
 
 /** Só a hora, ex. "21:00" — a coluna pela qual se lê um calendário. */
-export function formatKickoffTime(scheduledAt: Date): string {
-  return dayjs(scheduledAt).tz(APP_TZ).format("HH:mm");
+export function formatKickoffTime(
+  scheduledAt: Date,
+  tz: string = DISPLAY_FALLBACK_TZ,
+): string {
+  return dayjs(scheduledAt).tz(tz).format("HH:mm");
 }
 
 /**
@@ -30,17 +39,20 @@ export function formatKickoffTime(scheduledAt: Date): string {
  * jogo é de outro ano, "sáb, 10/01/2027".
  *
  * "Hoje"/"Amanhã" não são enfeite — são a informação que o leitor de fato
- * procura ao decidir se dá tempo de mexer na escalação. `now` injetável
- * mantém o teste determinístico, como em `lib/market/window.ts`. O ano só
- * entra quando muda: escrevê-lo sempre polui os dias de hoje e da semana, que
- * são a maioria absoluta de um calendário que agora atravessa meses.
+ * procura ao decidir se dá tempo de mexer na escalação, e "hoje" depende de
+ * onde ele está: um jogo às 23h de Brasília já é "amanhã" em Tóquio. `now`
+ * injetável mantém o teste determinístico, como em `lib/market/window.ts`. O
+ * ano só entra quando muda: escrevê-lo sempre polui os dias de hoje e da
+ * semana, que são a maioria absoluta de um calendário que agora atravessa
+ * meses.
  */
 export function formatMatchDay(
   scheduledAt: Date,
   now: Date = new Date(),
+  tz: string = DISPLAY_FALLBACK_TZ,
 ): string {
-  const day = dayjs(scheduledAt).tz(APP_TZ);
-  const today = dayjs(now).tz(APP_TZ);
+  const day = dayjs(scheduledAt).tz(tz);
+  const today = dayjs(now).tz(tz);
 
   if (day.isSame(today, "day")) return "Hoje";
   if (day.isSame(today.add(1, "day"), "day")) return "Amanhã";
@@ -56,6 +68,24 @@ export function formatMatchDay(
  */
 export function toIsoDate(date: Date): string {
   return dayjs(date).toISOString();
+}
+
+/**
+ * O deslocamento de um fuso em relação ao UTC, do jeito que se fala em
+ * português — "−3", "+9", "+5:30" — nunca o cru do `dayjs`/`Intl`
+ * ("−03:00", "+09:00"). Existe para o rótulo "Horários em GMT{offset} (seu
+ * fuso)" em `components/home/upcoming-matches.tsx`; a regra do CLAUDE.md é
+ * que componente não formata data (nem deslocamento) na mão.
+ */
+export function formatTimezoneOffset(
+  tz: string,
+  now: Date = new Date(),
+): string {
+  const raw = dayjs(now).tz(tz).format("Z"); // ex.: "-03:00", "+09:00", "+05:30"
+  const sign = raw.startsWith("-") ? "−" : "+";
+  const hours = String(Number(raw.slice(1, 3)));
+  const minutes = raw.slice(4, 6);
+  return minutes === "00" ? `${sign}${hours}` : `${sign}${hours}:${minutes}`;
 }
 
 const AVAILABILITY_LABELS: Record<PlayerAvailability, string> = {

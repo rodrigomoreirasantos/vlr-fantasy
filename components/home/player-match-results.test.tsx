@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { PlayerMatchResults } from "@/components/home/player-match-results";
+import { TimezoneProvider } from "@/components/layout/timezone";
 import type { PlayerMatchPerformance } from "@/lib/player/types";
 
 function performance(
@@ -236,5 +237,21 @@ describe("PlayerMatchResults", () => {
     );
 
     expect(screen.getByText("−3.5")).toBeInTheDocument();
+  });
+
+  it("o kickoff do histórico acompanha o fuso de quem está lendo", () => {
+    render(
+      <TimezoneProvider tz="Asia/Tokyo">
+        <PlayerMatchResults
+          performances={[performance()]}
+          rosterSize={5}
+          selectedPlayerId={null}
+        />
+      </TimezoneProvider>,
+    );
+
+    // 21:00Z de 03/09 é 18:00 em São Paulo (o default) e 06:00 do dia
+    // seguinte em Tóquio.
+    expect(screen.getByText("sex, 04/09 às 06:00")).toBeInTheDocument();
   });
 });

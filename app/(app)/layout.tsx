@@ -3,7 +3,9 @@ import { redirect } from "next/navigation";
 
 import { AppHeader } from "@/components/layout/app-header";
 import { RegionDisplayProvider } from "@/components/layout/region-display";
+import { TimezoneProvider, TimezoneSync } from "@/components/layout/timezone";
 import { auth } from "@/lib/auth";
+import { resolveTimezone } from "@/lib/round/timezone-selection";
 import { resolveRegion } from "@/lib/team/region-selection";
 import { getTeamOverview } from "@/lib/team/queries";
 
@@ -16,6 +18,12 @@ import { getTeamOverview } from "@/lib/team/queries";
  * argumentos batam, `region` incluída (`resolveRegion`, sem `?region=`
  * explícito: o layout não recebe `searchParams`, então segue o header do
  * proxy / cookie / default, a mesma região que a página resolve).
+ *
+ * `resolveTimezone()` entra aqui, e não em cada página, porque — ao contrário
+ * da região — o fuso de exibição **não muda na navegação**: não existe
+ * `?tz=` nem ação que o altere, só o `TimezoneSync` do próprio layout
+ * corrigindo via cookie e `router.refresh()` (`components/layout/timezone.tsx`),
+ * que reavalia `cookies()`/`headers()` do zero — layout incluído.
  */
 export default async function AppLayout({
   children,
@@ -36,6 +44,7 @@ export default async function AppLayout({
   if (!overview) {
     throw new Error("Não foi possível carregar o seu time.");
   }
+  const tz = await resolveTimezone();
 
   return (
     <div className="min-h-screen bg-background">
@@ -46,21 +55,24 @@ export default async function AppLayout({
         brasão continuam props normais — são do usuário (`fantasy_identity`),
         iguais nas cinco regiões.
       */}
-      <RegionDisplayProvider
-        initial={{
-          region: overview.region,
-          balanceCents: overview.summary.balanceCents,
-        }}
-      >
-        <AppHeader
-          teamName={overview.summary.name}
-          crest={overview.summary.crest}
-          displayName={session.user.name}
-          username={session.user.username ?? null}
-          available={available}
-        />
-        {children}
-      </RegionDisplayProvider>
+      <TimezoneProvider tz={tz}>
+        <TimezoneSync serverTz={tz} />
+        <RegionDisplayProvider
+          initial={{
+            region: overview.region,
+            balanceCents: overview.summary.balanceCents,
+          }}
+        >
+          <AppHeader
+            teamName={overview.summary.name}
+            crest={overview.summary.crest}
+            displayName={session.user.name}
+            username={session.user.username ?? null}
+            available={available}
+          />
+          {children}
+        </RegionDisplayProvider>
+      </TimezoneProvider>
     </div>
   );
 }

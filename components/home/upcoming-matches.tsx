@@ -5,12 +5,14 @@ import { useState } from "react";
 import { MarketCountdown } from "@/components/market/market-countdown";
 import { MatchSchedule } from "@/components/home/match-schedule";
 import { Panel } from "@/components/layout/panel";
+import { useTimezone } from "@/components/layout/timezone";
 import type { UpcomingMatches as UpcomingMatchesData } from "@/lib/home/types";
 import {
   formatMarketClose,
   marketClosesByMatch,
   nextMarketClose,
 } from "@/lib/market/window";
+import { formatTimezoneOffset } from "@/lib/round/format";
 import type { EventRegion } from "@/lib/round/regions";
 import { matchesInRegion, regionLabel } from "@/lib/round/regions";
 
@@ -43,6 +45,7 @@ export function UpcomingMatches({
   const [selectedRegion, setSelectedRegion] = useState<EventRegion | null>(
     null,
   );
+  const tz = useTimezone();
 
   if (matches.length === 0) {
     return (
@@ -60,6 +63,12 @@ export function UpcomingMatches({
 
   return (
     <Panel title="Próximos jogos">
+      {/* Sem isso, um horário certo é indistinguível de um errado: o usuário
+          não tem como saber que a tela já se adaptou ao fuso dele. */}
+      <p className="mb-3 text-[10px] text-muted-foreground">
+        Horários em GMT{formatTimezoneOffset(tz, now)} (seu fuso)
+      </p>
+
       {selectedRegion === null ? (
         <p className="text-sm text-muted-foreground">
           O mercado fecha por campeonato, uma hora antes do primeiro jogo do

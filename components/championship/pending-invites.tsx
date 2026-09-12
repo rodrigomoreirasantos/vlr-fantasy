@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { respondToInvite } from "@/app/(app)/ranking/actions";
 import { Button } from "@/components/ui/button";
+import { useTimezone } from "@/components/layout/timezone";
 import { formatInvitedAt } from "@/lib/championship/format";
 import type { PendingInvite } from "@/lib/championship/types";
 import { regionColor, regionLabel } from "@/lib/round/regions";
@@ -17,6 +18,7 @@ export type PendingInvitesProps = {
 /** Convites de campeonato recebidos pelo usuário, ainda sem resposta. */
 export function PendingInvites({ invites }: PendingInvitesProps) {
   const [respondingId, setRespondingId] = useState<string | null>(null);
+  const tz = useTimezone();
 
   const { execute, isExecuting } = useAction(respondToInvite, {
     onSuccess: () => {
@@ -72,7 +74,7 @@ export function PendingInvites({ invites }: PendingInvitesProps) {
                 <p className="text-xs text-muted-foreground">
                   {invite.invitedByUsername &&
                     `de @${invite.invitedByUsername} · `}
-                  {formatInvitedAt(invite.invitedAt)}
+                  {formatInvitedAt(invite.invitedAt, tz)}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   Você entra com o seu time de {regionLabel(invite.region)}.

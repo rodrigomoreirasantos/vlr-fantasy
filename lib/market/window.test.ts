@@ -65,9 +65,15 @@ describe("formatTimeLeft", () => {
 });
 
 describe("formatClosesAt", () => {
-  it("formata em português, com dia da semana abreviado, no fuso do jogo", () => {
+  it("formata em português, com dia da semana abreviado, no fuso default (São Paulo)", () => {
     // 2026-03-14 é um sábado. 18:00Z = 15:00 em America/Sao_Paulo (UTC-3).
     expect(formatClosesAt(closesAt)).toBe("Fecha sáb, 14/03 às 15:00");
+  });
+
+  it("aceita um fuso explícito — o mesmo instante, outra frase", () => {
+    expect(formatClosesAt(closesAt, "Asia/Tokyo")).toBe(
+      "Fecha dom, 15/03 às 03:00",
+    );
   });
 });
 
@@ -141,6 +147,13 @@ describe("marketClosesByMatch", () => {
       new Date(PACIFIC_MADRUGADA.getTime() - MARKET_CLOSE_LEAD_MS),
     );
     expect(closes.get("d")).not.toEqual(closes.get("b"));
+  });
+
+  it("não recebe fuso de exibição, e não deveria: o fechamento é um instante só", () => {
+    // A linha que não se cruza: marketClosesByMatch não tem parâmetro `tz` —
+    // dois usuários em fusos diferentes têm de calcular o mesmo Date. Só a
+    // forma de *escrever* esse instante (formatClosesAt) varia por pessoa.
+    expect(marketClosesByMatch.length).toBe(1);
   });
 });
 

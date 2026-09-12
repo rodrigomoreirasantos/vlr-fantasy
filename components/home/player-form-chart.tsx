@@ -3,6 +3,7 @@
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 
 import { PlayerPhoto } from "@/components/player/player-photo";
+import { useTimezone } from "@/components/layout/timezone";
 import {
   ChartContainer,
   ChartTooltip,
@@ -197,6 +198,7 @@ function FormTooltip({
   label,
   payload,
 }: FormTooltipProps) {
+  const tz = useTimezone();
   if (!active || !payload?.length) return null;
 
   const point = points.find((row) => row.label === label);
@@ -233,7 +235,7 @@ function FormTooltip({
                   // A data vem por jogador: no eixo de recência, o "J-2" de um
                   // é de outro dia que o "J-2" do outro.
                   <span className="text-[10px] text-muted-foreground/70">
-                    {formatMatchKickoff(played.scheduledAt)}
+                    {formatMatchKickoff(played.scheduledAt, tz)}
                   </span>
                 )}
               </span>

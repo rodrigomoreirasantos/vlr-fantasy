@@ -13,6 +13,7 @@ vi.mock("next-safe-action/hooks", () => ({
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { PendingInvites } from "@/components/championship/pending-invites";
+import { TimezoneProvider } from "@/components/layout/timezone";
 import type { PendingInvite } from "@/lib/championship/types";
 
 function invite(overrides: Partial<PendingInvite> = {}): PendingInvite {
@@ -75,5 +76,21 @@ describe("PendingInvites", () => {
       memberId: "member-1",
       accept: false,
     });
+  });
+
+  it("a data do convite sai no fuso default (São Paulo) — Bug 2 corrigido", () => {
+    render(<PendingInvites invites={[invite()]} />);
+
+    expect(screen.getByText(/14\/03 às 15:00/)).toBeInTheDocument();
+  });
+
+  it("a data do convite acompanha o fuso de quem está lendo", () => {
+    render(
+      <TimezoneProvider tz="Asia/Tokyo">
+        <PendingInvites invites={[invite()]} />
+      </TimezoneProvider>,
+    );
+
+    expect(screen.getByText(/15\/03 às 03:00/)).toBeInTheDocument();
   });
 });
