@@ -3,10 +3,7 @@
 import { useState } from "react";
 
 import { FilterChip } from "@/components/home/filter-chip";
-import {
-  PlayerFormChart,
-  seriesColor,
-} from "@/components/home/player-form-chart";
+import { PlayerFormChart } from "@/components/home/player-form-chart";
 import { PlayerMatchResults } from "@/components/home/player-match-results";
 import { RoundRecap } from "@/components/home/round-recap";
 import { Panel } from "@/components/layout/panel";
@@ -16,6 +13,7 @@ import type { RoundRecap as RoundRecapData } from "@/lib/home/types";
 import {
   FORM_METRICS,
   metricLabel,
+  seriesColor,
   type FormMetric,
   type RosterChartPlayer,
 } from "@/lib/player/form";
