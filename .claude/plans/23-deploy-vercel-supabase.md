@@ -1,5 +1,35 @@
 # Hospedar o app na Vercel, com Supabase de produção separado do de dev
 
+## Status desta execução (2026-09-12)
+
+- ✅ **Fase 1** (merge em `main`): feito. `origin/main` não existia — criada e
+  empurrada; a Vercel passou a tratá-la como Production Branch sozinha (não
+  precisou de ajuste manual no painel, ao contrário do que a Fase 3 previa).
+- ✅ **Fase 2** (prontidão): teto do `Pool` (`db/index.ts`, `max: 3`) feito.
+  `next/dynamic` no gráfico **tentado e revertido** — quebrava 3 testes de
+  `team-performance.test.tsx` (a árvore some até o import assíncrono
+  resolver, e as asserções são síncronas); fica como follow-up com os testes
+  ajustados, não incluído aqui. `seriesColor` foi movido para
+  `lib/player/form.ts` (mantido — é uma limpeza válida por si só).
+- ✅ **Fase 3** (projeto Vercel): criado (`prj_mhTKoLyFNh8FwiLBOSMWg2Lv4DHV`),
+  região `iad1`, Vercel Authentication ligada em todos os ambientes. Domínio:
+  `https://vlr-fantasy.vercel.app`.
+- ✅ **Fase 5** (`vlr-cron` → produção): container no ar, `vlr:doctor`
+  confirma conexão com o Supabase de produção e com o vlr.gg. No caminho,
+  achado e corrigido um bug real: `.env.example` tinha `VLR_USER_AGENT=`
+  vazia, que quebra a validação do schema (`z.string().min(1).optional()`
+  aceita ausente, rejeita vazia) — corrigido lá e documentado no README do
+  vlr-cron (que tem uma segunda camada do mesmo problema, exclusiva de
+  `docker compose exec`).
+- ⏳ **Fase 0** (segundo Supabase para dev) — **precisa de você**: não há tool
+  para criar projeto Supabase.
+- ⏳ **Fase 4** (env vars na Vercel) — **precisa de você**: não há tool para
+  escrever env var na Vercel. Detalhes e checklist na mensagem de handoff.
+- ⏳ **Fase 6** (verificação) — depende da Fase 4.
+- Pendência cosmética, não bloqueia nada: branch padrão do GitHub continua
+  `feat/substituicao-jogadores-mercado`; trocar por `main` em Settings →
+  Branches é opcional (decisão original, feito no `git`, só falta no GitHub).
+
 ## Contexto
 
 Pedido do Rodrigo: "suba esse projeto na Vercel pois o banco de dados vai ser Supabase", usando as
