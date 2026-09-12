@@ -40,13 +40,22 @@ bruto fica no volume nomeado `vlr-raw-html`, que sobrevive a
 
 Verificar que o container está de fato rodando os scripts:
 
+**`docker compose exec` sem `VLR_USER_AGENT` real na sessão quebra a
+validação** (`Too small: expected string to have >=1 characters`), mesmo com
+a linha de fora do `.env` — o `docker-compose.yml` sempre materializa a
+variável no ambiente do container via `${VLR_USER_AGENT:-}` (vazia, se
+ausente no `.env`), e um `exec` herda esse ambiente direto, sem passar pelo
+filtro que o `entrypoint.sh` aplica para os jobs do cron (comentário lá
+explica). Os jobs agendados pelo cron **não são afetados** — só uma
+invocação manual via `exec` precisa do valor explícito:
+
 ```bash
 # Roda um job manualmente, sem esperar o próximo horário do crontab.
-docker compose exec vlr-cron pnpm vlr:doctor
+docker compose exec -e VLR_USER_AGENT="VlrFantasy/1.0 (+seu@email)" vlr-cron pnpm vlr:doctor
 
 # Prova que o volume preservou o HTML bruto entre execuções.
-docker compose exec vlr-cron pnpm vlr:results --force --pages=1
-docker compose exec vlr-cron pnpm vlr:reprocess --match=<vlrId>
+docker compose exec -e VLR_USER_AGENT="VlrFantasy/1.0 (+seu@email)" vlr-cron pnpm vlr:results --force --pages=1
+docker compose exec -e VLR_USER_AGENT="VlrFantasy/1.0 (+seu@email)" vlr-cron pnpm vlr:reprocess --match=<vlrId>
 
 # O quadro de saúde (Decisão 7, plano 17) — sem rede, uma linha por job.
 docker compose exec vlr-cron pnpm vlr:health
