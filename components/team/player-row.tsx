@@ -275,7 +275,10 @@ export function PlayerRow({
           onClick={onSell}
         >
           <HandCoins aria-hidden />
-          Vender
+          {/* Só o ícone abaixo de `sm`: com foto + identidade + placar, o
+              texto do botão era o que sobrava espremer numa linha estreita
+              (plano 28, Fase 3). O rótulo acessível continua completo. */}
+          <span className="hidden sm:inline">Vender</span>
         </Button>
       )}
     </li>

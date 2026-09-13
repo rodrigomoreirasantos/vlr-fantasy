@@ -341,8 +341,8 @@ export function MarketSheet({
                     que `loadMarket` volta, não há lista para filtrar/ordenar
                     antes disso. */}
                 {visibleByRole && (
-                  <div className="flex items-center gap-2">
-                    <div className="relative min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative min-w-0 flex-1 basis-full sm:basis-auto">
                       <Search
                         aria-hidden
                         className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
