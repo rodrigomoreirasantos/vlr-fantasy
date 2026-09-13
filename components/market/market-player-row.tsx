@@ -1,7 +1,5 @@
 "use client";
 
-import { Minus, TrendingDown, TrendingUp } from "lucide-react";
-
 import {
   PlayerIdentity,
   PlayerPortraitBadge,
@@ -16,56 +14,21 @@ import {
   type SubstitutionContext,
 } from "@/lib/market/eligibility";
 import { formatCredits } from "@/lib/market/money";
-import { targetPriceCents } from "@/lib/scoring/pricing";
+import { expectedSeriesPoints } from "@/lib/scoring/pricing";
 import type { Player } from "@/lib/team/types";
 import { cn } from "@/lib/utils";
 
-type PriceTrend = "up" | "down" | "stable";
-
 /**
- * Compara o alvo pela forma (`targetPriceCents`, Decisão 1, plano 20) contra
- * o preço atual — a mesma conta que decide o preço na próxima rodada
- * (`nextPriceCents`), só que sem o passo. É o que transforma "comprar quem
- * está em baixa" numa decisão informada em vez de um palpite.
+ * Pontos por série que o preço do candidato promete
+ * (`expectedSeriesPoints`, `lib/scoring/pricing.ts`) — a mesma régua que
+ * `db/close-round.ts` usa para decidir se ele valoriza ou desvaloriza na
+ * próxima rodada (Suposição S10, `.claude/plans/26-regras-de-preco-e-saldo.md`).
+ * Substitui a seta "Valorizando/Desvalorizando" do plano 20: aquela previa o
+ * preço pela forma das últimas 5 séries, e o motor novo não caminha mais até
+ * esse alvo — mostrar a seta antiga passaria a mentir.
  */
-function priceTrend(candidate: Player): PriceTrend {
-  const target = targetPriceCents(candidate.formPoints);
-  if (target > candidate.priceCents) return "up";
-  if (target < candidate.priceCents) return "down";
-  return "stable";
-}
-
-const TREND_ICON: Record<PriceTrend, typeof TrendingUp> = {
-  up: TrendingUp,
-  down: TrendingDown,
-  stable: Minus,
-};
-
-const TREND_LABEL: Record<PriceTrend, string> = {
-  up: "Valorizando",
-  down: "Desvalorizando",
-  stable: "Estável",
-};
-
-const TREND_CLASS: Record<PriceTrend, string> = {
-  up: "text-success",
-  down: "text-destructive",
-  stable: "text-muted-foreground",
-};
-
-function PriceTrendBadge({ candidate }: { candidate: Player }) {
-  const trend = priceTrend(candidate);
-  const Icon = TREND_ICON[trend];
-
-  return (
-    <span
-      aria-label={TREND_LABEL[trend]}
-      title={TREND_LABEL[trend]}
-      className={cn("inline-flex", TREND_CLASS[trend])}
-    >
-      <Icon aria-hidden className="size-3.5" />
-    </span>
-  );
+function priceTrendLabel(priceCents: number): string {
+  return `Valoriza com ${Math.ceil(expectedSeriesPoints(priceCents))}+ pts`;
 }
 
 export type MarketPlayerRowProps = {
@@ -108,12 +71,17 @@ export function MarketPlayerRow({
         <PlayerIdentity
           player={candidate}
           trailing={
-            <div className="flex items-center gap-1.5">
-              <PriceTrendBadge candidate={candidate} />
+            <div className="flex flex-col items-end gap-0.5">
               <PlayerPrice
                 priceCents={candidate.priceCents}
                 className="text-base"
               />
+              <span
+                title={`Precisa de ${Math.ceil(expectedSeriesPoints(candidate.priceCents))} pontos por série para valorizar`}
+                className="text-[10px] font-semibold text-muted-foreground"
+              >
+                {priceTrendLabel(candidate.priceCents)}
+              </span>
             </div>
           }
         />

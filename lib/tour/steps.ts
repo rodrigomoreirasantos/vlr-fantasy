@@ -1,6 +1,5 @@
 import { MARKET_CLOSE_LEAD_MS } from "@/lib/market/window";
-import { MAX_PATRIMONY_CENTS } from "@/lib/market/budget";
-import { formatCredits } from "@/lib/market/money";
+import { MAX_SWING_RATIO } from "@/lib/scoring/pricing";
 import { CAPTAIN_MULTIPLIER } from "@/lib/scoring/team";
 import type { TourTarget } from "@/lib/tour/targets";
 
@@ -19,6 +18,7 @@ export type TourStep = {
 };
 
 const marketCloseLeadHours = MARKET_CLOSE_LEAD_MS / 3_600_000;
+const maxSwingPercent = MAX_SWING_RATIO * 100;
 
 /**
  * Os 13 passos do tour, na ordem em que aparecem.
@@ -91,8 +91,8 @@ export const TOUR_STEPS: readonly TourStep[] = [
     id: "orcamento",
     route: "/my-team",
     target: "orcamento",
-    title: "Teto do patrimônio",
-    body: `Saldo + elenco não passam de ${formatCredits(MAX_PATRIMONY_CENTS)} cr. Os mais caros nunca cabem todos juntos.`,
+    title: "Patrimônio",
+    body: `Jogo ruim desvaloriza (até ${maxSwingPercent}% por rodada) e seu patrimônio cai junto. Faça crescer para escalar os 5 mais caros.`,
   },
   {
     id: "relogio-mercado",

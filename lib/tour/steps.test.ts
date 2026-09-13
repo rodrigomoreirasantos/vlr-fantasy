@@ -1,9 +1,8 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 
+import { MAX_SWING_RATIO } from "@/lib/scoring/pricing";
 import { CAPTAIN_MULTIPLIER } from "@/lib/scoring/team";
-import { MAX_PATRIMONY_CENTS } from "@/lib/market/budget";
-import { formatCredits } from "@/lib/market/money";
 import { TOUR_STEPS, type TourRoute } from "@/lib/tour/steps";
 
 const ROUTES: readonly TourRoute[] = ["/home", "/my-team", "/ranking", "/profile"];
@@ -78,9 +77,9 @@ describe("TOUR_STEPS", () => {
     expect(step!.body).toContain(`${CAPTAIN_MULTIPLIER}×`);
   });
 
-  it("o passo do orçamento cita o teto de patrimônio de verdade", () => {
+  it("o passo do orçamento cita o limite de variação por rodada de verdade", () => {
     const step = TOUR_STEPS.find((row) => row.id === "orcamento");
-    expect(step!.body).toContain(formatCredits(MAX_PATRIMONY_CENTS));
+    expect(step!.body).toContain(`${MAX_SWING_RATIO * 100}%`);
   });
 
   it("nenhum texto liga 'saldo' a 'pontos' — pontuar não muda o saldo", () => {

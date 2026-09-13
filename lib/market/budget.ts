@@ -1,16 +1,25 @@
+import { MAX_PRICE_CENTS } from "@/lib/scoring/pricing";
+import { ROSTER_SIZE } from "@/lib/team/types";
+
 /**
- * Orçamento e teto de patrimônio do usuário — a metade "dinheiro" do plano
- * 20: nenhum jogador pode consumir tudo, e o elenco all-star nunca cabe. As
- * quatro invariantes que sustentam estes números vivem no teste de guarda
- * de `budget.test.ts` — mexer numa constante sem mexer na outra quebra o
- * build.
+ * Orçamento do usuário — a metade "dinheiro" do plano 26
+ * (`.claude/plans/26-regras-de-preco-e-saldo.md`). Diferente do plano 20, não
+ * há mais teto de patrimônio: o usuário **pode** escalar os 5 jogadores mais
+ * caros, desde que junte dinheiro para isso — o próprio preço máximo dos
+ * jogadores já limita quanto um time vale, então um teto separado só
+ * atrasaria sem necessidade.
  */
 
-/** Orçamento inicial de cada time: 300,0 créditos (Decisão 1). */
+/** Orçamento inicial de cada time: 300,0 créditos (Suposição S4, plano 26). */
 export const STARTING_BUDGET_CENTS = 30_000;
 
-/** Teto de patrimônio: 360,0 créditos, 1,2× o orçamento inicial (Decisão 3). */
-export const MAX_PATRIMONY_CENTS = 36_000;
+/**
+ * O time dos sonhos: 5 jogadores no preço máximo (450,0 cr) — a meta que a
+ * barra de "Meu Time" mostra. `STARTING_BUDGET_CENTS` fica de propósito
+ * abaixo disto (o teste de guarda garante), mas nunca tão abaixo que vire
+ * frustração — ver o teste de guarda abaixo.
+ */
+export const DREAM_TEAM_CENTS = ROSTER_SIZE * MAX_PRICE_CENTS;
 
 /** Patrimônio de um time: saldo + valor do elenco. */
 export function patrimonyCents(args: {
@@ -21,23 +30,28 @@ export function patrimonyCents(args: {
 }
 
 /**
- * Quanto o teto cortou nesta rodada — `0` quando o patrimônio não passou
- * dele. Nunca maior que `balanceCents`: o corte mexe **só no caixa**, nunca
- * vende jogador (Decisão 4) — se o elenco sozinho já vale mais que o teto, o
- * corte é o caixa inteiro, e não um número teórico maior que ele.
+ * Quanto falta de patrimônio para poder escalar os 5 jogadores mais caros —
+ * nunca negativo (patrimônio acima do time dos sonhos não "sobra falta").
  */
-export function budgetTrimCents(args: {
+export function dreamTeamGapCents(args: {
   balanceCents: number;
   squadValueCents: number;
 }): number {
-  const overCents = Math.max(0, patrimonyCents(args) - MAX_PATRIMONY_CENTS);
-  return Math.min(overCents, args.balanceCents);
+  return Math.max(0, DREAM_TEAM_CENTS - patrimonyCents(args));
 }
 
-/** O saldo depois do teto: corta só o caixa, nunca abaixo de zero (Decisão 4). */
-export function trimmedBalanceCents(args: {
-  balanceCents: number;
-  squadValueCents: number;
-}): number {
-  return args.balanceCents - budgetTrimCents(args);
+/**
+ * Quanto a escalação ganhou (positivo) ou perdeu (negativo) num fechamento
+ * de rodada: soma de `priceAfterCents − priceBeforeCents` das vagas
+ * ocupadas. É a mesma conta que `db/close-round.ts` grava em
+ * `round_team_result.squad_valuation_cents` — o "você perdeu/ganhou X cr"
+ * que `BudgetBar` mostra (Suposição S8, plano 26).
+ */
+export function squadValuationCents(
+  slots: readonly { priceBeforeCents: number; priceAfterCents: number }[],
+): number {
+  return slots.reduce(
+    (total, slot) => total + (slot.priceAfterCents - slot.priceBeforeCents),
+    0,
+  );
 }

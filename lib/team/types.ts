@@ -112,11 +112,13 @@ export type TeamSummary = {
   /** Soma dos preços das 5 vagas — junto com `balanceCents`, forma o patrimônio (Decisão 3, plano 20). */
   squadValueCents: number;
   /**
-   * Quanto o teto de patrimônio (`MAX_PATRIMONY_CENTS`, `lib/market/budget.ts`)
-   * cortou do caixa na última rodada fechada — `0` quando não cortou, ou
-   * quando ainda não houve nenhuma rodada fechada.
+   * Quanto a escalação valorizou (positivo) ou desvalorizou (negativo) na
+   * última rodada fechada (`squadValuationCents`, `lib/market/budget.ts` —
+   * Suposição S8, `.claude/plans/26-regras-de-preco-e-saldo.md`). `null`
+   * quando ainda não houve nenhuma rodada fechada — a tela não mostra frase
+   * nenhuma nesse caso.
    */
-  budgetTrimmedCents: number;
+  lastSquadValuationCents: number | null;
   /** A região deste time — Americas, EMEA, Pacific, China ou Internacional. */
   region: TeamRegion;
   market: {

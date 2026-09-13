@@ -181,7 +181,10 @@ export async function refreshPlayerForm(
  * (`targetPriceCents`), **sem passo** — é um recomeço de escala, não uma
  * rodada. Só dois chamadores: `backfill()` (abaixo) e `pnpm db:reprice`
  * (Fase 3 do plano 20). O fechamento normal de rodada usa `nextPriceCents`,
- * com passo e amortecimento, em `db/close-round.ts` — nunca este rebase.
+ * que desde o plano 26 (`.claude/plans/26-regras-de-preco-e-saldo.md`)
+ * compara o jogo real da rodada contra `expectedSeriesPoints` — não caminha
+ * mais até o alvo pela forma. `targetPriceCents` continua servindo só à
+ * estreia e a este rebase.
  */
 export async function rebasePlayerPrices(
   tx: Transaction,

@@ -17,7 +17,7 @@ function makeSummary(overrides: Partial<TeamSummary> = {}): TeamSummary {
     points: 42,
     balanceCents: 12_345,
     squadValueCents: 20_000,
-    budgetTrimmedCents: 0,
+    lastSquadValuationCents: null,
     region: "americas",
     market: { open: true, closesIn: "36h 12m", closesAt: null },
     ...overrides,

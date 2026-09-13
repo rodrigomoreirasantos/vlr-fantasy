@@ -1,27 +1,29 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  MAX_PATRIMONY_CENTS,
+  DREAM_TEAM_CENTS,
   STARTING_BUDGET_CENTS,
-  budgetTrimCents,
+  dreamTeamGapCents,
   patrimonyCents,
-  trimmedBalanceCents,
+  squadValuationCents,
 } from "@/lib/market/budget";
 import { MAX_PRICE_CENTS, MIN_PRICE_CENTS } from "@/lib/scoring/pricing";
 import { ROSTER_SIZE } from "@/lib/team/types";
 
 /**
- * Teste de guarda das constantes (plano 20): as quatro invariantes da
- * aritmética que sustenta as Decisões 1 e 3, escritas como asserção — mexer
- * num número sem mexer no outro quebra o build.
+ * Teste de guarda das constantes (plano 26): as invariantes da aritmética
+ * que sustentam as Suposições S3/S4/S6, escritas como asserção — mexer num
+ * número sem mexer no outro quebra o build.
  */
 describe("invariantes do orçamento", () => {
-  it("um jogador nunca consome todo o dinheiro: MAX_PRICE_CENTS <= 30% do orçamento", () => {
-    expect(MAX_PRICE_CENTS).toBeLessThanOrEqual(STARTING_BUDGET_CENTS * 0.3);
+  it("os 5 jogadores mais caros não cabem no orçamento inicial", () => {
+    expect(DREAM_TEAM_CENTS).toBeGreaterThan(STARTING_BUDGET_CENTS);
   });
 
-  it("...nem com o patrimônio no teto: MAX_PRICE_CENTS <= teto / 4", () => {
-    expect(MAX_PRICE_CENTS).toBeLessThanOrEqual(MAX_PATRIMONY_CENTS / 4);
+  it("...mas o começo não frustra: pelo menos 60% do time dos sonhos", () => {
+    expect(STARTING_BUDGET_CENTS).toBeGreaterThanOrEqual(
+      0.6 * DREAM_TEAM_CENTS,
+    );
   });
 
   it("sempre dá para completar 5 vagas mesmo escalando o mais caro", () => {
@@ -31,17 +33,8 @@ describe("invariantes do orçamento", () => {
     );
   });
 
-  it("os 5 jogadores mais caros da liga nunca cabem no teto", () => {
-    expect(MAX_PRICE_CENTS * ROSTER_SIZE).toBeGreaterThan(MAX_PATRIMONY_CENTS);
-  });
-});
-
-describe("MAX_PATRIMONY_CENTS", () => {
-  it("bate com o literal do CHECK fantasy_team_balance_range (db/schema/fantasy-teams.ts)", () => {
-    // Um CHECK do Postgres não aceita parâmetro de query — o literal lá é
-    // hardcoded. Este teste é a rede que pega a dessincronia se um dia só um
-    // lado mudar.
-    expect(MAX_PATRIMONY_CENTS).toBe(36_000);
+  it("DREAM_TEAM_CENTS é exatamente 5 × MAX_PRICE_CENTS", () => {
+    expect(DREAM_TEAM_CENTS).toBe(ROSTER_SIZE * MAX_PRICE_CENTS);
   });
 });
 
@@ -53,29 +46,41 @@ describe("patrimonyCents", () => {
   });
 });
 
-describe("budgetTrimCents / trimmedBalanceCents", () => {
-  it("patrimônio dentro do teto: não corta nada", () => {
-    const args = { balanceCents: 5_000, squadValueCents: 20_000 };
-    expect(budgetTrimCents(args)).toBe(0);
-    expect(trimmedBalanceCents(args)).toBe(5_000);
+describe("dreamTeamGapCents", () => {
+  it("patrimônio abaixo do time dos sonhos: falta a diferença", () => {
+    expect(
+      dreamTeamGapCents({ balanceCents: 10_000, squadValueCents: 20_000 }),
+    ).toBe(DREAM_TEAM_CENTS - 30_000);
   });
 
-  it("patrimônio exatamente no teto: não corta nada", () => {
-    const args = { balanceCents: 6_000, squadValueCents: 30_000 }; // = 36.000
-    expect(budgetTrimCents(args)).toBe(0);
+  it("patrimônio igual ou acima do time dos sonhos: nunca negativo", () => {
+    expect(
+      dreamTeamGapCents({
+        balanceCents: DREAM_TEAM_CENTS,
+        squadValueCents: 0,
+      }),
+    ).toBe(0);
+    expect(
+      dreamTeamGapCents({
+        balanceCents: DREAM_TEAM_CENTS,
+        squadValueCents: 100_000,
+      }),
+    ).toBe(0);
+  });
+});
+
+describe("squadValuationCents", () => {
+  it("soma positivos e negativos das vagas ocupadas", () => {
+    expect(
+      squadValuationCents([
+        { priceBeforeCents: 5_000, priceAfterCents: 5_350 }, // +350
+        { priceBeforeCents: 9_000, priceAfterCents: 8_100 }, // -900
+        { priceBeforeCents: 2_000, priceAfterCents: 2_000 }, // 0
+      ]),
+    ).toBe(-550);
   });
 
-  it("acima do teto: corta só o excedente do caixa", () => {
-    // Patrimônio 37.000, teto 36.000 → excedente 1.000.
-    const args = { balanceCents: 5_000, squadValueCents: 32_000 };
-    expect(budgetTrimCents(args)).toBe(1_000);
-    expect(trimmedBalanceCents(args)).toBe(4_000);
-  });
-
-  it("elenco sozinho maior que o teto: zera o caixa e não fica negativo", () => {
-    const args = { balanceCents: 3_000, squadValueCents: 40_000 };
-    expect(trimmedBalanceCents(args)).toBe(0);
-    expect(budgetTrimCents(args)).toBe(3_000);
-    expect(trimmedBalanceCents(args)).toBeGreaterThanOrEqual(0);
+  it("elenco sem nenhuma vaga ocupada soma 0", () => {
+    expect(squadValuationCents([])).toBe(0);
   });
 });

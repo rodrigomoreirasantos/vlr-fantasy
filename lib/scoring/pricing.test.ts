@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   DEBUT_PRICE_CENTS,
   MAX_PRICE_CENTS,
-  MAX_STEP_CENTS,
+  MAX_SWING_RATIO,
   MIN_PRICE_CENTS,
+  PRICE_SENSITIVITY_PER_POINT,
   dampingFactor,
+  expectedSeriesPoints,
   nextPriceCents,
   priceDeltaCents,
   targetPriceCents,
@@ -45,85 +47,131 @@ describe("targetPriceCents", () => {
   });
 });
 
-describe("priceDeltaCents", () => {
-  it("forma acima do preço valoriza; forma abaixo desvaloriza", () => {
-    const up = priceDeltaCents({ priceCents: 4_000, formPoints: 80 });
-    expect(up).toBeGreaterThan(0);
-
-    const down = priceDeltaCents({ priceCents: 8_000, formPoints: 25 });
-    expect(down).toBeLessThan(0);
+describe("expectedSeriesPoints", () => {
+  it("20,0 cr promete 20 pts, 90,0 cr promete 100 pts (a régua de verdade, plano 26)", () => {
+    expect(expectedSeriesPoints(MIN_PRICE_CENTS)).toBe(20);
+    expect(expectedSeriesPoints(MAX_PRICE_CENTS)).toBe(100);
   });
 
-  it("forma exatamente no alvo do preço atual dá delta 0", () => {
-    const priceCents = targetPriceCents(52.1);
-    expect(priceDeltaCents({ priceCents, formPoints: 52.1 })).toBe(0);
+  it("48,0 cr promete 52 pts — o exemplo do jogador mediano da conta do plano", () => {
+    expect(expectedSeriesPoints(4_800)).toBeCloseTo(52, 5);
   });
 
-  it("o passo nunca passa de 8,0 créditos, mesmo com o alvo bem distante", () => {
-    const deltaUp = priceDeltaCents({
-      priceCents: MIN_PRICE_CENTS,
-      formPoints: 200,
-    });
-    const deltaDown = priceDeltaCents({
-      priceCents: MAX_PRICE_CENTS,
-      formPoints: 0,
-    });
-    expect(deltaUp).toBe(MAX_STEP_CENTS);
-    expect(deltaDown).toBe(-MAX_STEP_CENTS);
-  });
-
-  it("um jogador no teto com forma máxima tem delta 0 — não passa do teto", () => {
-    expect(
-      priceDeltaCents({ priceCents: MAX_PRICE_CENTS, formPoints: 200 }),
-    ).toBe(0);
-  });
-
-  it("um jogador no piso com forma mínima tem delta 0 — não passa do piso", () => {
-    expect(
-      priceDeltaCents({ priceCents: MIN_PRICE_CENTS, formPoints: 0 }),
-    ).toBe(0);
-  });
-
-  it("invariante: nextPriceCents(x) - x === priceDeltaCents(x)", () => {
-    const args = { priceCents: 5_230, formPoints: 61.4, gamesPlayed: 2 };
-    expect(nextPriceCents(args) - args.priceCents).toBe(priceDeltaCents(args));
+  it("é a inversa exata de targetPriceCents dentro da faixa de forma", () => {
+    expect(expectedSeriesPoints(targetPriceCents(60))).toBeCloseTo(60, 0);
   });
 });
 
-describe("priceDeltaCents com amortecimento", () => {
-  const base = { priceCents: 2_000, formPoints: 90 };
+describe("priceDeltaCents", () => {
+  it("a tabela de exemplos da seção 'A conta que sustenta as suposições' (plano 26)", () => {
+    // 90,0 cr (promete 100), média 50 na rodada → desvio -50 → -20% → limitado a -10% → -900.
+    expect(
+      priceDeltaCents({ priceCents: 9_000, roundPoints: 50, series: 1 }),
+    ).toBe(-900);
 
-  it("a estreia (gamesPlayed 0) move um quarto do que moveria um veterano", () => {
-    const veteran = priceDeltaCents({ ...base, gamesPlayed: 10 });
-    const rookie = priceDeltaCents({ ...base, gamesPlayed: 0 });
-    // Os dois batem no teto de MAX_STEP_CENTS antes do amortecimento fazer
-    // diferença — usa um alvo mais próximo para o amortecimento aparecer.
-    const nearBase = { priceCents: 4_000, formPoints: 48.1 };
-    const veteranNear = priceDeltaCents({ ...nearBase, gamesPlayed: 10 });
-    const rookieNear = priceDeltaCents({ ...nearBase, gamesPlayed: 0 });
-    expect(veteran).toBeGreaterThan(0);
-    expect(rookie).toBeGreaterThan(0);
-    expect(rookieNear).toBeLessThan(veteranNear);
+    // 90,0 cr, média 120 → desvio +20 → +8%, mas o preço já está no teto → 0.
+    expect(
+      priceDeltaCents({ priceCents: 9_000, roundPoints: 120, series: 1 }),
+    ).toBe(0);
+
+    // 48,0 cr (promete 52), média 70 → desvio +18 → +7,2% → +345,6 → passo de 10 → 350.
+    expect(
+      priceDeltaCents({ priceCents: 4_800, roundPoints: 70, series: 1 }),
+    ).toBe(350);
+
+    // 48,0 cr, média 30 → desvio -22 → -8,8% → -422,4 → passo de 10 → -420.
+    expect(
+      priceDeltaCents({ priceCents: 4_800, roundPoints: 30, series: 1 }),
+    ).toBe(-420);
+
+    // 25,0 cr (promete 25,7), média 60 → desvio +34,3 → +13,7%, limitado a +10% → +250.
+    expect(
+      priceDeltaCents({ priceCents: 2_500, roundPoints: 60, series: 1 }),
+    ).toBe(250);
+
+    // 20,0 cr (piso, promete 20), média 5 → desvio -15 → -6%, mas já está no piso → 0.
+    expect(
+      priceDeltaCents({ priceCents: 2_000, roundPoints: 5, series: 1 }),
+    ).toBe(0);
+  });
+
+  it("series 0 (não jogou) dá delta 0, mesmo com roundPoints alto", () => {
+    expect(
+      priceDeltaCents({ priceCents: 5_000, roundPoints: 999, series: 0 }),
+    ).toBe(0);
+  });
+
+  it("a mesma soma em 2 séries vale metade do desvio de 1 série (média por série)", () => {
+    const oneMap = priceDeltaCents({
+      priceCents: 4_800,
+      roundPoints: 70,
+      series: 1,
+    });
+    const twoMaps = priceDeltaCents({
+      priceCents: 4_800,
+      roundPoints: 140,
+      series: 2,
+    });
+    expect(twoMaps).toBe(oneMap);
+  });
+
+  it("o delta nunca passa de MAX_SWING_RATIO do preço atual, arredondado", () => {
+    for (const priceCents of [MIN_PRICE_CENTS, 4_800, MAX_PRICE_CENTS]) {
+      for (const roundPoints of [0, 50, 500]) {
+        const delta = priceDeltaCents({ priceCents, roundPoints, series: 1 });
+        expect(Math.abs(delta)).toBeLessThanOrEqual(
+          Math.round((priceCents * MAX_SWING_RATIO) / 10) * 10 + 10,
+        );
+      }
+    }
+  });
+
+  it("o preço final fica sempre em [MIN_PRICE_CENTS, MAX_PRICE_CENTS]", () => {
+    for (const priceCents of [MIN_PRICE_CENTS, 4_800, MAX_PRICE_CENTS]) {
+      for (const roundPoints of [-100, 0, 500]) {
+        const next = nextPriceCents({ priceCents, roundPoints, series: 1 });
+        expect(next).toBeGreaterThanOrEqual(MIN_PRICE_CENTS);
+        expect(next).toBeLessThanOrEqual(MAX_PRICE_CENTS);
+      }
+    }
+  });
+
+  it("jogo abaixo do prometido nunca dá delta positivo", () => {
+    const priceCents = 4_800; // promete 52
+    const delta = priceDeltaCents({ priceCents, roundPoints: 30, series: 1 }); // faz 30
+    expect(delta).toBeLessThanOrEqual(0);
+  });
+
+  it("jogo acima do prometido nunca dá delta negativo", () => {
+    const priceCents = 4_800; // promete 52
+    const delta = priceDeltaCents({ priceCents, roundPoints: 70, series: 1 }); // faz 70
+    expect(delta).toBeGreaterThanOrEqual(0);
+  });
+
+  it("invariante: nextPriceCents(x) - x.priceCents === priceDeltaCents(x)", () => {
+    const args = { priceCents: 5_230, roundPoints: 61.4, series: 1, gamesPlayed: 2 };
+    expect(nextPriceCents(args) - args.priceCents).toBe(priceDeltaCents(args));
+  });
+
+  it("gamesPlayed 0 (estreia) dá 25% da variação de um veterano", () => {
+    const args = { priceCents: 4_800, roundPoints: 70, series: 1 };
+    const veteran = priceDeltaCents({ ...args, gamesPlayed: 10 });
+    const rookie = priceDeltaCents({ ...args, gamesPlayed: 0 });
+    expect(rookie).toBe(Math.round((veteran * 0.25) / 10) * 10);
   });
 
   it("omitir gamesPlayed não amortece — o comportamento default", () => {
-    expect(priceDeltaCents(base)).toBe(
-      priceDeltaCents({ ...base, gamesPlayed: 99 }),
+    const args = { priceCents: 4_800, roundPoints: 70, series: 1 };
+    expect(priceDeltaCents(args)).toBe(
+      priceDeltaCents({ ...args, gamesPlayed: 99 }),
     );
   });
+});
 
-  it("o passo máximo continua valendo depois do amortecimento", () => {
-    const delta = priceDeltaCents({
-      priceCents: MIN_PRICE_CENTS,
-      formPoints: 500,
-      gamesPlayed: 40,
-    });
-    expect(delta).toBe(MAX_STEP_CENTS);
-  });
-
-  it("invariante preservada com amortecimento", () => {
-    const args = { ...base, gamesPlayed: 1 };
-    expect(nextPriceCents(args) - args.priceCents).toBe(priceDeltaCents(args));
+describe("PRICE_SENSITIVITY_PER_POINT / MAX_SWING_RATIO", () => {
+  it("os literais do plano 26: 0,4%/pt e ±10% por rodada", () => {
+    expect(PRICE_SENSITIVITY_PER_POINT).toBe(0.004);
+    expect(MAX_SWING_RATIO).toBe(0.1);
   });
 });
 
@@ -138,27 +186,5 @@ describe("dampingFactor", () => {
 
   it("um gamesPlayed negativo cai no fator da estreia, nunca em NaN", () => {
     expect(dampingFactor(-1)).toBe(0.25);
-  });
-});
-
-describe("convergência", () => {
-  it("iterar rodadas converge ao alvo e para de se mover", () => {
-    let priceCents = 5_000;
-    const formPoints = 80.2; // alvo = 7.270
-    const target = targetPriceCents(formPoints);
-
-    for (let round = 0; round < 30; round += 1) {
-      priceCents = nextPriceCents({
-        priceCents,
-        formPoints,
-        gamesPlayed: 10, // veterano: sem amortecimento
-      });
-    }
-
-    expect(priceCents).toBe(target);
-    // Uma rodada a mais não move nada: convergiu de verdade.
-    expect(
-      priceDeltaCents({ priceCents, formPoints, gamesPlayed: 10 }),
-    ).toBe(0);
   });
 });

@@ -145,9 +145,10 @@ async function loadTeamOverview(
       // (`lockedOrganizations`) substituiu a janela da rodada.
       listMarketLockMatches(),
       resolveMarketScope(region),
-      // Para o corte do teto de patrimônio (`BudgetBar`) — precisa da
-      // última rodada **fechada**, não da ativa: o corte só acontece no
-      // fechamento (Decisão 5, plano 20).
+      // Para a valorização/desvalorização da última rodada (`BudgetBar`) —
+      // precisa da última rodada **fechada**, não da ativa: é só no
+      // fechamento que `squadValuationCents` é gravado (Suposição S8, plano
+      // 26).
       getLatestFinishedRound(),
     ]);
   const lockedTeams = lockedOrganizations(lockMatches);
@@ -185,7 +186,7 @@ async function loadTeamOverview(
         ),
       },
       squadValueCents,
-      lastResult?.budgetTrimmedCents ?? 0,
+      lastResult?.squadValuationCents ?? null,
     ),
     roster,
     lockedTeams,

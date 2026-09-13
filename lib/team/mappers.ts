@@ -73,8 +73,8 @@ export function toTeamSummary(
   market: { closesAt: Date | null },
   /** Soma dos preços das 5 vagas — ver `TeamSummary.squadValueCents`. */
   squadValueCents: number,
-  /** O corte do teto na última rodada fechada — `0` sem corte ou sem rodada. */
-  budgetTrimmedCents: number,
+  /** Ganho/perda da última rodada fechada — `null` sem rodada fechada ainda. */
+  lastSquadValuationCents: number | null,
 ): TeamSummary {
   return {
     name: identity.name,
@@ -88,7 +88,7 @@ export function toTeamSummary(
     points,
     balanceCents: team.balanceCents,
     squadValueCents,
-    budgetTrimmedCents,
+    lastSquadValuationCents,
     region,
     market: {
       // "Operando", não "aberto para todos": quem tranca é a regra do dia,

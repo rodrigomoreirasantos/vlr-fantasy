@@ -148,6 +148,20 @@
       "when": 1789254393214,
       "tag": "0020_lean_wildside",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1789265013430,
+      "tag": "0021_cooing_salo",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1789265064359,
+      "tag": "0022_petite_black_panther",
+      "breakpoints": true
     }
   ]
 }
