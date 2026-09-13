@@ -15,7 +15,7 @@ const SHAPE_PATHS: Record<CrestShape, string> = {
   hex: "M32 4 L57 18 L57 46 L32 60 L7 46 L7 18 Z",
 };
 
-const SIZE_PX = { sm: 28, md: 44, lg: 128 } as const;
+const SIZE_PX = { sm: 28, md: 44, podium: 72, lg: 128 } as const;
 
 export type TeamCrestSize = keyof typeof SIZE_PX;
 

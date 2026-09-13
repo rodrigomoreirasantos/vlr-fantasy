@@ -2,13 +2,14 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { ChampionshipSelector } from "@/components/championship/championship-selector";
-import { CreateChampionshipDialog } from "@/components/championship/create-championship-dialog";
+import { ChampionshipRail } from "@/components/championship/championship-rail";
 import { EmptyChampionships } from "@/components/championship/empty-championships";
 import { InviteMemberForm } from "@/components/championship/invite-member-form";
 import { PendingInvites } from "@/components/championship/pending-invites";
-import { StandingsTable } from "@/components/championship/standings-table";
+import { StandingsList } from "@/components/championship/standings-list";
+import { StandingsPodium } from "@/components/championship/standings-podium";
 import { Panel } from "@/components/layout/panel";
+import { PageContainer } from "@/components/layout/page-container";
 import { RegionDisplaySync } from "@/components/layout/region-display";
 import { RegionTabs } from "@/components/team/region-tabs";
 import { auth } from "@/lib/auth";
@@ -20,7 +21,7 @@ import {
   getStandingRows,
   listPendingInvites,
   listPendingMembers,
-  listUserChampionships,
+  listUserChampionshipsWithPosition,
 } from "@/lib/championship/queries";
 import { rankStandings } from "@/lib/championship/standings";
 import { parseTeamRegion, regionColor, regionLabel } from "@/lib/round/regions";
@@ -49,7 +50,7 @@ export default async function RankingPage(props: PageProps<"/ranking">) {
   );
 
   const [championships, pendingInvites] = await Promise.all([
-    listUserChampionships(session.user.id),
+    listUserChampionshipsWithPosition(session.user.id),
     listPendingInvites(session.user.id),
   ]);
 
@@ -96,12 +97,12 @@ export default async function RankingPage(props: PageProps<"/ranking">) {
 
   if (!selected) {
     return (
-      <main className="mx-auto max-w-7xl px-6 py-9">
+      <PageContainer>
         {regionSync}
         <PendingInvites invites={pendingInvites} />
         <RegionTabs current={region} available={tabs} pathname="/ranking" />
         <EmptyChampionships region={region} />
-      </main>
+      </PageContainer>
     );
   }
 
@@ -111,22 +112,21 @@ export default async function RankingPage(props: PageProps<"/ranking">) {
   const pendingMembers = isOwner ? await listPendingMembers(selected.id) : [];
 
   return (
-    <main className="mx-auto max-w-7xl px-6 py-9">
+    <PageContainer>
       {regionSync}
       <PendingInvites invites={pendingInvites} />
 
       <RegionTabs current={region} available={tabs} pathname="/ranking" />
 
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <ChampionshipSelector
-          championships={inRegion}
-          selectedId={selected.id}
-        />
-        <CreateChampionshipDialog defaultRegion={region} />
-      </div>
+      <ChampionshipRail
+        championships={inRegion}
+        selectedId={selected.id}
+        region={region}
+      />
 
       <Panel title="Classificação" tourId="campeonatos" actions={regionChip}>
-        <StandingsTable standings={standings} />
+        <StandingsPodium standings={standings} />
+        <StandingsList standings={standings} />
         <p className="mt-3 text-xs text-muted-foreground">
           A pontuação considera o seu time de {regionLabel(selected.region)}{" "}
           nesta rodada.
@@ -158,6 +158,6 @@ export default async function RankingPage(props: PageProps<"/ranking">) {
           </Panel>
         </div>
       )}
-    </main>
+    </PageContainer>
   );
 }

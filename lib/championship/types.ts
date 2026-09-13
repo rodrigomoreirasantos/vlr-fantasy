@@ -41,6 +41,17 @@ export type PendingInvite = {
   invitedAt: Date;
 };
 
+/**
+ * `ChampionshipSummary` + a colocação do usuário — o card da faixa de
+ * campeonatos (`ChampionshipRail`) mostra "Você: Nº" sem reconsultar por
+ * campeonato. `null` quando o usuário ainda não tem posição atribuída (não
+ * deveria acontecer para quem é membro aceito, mas `rankStandings` sempre
+ * devolve algo — o tipo só reflete "não achado").
+ */
+export type ChampionshipCardData = ChampionshipSummary & {
+  myPosition: number | null;
+};
+
 export type PendingMember = {
   memberId: string;
   userName: string;

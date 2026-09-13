@@ -26,9 +26,9 @@ if (hasDom) {
   }
 
   // jsdom não implementa Pointer Events nem scrollIntoView. O Radix Select
-  // (usado no ChampionshipSelector) depende de `hasPointerCapture` para abrir
-  // via clique/teclado em testes — sem o stub, o clique lança
-  // "target.hasPointerCapture is not a function".
+  // (usado, por exemplo, no diálogo de criar campeonato) depende de
+  // `hasPointerCapture` para abrir via clique/teclado em testes — sem o
+  // stub, o clique lança "target.hasPointerCapture is not a function".
   if (typeof Element.prototype.hasPointerCapture === "undefined") {
     Element.prototype.hasPointerCapture = () => false;
   }

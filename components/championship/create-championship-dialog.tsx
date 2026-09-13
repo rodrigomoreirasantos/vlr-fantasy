@@ -47,11 +47,18 @@ import {
 export type CreateChampionshipDialogProps = {
   /** Região pré-selecionada no formulário — a aba de região onde o botão está. */
   defaultRegion?: TeamRegion;
+  /**
+   * Gatilho customizado — a `ChampionshipRail` (plano 28, Fase 4) usa um
+   * card tracejado em vez do botão padrão, para "Criar campeonato" virar o
+   * último item da faixa em vez de uma ação solta ao lado dela.
+   */
+  trigger?: React.ReactNode;
 };
 
 /** Botão "Criar campeonato" + formulário num Dialog — cria e já navega para ele. */
 export function CreateChampionshipDialog({
   defaultRegion = DEFAULT_TEAM_REGION,
+  trigger,
 }: CreateChampionshipDialogProps = {}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -83,10 +90,12 @@ export function CreateChampionshipDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button type="button">
-          <Plus aria-hidden className="size-4" />
-          Criar campeonato
-        </Button>
+        {trigger ?? (
+          <Button type="button">
+            <Plus aria-hidden className="size-4" />
+            Criar campeonato
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
