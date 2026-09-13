@@ -1,3 +1,4 @@
+import { tourTarget, type TourTarget } from "@/lib/tour/targets";
 import { cn } from "@/lib/utils";
 
 export type PanelProps = {
@@ -10,12 +11,15 @@ export type PanelProps = {
   actions?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
+  /** Alvo do tour guiado (`lib/tour/`) — quando este painel é um dos passos. */
+  tourId?: TourTarget;
 };
 
 /** Cartão chanfrado com um título em caixa alta — moldura das seções de "Meu Time". */
-export function Panel({ title, actions, children, className }: PanelProps) {
+export function Panel({ title, actions, children, className, tourId }: PanelProps) {
   return (
     <section
+      {...(tourId ? tourTarget(tourId) : {})}
       className={cn(
         "clip-corner bg-card p-[18px] ring-1 ring-border [--clip:16px]",
         className,

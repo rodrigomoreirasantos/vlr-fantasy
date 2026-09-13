@@ -21,6 +21,12 @@ describe("EmptyChampionships", () => {
     ).toBeInTheDocument();
   });
 
+  it("é o alvo 'campeonatos' do tour guiado", () => {
+    const { container } = render(<EmptyChampionships />);
+
+    expect(container.querySelector('[data-tour="campeonatos"]')).not.toBeNull();
+  });
+
   it("com region='pacific', cita a região e oferece o botão de criar", () => {
     render(<EmptyChampionships region="pacific" />);
 

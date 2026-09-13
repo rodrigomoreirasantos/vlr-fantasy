@@ -44,4 +44,12 @@ describe("TeamStats", () => {
     expect(screen.getByText("42.0")).toBeInTheDocument();
     expect(screen.queryByText("123.4")).not.toBeInTheDocument();
   });
+
+  it("o card 'Mercado' é o alvo 'relogio-mercado' do tour guiado", () => {
+    const { container } = render(<TeamStats summary={makeSummary()} />);
+
+    expect(
+      container.querySelector('[data-tour="relogio-mercado"]'),
+    ).not.toBeNull();
+  });
 });

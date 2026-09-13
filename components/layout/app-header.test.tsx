@@ -13,34 +13,45 @@ vi.mock("@/lib/auth-client", () => ({
   signOut: vi.fn(),
 }));
 
+// `AccountMenu` (dentro de `AppHeader`) chama `useTour()` — precisa do
+// provider por perto, e o provider chama `useAction(completeTour)`.
+vi.mock("@/app/(app)/actions", () => ({ completeTour: "completeTour-token" }));
+vi.mock("next-safe-action/hooks", () => ({
+  useAction: () => ({ execute: vi.fn(), isExecuting: false }),
+}));
+
 import { AppHeader } from "@/components/layout/app-header";
 import {
   RegionDisplayProvider,
   type RegionDisplay,
 } from "@/components/layout/region-display";
+import { TourProvider } from "@/components/tour/tour-provider";
 import { DEFAULT_CREST } from "@/lib/crest/crest";
 import { LEAGUE_REGIONS } from "@/lib/round/regions";
 
 /**
  * Região e saldo vêm do contexto, não de props — é o que mantém o header em
  * dia numa navegação que não re-renderiza o layout (ver
- * `components/layout/region-display.tsx`).
+ * `components/layout/region-display.tsx`). `autoStart={false}`: o tour não é
+ * o assunto destes testes, só precisa existir para `AccountMenu` não lançar.
  */
 function renderHeader(
   overrides: Partial<React.ComponentProps<typeof AppHeader>> = {},
   display: RegionDisplay = { region: "americas", balanceCents: 14_820 },
 ) {
   return render(
-    <RegionDisplayProvider initial={display}>
-      <AppHeader
-        teamName="Rodrigo FC"
-        crest={DEFAULT_CREST}
-        displayName="Rodrigo"
-        username="rodrigo"
-        available={LEAGUE_REGIONS}
-        {...overrides}
-      />
-    </RegionDisplayProvider>,
+    <TourProvider autoStart={false}>
+      <RegionDisplayProvider initial={display}>
+        <AppHeader
+          teamName="Rodrigo FC"
+          crest={DEFAULT_CREST}
+          displayName="Rodrigo"
+          username="rodrigo"
+          available={LEAGUE_REGIONS}
+          {...overrides}
+        />
+      </RegionDisplayProvider>
+    </TourProvider>,
   );
 }
 

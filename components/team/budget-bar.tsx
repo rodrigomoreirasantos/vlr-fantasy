@@ -2,6 +2,7 @@ import { Progress } from "@/components/ui/progress";
 import { PlayerPrice } from "@/components/team/player-price";
 import { MAX_PATRIMONY_CENTS, patrimonyCents } from "@/lib/market/budget";
 import { formatCredits } from "@/lib/market/money";
+import { tourTarget } from "@/lib/tour/targets";
 
 export type BudgetBarProps = {
   balanceCents: number;
@@ -44,7 +45,10 @@ export function BudgetBar({
   const clampedPatrimony = Math.min(patrimony, MAX_PATRIMONY_CENTS);
 
   return (
-    <section className="clip-corner mb-6 bg-secondary p-4 ring-1 ring-border [--clip:10px]">
+    <section
+      {...tourTarget("orcamento")}
+      className="clip-corner mb-6 bg-secondary p-4 ring-1 ring-border [--clip:10px]"
+    >
       <div className="grid grid-cols-3 gap-2">
         <Stat label="Saldo">
           <PlayerPrice priceCents={balanceCents} className="text-lg" />

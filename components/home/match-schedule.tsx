@@ -7,6 +7,7 @@ import { EventOrigin } from "@/components/home/event-origin";
 import { MatchRow } from "@/components/home/match-row";
 import { useTimezone } from "@/components/layout/timezone";
 import { formatKickoffTime, toIsoDate } from "@/lib/round/format";
+import { tourTarget } from "@/lib/tour/targets";
 import type { EventRegion } from "@/lib/round/regions";
 import {
   matchesInRegion,
@@ -196,6 +197,7 @@ function ScheduleDays({
                           closesAt={closesBy.get(match.id)}
                           now={now}
                           tz={tz}
+                          tourAnchor={isNext}
                         />
                       </EventOrigin>
                     }
@@ -225,6 +227,8 @@ type MarketCellProps = {
   now: Date;
   /** O mesmo fuso do kickoff e do cabeçalho de dia — vindo de `useTimezone()`. */
   tz: string;
+  /** É a linha do próximo jogo — o alvo do tour guiado (`fechamento-mercado`) mora aqui. */
+  tourAnchor?: boolean;
 };
 
 /**
@@ -232,13 +236,14 @@ type MarketCellProps = {
  * que a janela passou é tão acionável quanto saber quanto falta — some a
  * ênfase, não a informação.
  */
-function MarketCell({ closesAt, now, tz }: MarketCellProps) {
+function MarketCell({ closesAt, now, tz, tourAnchor }: MarketCellProps) {
   if (!closesAt) return null;
 
   const closed = closesAt.getTime() <= now.getTime();
 
   return (
     <time
+      {...(tourAnchor ? tourTarget("fechamento-mercado") : {})}
       dateTime={toIsoDate(closesAt)}
       className={cn(
         "text-[10px] font-bold tracking-[0.1em] uppercase tabular-nums",

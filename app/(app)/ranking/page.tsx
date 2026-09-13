@@ -125,7 +125,7 @@ export default async function RankingPage(props: PageProps<"/ranking">) {
         <CreateChampionshipDialog defaultRegion={region} />
       </div>
 
-      <Panel title="Classificação" actions={regionChip}>
+      <Panel title="Classificação" tourId="campeonatos" actions={regionChip}>
         <StandingsTable standings={standings} />
         <p className="mt-3 text-xs text-muted-foreground">
           A pontuação considera o seu time de {regionLabel(selected.region)}{" "}

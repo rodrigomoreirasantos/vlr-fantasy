@@ -62,6 +62,7 @@ export function TeamPerformance({
   return (
     <Panel
       title={title}
+      tourId="desempenho"
       actions={
         performances.length > 0 && (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">

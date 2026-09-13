@@ -1,19 +1,25 @@
 import { regionColor, regionLabel } from "@/lib/round/regions";
 import { formatScore } from "@/lib/team/score";
 import type { TeamSummary } from "@/lib/team/types";
+import { tourTarget, type TourTarget } from "@/lib/tour/targets";
 import { cn } from "@/lib/utils";
 
 function Stat({
   label,
   children,
   className,
+  tourId,
 }: {
   label: string;
   children: React.ReactNode;
   className?: string;
+  tourId?: TourTarget;
 }) {
   return (
-    <div className={cn("p-4 text-center", className)}>
+    <div
+      {...(tourId ? tourTarget(tourId) : {})}
+      className={cn("p-4 text-center", className)}
+    >
       <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
         {label}
       </p>
@@ -39,6 +45,7 @@ export function TeamStats({ summary }: { summary: TeamSummary }) {
 
       <Stat
         label="Mercado"
+        tourId="relogio-mercado"
         className="border-b border-border sm:border-r sm:border-b-0"
       >
         <p

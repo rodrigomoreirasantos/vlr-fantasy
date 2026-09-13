@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/layout/app-header";
 import { RegionDisplayProvider } from "@/components/layout/region-display";
 import { TimezoneProvider, TimezoneSync } from "@/components/layout/timezone";
+import { TourProvider } from "@/components/tour/tour-provider";
 import { auth } from "@/lib/auth";
 import { resolveTimezone } from "@/lib/round/timezone-selection";
 import { resolveRegion } from "@/lib/team/region-selection";
@@ -63,14 +64,20 @@ export default async function AppLayout({
             balanceCents: overview.summary.balanceCents,
           }}
         >
-          <AppHeader
-            teamName={overview.summary.name}
-            crest={overview.summary.crest}
-            displayName={session.user.name}
-            username={session.user.username ?? null}
-            available={available}
-          />
-          {children}
+          {/* `tourCompletedAt` nasce `null` para todo mundo, contas antigas
+              incluídas (fantasy-identity), então o tour abre sozinho uma
+              única vez — depois disso o botão "Ver tutorial" (menu da
+              conta) é o único jeito de vê-lo de novo. */}
+          <TourProvider autoStart={overview.tourCompletedAt === null}>
+            <AppHeader
+              teamName={overview.summary.name}
+              crest={overview.summary.crest}
+              displayName={session.user.name}
+              username={session.user.username ?? null}
+              available={available}
+            />
+            {children}
+          </TourProvider>
         </RegionDisplayProvider>
       </TimezoneProvider>
     </div>

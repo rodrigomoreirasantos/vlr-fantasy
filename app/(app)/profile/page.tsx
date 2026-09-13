@@ -27,6 +27,7 @@ import {
 import { hasPasswordAccount } from "@/lib/profile/queries";
 import { resolveRegion } from "@/lib/team/region-selection";
 import { getTeamOverview } from "@/lib/team/queries";
+import { tourTarget } from "@/lib/tour/targets";
 
 export const metadata: Metadata = {
   title: "Perfil | VLR Fantasy",
@@ -94,7 +95,10 @@ export default async function ProfilePage() {
         balanceCents={overview.summary.balanceCents}
       />
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+      <div
+        {...tourTarget("perfil")}
+        className="grid gap-6 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]"
+      >
         <div className="flex flex-col gap-6">
           <Panel title="Identidade do time">
             <div className="flex flex-col gap-6">

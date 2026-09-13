@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { regionHref } from "@/lib/team/region-href";
 import { regionColor, regionLabel, type TeamRegion } from "@/lib/round/regions";
+import { tourTarget } from "@/lib/tour/targets";
 
 export function RegionSwitcher({
   current,
@@ -27,6 +28,7 @@ export function RegionSwitcher({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
+        {...tourTarget("regiao")}
         aria-label={`Trocar de região (${regionLabel(current)})`}
         className="flex cursor-pointer items-center gap-1.5 text-[11px] font-bold tracking-wide uppercase transition-opacity hover:opacity-80"
         style={{ color: regionColor(current) }}
