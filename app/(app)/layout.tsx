@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { AppHeader } from "@/components/layout/app-header";
+import { BottomNav } from "@/components/layout/bottom-nav";
 import { RegionDisplayProvider } from "@/components/layout/region-display";
 import { TimezoneProvider, TimezoneSync } from "@/components/layout/timezone";
 import { TourProvider } from "@/components/tour/tour-provider";
@@ -77,6 +78,7 @@ export default async function AppLayout({
               available={available}
             />
             {children}
+            <BottomNav />
           </TourProvider>
         </RegionDisplayProvider>
       </TimezoneProvider>

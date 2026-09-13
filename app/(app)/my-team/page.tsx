@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { LiveRefresh } from "@/components/layout/live-refresh";
+import { PageContainer } from "@/components/layout/page-container";
 import { RegionDisplaySync } from "@/components/layout/region-display";
 import { BudgetBar } from "@/components/team/budget-bar";
 import { RegionTabs } from "@/components/team/region-tabs";
@@ -47,7 +48,7 @@ export default async function MyTeamPage(props: PageProps<"/my-team">) {
   const worst = lowestScorer(roster);
 
   return (
-    <main className="mx-auto max-w-7xl px-6 py-9">
+    <PageContainer>
       {/* Publica para o header a região desta navegação — o layout não
           re-renderiza ao trocar de aba. */}
       <RegionDisplaySync region={region} balanceCents={summary.balanceCents} />
@@ -91,6 +92,6 @@ export default async function MyTeamPage(props: PageProps<"/my-team">) {
           positive={false}
         />
       </div>
-    </main>
+    </PageContainer>
   );
 }

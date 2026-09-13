@@ -1,3 +1,4 @@
+import { PageContainer } from "@/components/layout/page-container";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**
@@ -22,7 +23,7 @@ function PanelFrame({ children }: { children: React.ReactNode }) {
 
 export default function HomeLoading() {
   return (
-    <main className="mx-auto flex max-w-7xl flex-col gap-6 px-6 py-9">
+    <PageContainer className="flex flex-col gap-6">
       {/* Próximos jogos */}
       <PanelFrame>
         <Skeleton className="mb-3 h-3 w-48" />
@@ -50,6 +51,6 @@ export default function HomeLoading() {
           <Skeleton className="h-32 w-full" />
         </div>
       </PanelFrame>
-    </main>
+    </PageContainer>
   );
 }

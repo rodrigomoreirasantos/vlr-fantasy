@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { Panel } from "@/components/layout/panel";
+import { PageContainer } from "@/components/layout/page-container";
 import { RegionDisplaySync } from "@/components/layout/region-display";
 import { AccountPanel } from "@/components/profile/account-panel";
 import { AddFriendForm } from "@/components/profile/add-friend-form";
@@ -86,7 +87,7 @@ export default async function ProfilePage() {
   );
 
   return (
-    <main className="mx-auto max-w-7xl px-6 py-9">
+    <PageContainer>
       {/* Mantém o header na região desta navegação — ver
           `components/layout/region-display.tsx`. */}
       <RegionDisplaySync
@@ -133,6 +134,6 @@ export default async function ProfilePage() {
           </Panel>
         </div>
       </div>
-    </main>
+    </PageContainer>
   );
 }

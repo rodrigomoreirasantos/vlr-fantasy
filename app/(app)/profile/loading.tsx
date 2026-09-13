@@ -1,3 +1,4 @@
+import { PageContainer } from "@/components/layout/page-container";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**
@@ -19,7 +20,7 @@ function PanelFrame({ children }: { children: React.ReactNode }) {
 
 export default function ProfileLoading() {
   return (
-    <main className="mx-auto max-w-7xl px-6 py-9">
+    <PageContainer>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
         <div className="flex flex-col gap-6">
           <PanelFrame>
@@ -42,6 +43,6 @@ export default function ProfileLoading() {
           </PanelFrame>
         </div>
       </div>
-    </main>
+    </PageContainer>
   );
 }

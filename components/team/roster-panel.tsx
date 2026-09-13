@@ -203,7 +203,7 @@ export function RosterPanel({
         <LineupProgress filled={filledCount} total={roster.length} />
       )}
 
-      <div className="mb-6 grid items-start gap-6 lg:grid-cols-[420px_1fr]">
+      <div className="mb-6 grid gap-6 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:items-stretch">
         <Panel title="Resumo" tourId="escalacao">
           <ul className="flex flex-col gap-2">
             {roster.map((slot, index) =>
@@ -240,15 +240,24 @@ export function RosterPanel({
           </ul>
         </Panel>
 
-        <Panel title="Time Montado" tourId="capitao">
-          <FormationBoard
-            roster={roster}
-            // `handleSelect` já recusa a vaga travada; passar a função
-            // sempre mantém o tabuleiro clicável para as outras.
-            onSelect={marketOpen ? handleSelect : undefined}
-            selectedIndex={selectedIndex}
-            onSetCaptain={marketOpen ? handleSetCaptain : undefined}
-          />
+        {/* `h-full` + `flex flex-col` fazem o tabuleiro esticar até a altura
+            do "Resumo" ao lado (`lg:items-stretch` acima) em vez de ficar bem
+            mais alto que ele — o problema original da Fase 2. */}
+        <Panel
+          title="Time Montado"
+          tourId="capitao"
+          className="flex h-full flex-col"
+        >
+          <div className="flex-1">
+            <FormationBoard
+              roster={roster}
+              // `handleSelect` já recusa a vaga travada; passar a função
+              // sempre mantém o tabuleiro clicável para as outras.
+              onSelect={marketOpen ? handleSelect : undefined}
+              selectedIndex={selectedIndex}
+              onSetCaptain={marketOpen ? handleSetCaptain : undefined}
+            />
+          </div>
         </Panel>
       </div>
 

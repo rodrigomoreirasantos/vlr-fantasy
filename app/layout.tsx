@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
@@ -17,6 +17,18 @@ export const metadata: Metadata = {
   title: "VLR Fantasy",
   description:
     "Fantasy game de Valorant: monte seu time com 5 jogadores profissionais e dispute o topo do ranking.",
+};
+
+// `viewportFit: "cover"` estende o app por trás dos recortes do celular
+// (notch/home indicator) — é o que dá sentido a `env(safe-area-inset-bottom)`
+// na `BottomNav` (plano 28, Fase 1). `colorScheme: "dark"` casa com o
+// `className="dark"` de `<html>` abaixo: nunca existe modo claro no app.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  colorScheme: "dark",
+  themeColor: "#0b0d0f",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

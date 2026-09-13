@@ -1,6 +1,5 @@
 "use client";
 
-import { Crosshair, Home, Trophy, User, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -8,20 +7,12 @@ import { TeamCrest } from "@/components/crest/team-crest";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { RegionSwitcher } from "@/components/layout/region-switcher";
 import { useRegionDisplay } from "@/components/layout/region-display";
+import { SECTIONS } from "@/components/layout/sections";
 import { PlayerPrice } from "@/components/team/player-price";
 import type { Crest } from "@/lib/crest/types";
 import type { TeamRegion } from "@/lib/round/regions";
 import { tourTarget } from "@/lib/tour/targets";
 import { cn } from "@/lib/utils";
-
-type Section = { label: string; icon: LucideIcon; href: string };
-
-const SECTIONS: Section[] = [
-  { label: "Início", icon: Home, href: "/home" },
-  { label: "Perfil", icon: User, href: "/profile" },
-  { label: "Escalação", icon: Crosshair, href: "/my-team" },
-  { label: "Ranking", icon: Trophy, href: "/ranking" },
-];
 
 export type AppHeaderProps = {
   teamName: string;
@@ -52,40 +43,43 @@ export function AppHeader({
   const { region, balanceCents } = useRegionDisplay();
 
   return (
-    <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border bg-sidebar px-6 py-3">
-      <div className="flex items-center gap-4">
+    <header className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-border bg-sidebar/95 px-3 py-2.5 backdrop-blur sm:gap-4 sm:px-6 sm:py-3">
+      <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
         <Link
           href="/home"
-          className="cursor-pointer text-lg font-bold tracking-tight text-primary"
+          className="shrink-0 cursor-pointer text-lg font-bold tracking-tight text-primary"
         >
-          VLR<span className="text-foreground">FANTASY</span>
+          VLR<span className="hidden text-foreground sm:inline">FANTASY</span>
         </Link>
-        <span aria-hidden className="h-5 w-px bg-border" />
-        <span className="flex items-center gap-2">
+        <span aria-hidden className="hidden h-5 w-px shrink-0 bg-border md:inline-block" />
+        <span className="flex min-w-0 items-center gap-2">
           <TeamCrest crest={crest} size="sm" title={`Brasão de ${teamName}`} />
-          <span className="text-base font-extrabold tracking-wide uppercase">
+          <span className="hidden truncate text-base font-extrabold tracking-wide uppercase md:inline">
             {teamName}
           </span>
         </span>
-        <span aria-hidden className="h-5 w-px bg-border" />
-        <span {...tourTarget("saldo")} className="flex items-baseline gap-1">
+        <span aria-hidden className="hidden h-5 w-px shrink-0 bg-border md:inline-block" />
+        <span
+          {...tourTarget("saldo")}
+          className="flex shrink-0 items-baseline gap-1"
+        >
           <span className="sr-only">Saldo</span>
           <PlayerPrice
             priceCents={balanceCents}
-            className="text-base font-extrabold"
+            className="text-sm font-extrabold sm:text-base"
           />
           <span
             aria-hidden
-            className="text-[11px] font-semibold text-muted-foreground uppercase"
+            className="text-[10px] font-semibold text-muted-foreground uppercase sm:text-[11px]"
           >
             cr
           </span>
         </span>
-        <span aria-hidden className="h-5 w-px bg-border" />
+        <span aria-hidden className="hidden h-5 w-px shrink-0 bg-border md:inline-block" />
         <RegionSwitcher current={region} available={available} />
       </div>
 
-      <nav aria-label="Seções" className="flex items-center gap-6 xl:gap-9">
+      <nav aria-label="Seções" className="hidden items-center gap-6 md:flex xl:gap-9">
         {SECTIONS.map(({ label, icon: Icon, href }) => {
           const current = pathname.startsWith(href);
           const className = cn(
@@ -109,7 +103,9 @@ export function AppHeader({
         })}
       </nav>
 
-      <AccountMenu displayName={displayName} username={username} />
+      <div className="shrink-0">
+        <AccountMenu displayName={displayName} username={username} />
+      </div>
     </header>
   );
 }
