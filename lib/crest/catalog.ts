@@ -19,29 +19,34 @@ export const CREST_SHAPES = [
 export type CrestShape = (typeof CREST_SHAPES)[number];
 
 /**
- * Símbolos em SVG original (`components/crest/crest-symbols.tsx`), desenhados
- * à mão e inspirados no jogo — nunca ícones ou arte oficial da Riot (Decisão
- * D1, plano 28). Substituem o antigo catálogo de ícones lucide (caveira,
- * fantasma, coroa…): `lib/crest/crest.ts` mapeia cada símbolo antigo para um
- * destes, então brasões salvos antes desta migração continuam de pé.
+ * Um símbolo por poder marcante de cada agente, mais a mira neutra (padrão de
+ * time novo — `DEFAULT_CREST`). Os ids e rótulos descrevem o **poder**, nunca
+ * o nome do agente, e os desenhos são ícones licenciados do game-icons.net
+ * (`components/crest/crest-symbols.tsx`), não arte da Riot. Símbolos de
+ * catálogos anteriores são remapeados em `lib/crest/crest.ts`.
  */
 export const CREST_SYMBOLS = [
   "crosshair",
-  "headshot",
-  "spike",
-  "knife",
-  "radianite",
-  "ult-orb",
-  "smoke",
-  "flash",
-  "molly",
-  "barrier",
-  "recon",
-  "duelist",
-  "initiator",
-  "controller",
-  "sentinel",
-  "ace",
+  "blade-storm",
+  "fireball",
+  "blast-pack",
+  "sonic-bolt",
+  "rift-mask",
+  "bolt-shield",
+  "hex-shield",
+  "bow",
+  "wolf-hound",
+  "power-punch",
+  "shade",
+  "toxin",
+  "black-hole",
+  "tidal-wave",
+  "butterfly",
+  "turret",
+  "spycam",
+  "frost-orb",
+  "rose",
+  "headhunter",
 ] as const;
 export type CrestSymbol = (typeof CREST_SYMBOLS)[number];
 
@@ -121,19 +126,24 @@ export const CREST_SHAPE_LABELS: Record<CrestShape, string> = {
 
 export const CREST_SYMBOL_LABELS: Record<CrestSymbol, string> = {
   crosshair: "Mira",
-  headshot: "Headshot",
-  spike: "Spike",
-  knife: "Faca",
-  radianite: "Radianita",
-  "ult-orb": "Orbe definitivo",
-  smoke: "Fumaça",
-  flash: "Flash",
-  molly: "Incendiário",
-  barrier: "Barreira",
-  recon: "Radar",
-  duelist: "Duelista",
-  initiator: "Iniciador",
-  controller: "Controlador",
-  sentinel: "Sentinela",
-  ace: "Ace",
+  "blade-storm": "Lâminas de arremesso",
+  fireball: "Meteoro em chamas",
+  "blast-pack": "Carga explosiva",
+  "sonic-bolt": "Relâmpago sônico",
+  "rift-mask": "Máscara dimensional",
+  "bolt-shield": "Escudo com raio",
+  "hex-shield": "Escudo hexagonal",
+  bow: "Arco",
+  "wolf-hound": "Lobo rastreador",
+  "power-punch": "Soco explosivo",
+  shade: "Sombra encapuzada",
+  toxin: "Toxina",
+  "black-hole": "Buraco negro",
+  "tidal-wave": "Onda",
+  butterfly: "Borboleta",
+  turret: "Torreta",
+  spycam: "Câmera espiã",
+  "frost-orb": "Orbe congelado",
+  rose: "Rosa",
+  headhunter: "Pistola de precisão",
 };

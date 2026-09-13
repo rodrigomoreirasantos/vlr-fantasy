@@ -26,7 +26,16 @@ export default function ProfileLoading() {
           <PanelFrame>
             <div className="flex flex-col gap-6">
               <Skeleton className="h-9 w-full" />
-              <Skeleton className="h-40 w-full" />
+              {/* Editor do brasão: palco, abas e a grade de opções. */}
+              <div className="flex flex-col gap-4">
+                <Skeleton className="h-60 w-full" />
+                <Skeleton className="h-8 w-48" />
+                <div className="grid grid-cols-6 gap-1.5">
+                  {Array.from({ length: 12 }, (_, index) => (
+                    <Skeleton key={index} className="aspect-square w-full" />
+                  ))}
+                </div>
+              </div>
             </div>
           </PanelFrame>
         </div>

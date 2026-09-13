@@ -6,7 +6,7 @@ describe("parseCrest", () => {
   it("preserva todos os campos válidos", () => {
     const raw = {
       shape: "diamond",
-      symbol: "spike",
+      symbol: "blade-storm",
       background: "cyan",
       foreground: "white",
       border: "amber",
@@ -18,7 +18,7 @@ describe("parseCrest", () => {
   it("aceita as cores novas do plano 28 (Fase 5)", () => {
     const raw = {
       shape: "octagon",
-      symbol: "sentinel",
+      symbol: "rose",
       background: "magenta",
       foreground: "gold",
       border: "navy",
@@ -28,17 +28,21 @@ describe("parseCrest", () => {
   });
 
   it.each([
-    ["skull", "spike"],
-    ["ghost", "smoke"],
-    ["star", "radianite"],
-    ["crown", "ace"],
-    ["swords", "knife"],
-    ["eye", "recon"],
-    ["shield-check", "barrier"],
-    ["bolt", "flash"],
-    ["zap-off", "flash"],
-    ["flame", "molly"],
-    ["target", "headshot"],
+    // Catálogo original (lucide).
+    ["skull", "shade"],
+    ["star", "black-hole"],
+    ["crown", "crosshair"],
+    ["swords", "blade-storm"],
+    ["eye", "spycam"],
+    ["flame", "fireball"],
+    ["target", "headhunter"],
+    // Objetos táticos e primeira leva de poderes.
+    ["spike", "blast-pack"],
+    ["recon", "bow"],
+    ["owl-drone", "bow"],
+    ["healing", "frost-orb"],
+    ["thorn-vine", "rose"],
+    ["prism", "crosshair"],
   ])(
     "símbolo antigo '%s' vira '%s' no catálogo novo",
     (legacy, current) => {

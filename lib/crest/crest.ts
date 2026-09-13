@@ -26,23 +26,58 @@ function isCrestSymbol(value: string): value is CrestSymbol {
 }
 
 /**
- * Símbolo salvo antes do plano 28 (Fase 5, Decisão D1) → equivalente mais
- * próximo no catálogo novo, todo em SVG original. Sem isto, todo brasão
- * salvo com o catálogo antigo (ícones lucide) cairia no `DEFAULT_CREST` —
- * `crosshair` é o único id que sobreviveu sem troca.
+ * Símbolo de um catálogo anterior → equivalente mais próximo no atual (poderes
+ * dos agentes). Sem isto, todo brasão salvo antes da troca cairia no
+ * `DEFAULT_CREST`. Mapa plano, sem encadear: cada id antigo aponta direto para
+ * um id atual. `crosshair` sobreviveu a todas as trocas.
  */
 const LEGACY_SYMBOLS: Readonly<Record<string, CrestSymbol>> = {
-  skull: "spike",
-  ghost: "smoke",
-  star: "radianite",
-  crown: "ace",
-  swords: "knife",
-  eye: "recon",
-  "shield-check": "barrier",
-  bolt: "flash",
-  "zap-off": "flash",
-  flame: "molly",
-  target: "headshot",
+  // Catálogo original (ícones lucide).
+  skull: "shade",
+  ghost: "shade",
+  star: "black-hole",
+  crown: "crosshair",
+  swords: "blade-storm",
+  eye: "spycam",
+  "shield-check": "hex-shield",
+  bolt: "sonic-bolt",
+  "zap-off": "sonic-bolt",
+  flame: "fireball",
+  target: "headhunter",
+  // Objetos táticos (primeira versão do plano 28).
+  headshot: "headhunter",
+  spike: "blast-pack",
+  knife: "blade-storm",
+  radianite: "black-hole",
+  "ult-orb": "black-hole",
+  smoke: "shade",
+  flash: "sonic-bolt",
+  molly: "fireball",
+  barrier: "hex-shield",
+  recon: "bow",
+  duelist: "blade-storm",
+  initiator: "sonic-bolt",
+  controller: "shade",
+  sentinel: "spycam",
+  ace: "crosshair",
+  // Primeira leva de poderes, antes da curadoria.
+  "orbital-strike": "crosshair",
+  "owl-drone": "bow",
+  healing: "frost-orb",
+  "flame-bird": "fireball",
+  "soul-eye": "shade",
+  rocket: "blast-pack",
+  "fault-line": "power-punch",
+  cosmos: "black-hole",
+  emp: "sonic-bolt",
+  lightning: "sonic-bolt",
+  nightmare: "shade",
+  creature: "toxin",
+  net: "turret",
+  "barrier-shield": "hex-shield",
+  "thorn-vine": "rose",
+  "missile-swarm": "blast-pack",
+  prism: "crosshair",
 };
 
 /** Aplica o alias antes de validar — um símbolo legado nunca some, vira o novo equivalente. */

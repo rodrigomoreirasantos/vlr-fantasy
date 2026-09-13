@@ -1,4 +1,7 @@
-import { CREST_SYMBOL_PATHS } from "@/components/crest/crest-symbols";
+import {
+  CREST_SYMBOL_PATHS,
+  CREST_SYMBOL_VIEWBOX,
+} from "@/components/crest/crest-symbols";
 import { CREST_COLOR_VARS, type CrestShape } from "@/lib/crest/catalog";
 import type { Crest } from "@/lib/crest/types";
 import { cn } from "@/lib/utils";
@@ -23,11 +26,10 @@ export const SHAPE_PATHS: Record<CrestShape, string> = {
     "M10 6 L54 6 L54 30 C54 48 44 58 32 62 C20 58 10 48 10 30 Z",
 };
 
-/** O símbolo ocupa metade do brasão, centralizado — mesma proporção do
- * antigo ícone lucide absoluto, só que agora em unidades do próprio viewBox
- * (`x`/`y`/`width`/`height` do `<svg>` aninhado), então escala junto com o
- * brasão inteiro sem depender do tamanho renderizado em pixels. */
-const SYMBOL_BOX = 32;
+/** O símbolo ocupa pouco mais da metade do brasão, centralizado, em unidades
+ * do próprio viewBox (`x`/`y`/`width`/`height` do `<svg>` aninhado) — escala
+ * junto com o brasão inteiro sem depender do tamanho renderizado em pixels. */
+const SYMBOL_BOX = 36;
 const SYMBOL_OFFSET = (64 - SYMBOL_BOX) / 2;
 
 const SIZE_PX = { sm: 28, md: 44, podium: 72, lg: 128 } as const;
@@ -79,20 +81,12 @@ export function TeamCrest({
           y={SYMBOL_OFFSET}
           width={SYMBOL_BOX}
           height={SYMBOL_BOX}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          // `currentColor` só resolve pela propriedade CSS `color` — nunca
-          // pelo atributo de apresentação `stroke` de um ancestral. Os
-          // elementos sólidos de `CREST_SYMBOL_PATHS` (pavio do spike, lâmina
-          // da faca, miolo da chama) usam `fill="currentColor"` e herdam o
-          // mesmo tom daqui.
-          style={{ color: CREST_COLOR_VARS[crest.foreground] }}
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
+          viewBox={CREST_SYMBOL_VIEWBOX}
+          style={{ fill: CREST_COLOR_VARS[crest.foreground] }}
         >
-          {CREST_SYMBOL_PATHS[crest.symbol]}
+          {CREST_SYMBOL_PATHS[crest.symbol].map((d) => (
+            <path key={d} d={d} />
+          ))}
         </svg>
       </svg>
     </span>

@@ -3,19 +3,22 @@ import { z } from "zod";
 import { CREST_COLORS, CREST_SHAPES, CREST_SYMBOLS } from "@/lib/crest/catalog";
 import { teamNameField } from "@/lib/validations/team";
 
-export const updateTeamNameSchema = z.object({
+/**
+ * Nome do time + brasão num schema só: a seção "Identidade do time" salva os
+ * dois de uma vez, num único botão — duas ações/dois botões para a mesma
+ * seção confundia mais do que ajudava.
+ */
+export const teamIdentitySchema = z.object({
   name: teamNameField,
-});
-export type UpdateTeamNameInput = z.infer<typeof updateTeamNameSchema>;
-
-export const crestSchema = z.object({
   shape: z.enum(CREST_SHAPES, "Escolha um formato válido."),
   symbol: z.enum(CREST_SYMBOLS, "Escolha um símbolo válido."),
   background: z.enum(CREST_COLORS, "Escolha uma cor válida."),
   foreground: z.enum(CREST_COLORS, "Escolha uma cor válida."),
   border: z.enum(CREST_COLORS, "Escolha uma cor válida."),
 });
-export type CrestInput = z.infer<typeof crestSchema>;
+export type TeamIdentityInput = z.infer<typeof teamIdentitySchema>;
+/** Só a parte do brasão do formulário — o que `TeamCrest` espera renderizar. */
+export type CrestInput = Omit<TeamIdentityInput, "name">;
 
 export const sendFriendRequestSchema = z.object({
   username: z.string().trim().min(1, "Este campo é obrigatório."),
