@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { X } from "lucide-react";
+import { Loader2Icon, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
@@ -21,8 +21,14 @@ export type TourCardProps = {
   rect: Rect | null;
   viewport: { width: number; height: number };
   placement: "bottom" | "top" | "docked" | "center";
-  /** À espera do `waitForTarget` do passo — mostra "Carregando…" no lugar do texto. */
-  loading: boolean;
+  /**
+   * A máquina já mandou seguir para o próximo passo, mas a tela dele ainda
+   * não está pronta (plano 27, Fase 3 — `.claude/plans/27-tour-passo-a-passo.md`).
+   * O cartão continua mostrando `step` (o passo anterior, ainda válido) —
+   * só o botão de avançar entra em estado de espera; título, texto e "N de
+   * M" nunca mudam por causa disto.
+   */
+  pending: boolean;
   onNext: () => void;
   onBack: () => void;
   onClose: () => void;
@@ -62,7 +68,7 @@ export function TourCard({
   rect,
   viewport,
   placement,
-  loading,
+  pending,
   onNext,
   onBack,
   onClose,
@@ -140,7 +146,6 @@ export function TourCard({
         collisionPadding={16}
         aria-labelledby="tour-card-title"
         aria-describedby="tour-card-body"
-        aria-busy={loading}
         onInteractOutside={(event) => event.preventDefault()}
         onEscapeKeyDown={onClose}
         onOpenAutoFocus={(event) => {
@@ -185,7 +190,7 @@ export function TourCard({
             {step.title}
           </h2>
           <p id="tour-card-body" className="mt-1 text-sm text-muted-foreground">
-            {loading ? "Carregando…" : step.body}
+            {step.body}
           </p>
         </div>
 
@@ -195,7 +200,16 @@ export function TourCard({
               <Button type="button" variant="ghost" size="sm" onClick={onClose}>
                 Agora não
               </Button>
-              <Button type="button" ref={nextButtonRef} onClick={onNext}>
+              <Button
+                type="button"
+                ref={nextButtonRef}
+                onClick={onNext}
+                disabled={pending}
+                aria-busy={pending}
+              >
+                {pending && (
+                  <Loader2Icon className="size-4 animate-spin" aria-hidden />
+                )}
                 Começar
               </Button>
             </>
@@ -208,7 +222,16 @@ export function TourCard({
                 <Button type="button" variant="outline" size="sm" onClick={onBack}>
                   Voltar
                 </Button>
-                <Button type="button" ref={nextButtonRef} onClick={onNext}>
+                <Button
+                  type="button"
+                  ref={nextButtonRef}
+                  onClick={onNext}
+                  disabled={pending}
+                  aria-busy={pending}
+                >
+                  {pending && (
+                    <Loader2Icon className="size-4 animate-spin" aria-hidden />
+                  )}
                   {isLast ? "Concluir" : "Próximo"}
                 </Button>
               </div>

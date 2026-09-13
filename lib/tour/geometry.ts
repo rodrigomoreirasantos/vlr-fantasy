@@ -72,3 +72,23 @@ export function cardPlacement(
   if (spaceAbove >= cardHeight) return "top";
   return "docked";
 }
+
+/** Acima disto o alvo não cabe centralizado: alinha pelo topo (plano 27). */
+export const TALL_TARGET_RATIO = 0.8;
+
+/**
+ * Como levar o alvo à tela antes de destacá-lo (`scrollIntoView`, plano 27 —
+ * `.claude/plans/27-tour-passo-a-passo.md`, Fase 2): `"center"` no caso
+ * normal, `"start"` quando o alvo é mais alto que `TALL_TARGET_RATIO` da
+ * viewport — centralizar um bloco gigante (ex. o grid inteiro de `/profile`)
+ * mostraria o meio dele e esconderia o começo, que é normalmente onde o
+ * texto do passo aponta.
+ */
+export function scrollAlignment(
+  target: Rect,
+  viewport: { height: number },
+): "center" | "start" {
+  return target.height > viewport.height * TALL_TARGET_RATIO
+    ? "start"
+    : "center";
+}

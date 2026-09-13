@@ -42,7 +42,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
     route: "/home",
     target: "saldo",
     title: "Seu saldo",
-    body: "Créditos para contratar. Jogador que joga bem valoriza e rende mais na venda.",
+    body: "Créditos para contratar. Quem joga bem valoriza; quem joga mal desvaloriza e derrete seu patrimônio.",
   },
   {
     id: "regiao",
@@ -85,7 +85,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
     route: "/my-team",
     target: "capitao",
     title: "Capitão",
-    body: `Toque no C de um jogador: o capitão pontua ${CAPTAIN_MULTIPLIER}×.`,
+    body: `Escolha um capitão na sua escalação: ele pontua ${CAPTAIN_MULTIPLIER}× na rodada.`,
   },
   {
     id: "orcamento",
