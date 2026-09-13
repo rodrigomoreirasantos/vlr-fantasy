@@ -10,7 +10,13 @@ export type WaitForTargetOptions = {
   signal?: AbortSignal;
 };
 
-const DEFAULT_TIMEOUT_MS = 8_000;
+/**
+ * Exportado para o watchdog de navegação do `TourProvider` (plano 27, Fase 3
+ * — `.claude/plans/27-tour-passo-a-passo.md`): a mesma janela de espera,
+ * fonte única — se a rota não comitar neste tempo, o passo publica assim
+ * mesmo, do jeito que já acontece aqui quando o alvo não aparece.
+ */
+export const DEFAULT_TIMEOUT_MS = 8_000;
 
 export function waitForTarget(
   selector: string,

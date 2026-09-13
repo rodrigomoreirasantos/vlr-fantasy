@@ -1,7 +1,13 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 
-import { cardPlacement, chamferPoints, spotlightRect } from "@/lib/tour/geometry";
+import {
+  cardPlacement,
+  chamferPoints,
+  scrollAlignment,
+  spotlightRect,
+  TALL_TARGET_RATIO,
+} from "@/lib/tour/geometry";
 
 const VIEWPORT = { width: 1280, height: 800 };
 const PHONE = { width: 390, height: 844 };
@@ -54,5 +60,32 @@ describe("cardPlacement", () => {
   it("alvo com 90% da altura da tela: o cartão fica 'docked'", () => {
     const target = { top: 0, left: 0, width: 390, height: PHONE.height * 0.9 };
     expect(cardPlacement(target, PHONE)).toBe("docked");
+  });
+});
+
+describe("scrollAlignment", () => {
+  it("um bloco baixo alinha ao centro", () => {
+    const target = { top: 500, left: 0, width: 300, height: 40 };
+    expect(scrollAlignment(target, VIEWPORT)).toBe("center");
+  });
+
+  it("um bloco mais alto que TALL_TARGET_RATIO da viewport alinha ao topo", () => {
+    const target = {
+      top: 0,
+      left: 0,
+      width: 300,
+      height: VIEWPORT.height * 0.9,
+    };
+    expect(scrollAlignment(target, VIEWPORT)).toBe("start");
+  });
+
+  it("exatamente no limite (TALL_TARGET_RATIO): ainda centraliza", () => {
+    const target = {
+      top: 0,
+      left: 0,
+      width: 300,
+      height: VIEWPORT.height * TALL_TARGET_RATIO,
+    };
+    expect(scrollAlignment(target, VIEWPORT)).toBe("center");
   });
 });
