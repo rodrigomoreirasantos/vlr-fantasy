@@ -49,7 +49,7 @@ export function UpcomingMatches({
 
   if (matches.length === 0) {
     return (
-      <Panel title="Próximos jogos">
+      <Panel title="Próximos jogos" tourId="proximos-jogos">
         <p className="text-sm text-muted-foreground">
           Nenhum jogo confirmado no circuito agora.
         </p>
@@ -62,7 +62,7 @@ export function UpcomingMatches({
     : null;
 
   return (
-    <Panel title="Próximos jogos">
+    <Panel title="Próximos jogos" tourId="proximos-jogos">
       {/* Sem isso, um horário certo é indistinguível de um errado: o usuário
           não tem como saber que a tela já se adaptou ao fuso dele. */}
       <p className="mb-3 text-[10px] text-muted-foreground">

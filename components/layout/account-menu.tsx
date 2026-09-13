@@ -1,8 +1,8 @@
 "use client";
 
-import { LogOut } from "lucide-react";
+import { CircleQuestionMark, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +13,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useTour } from "@/components/tour/tour-provider";
 import { signOut } from "@/lib/auth-client";
+import { tourTarget } from "@/lib/tour/targets";
 
 export type AccountMenuProps = {
   /** `user.name` — o nome de exibição, editável em `/profile`. */
@@ -35,6 +37,11 @@ export type AccountMenuProps = {
 export function AccountMenu({ displayName, username }: AccountMenuProps) {
   const router = useRouter();
   const [isLeaving, setIsLeaving] = useState(false);
+  const { start: startTour } = useTour();
+  // O Radix devolve o foco ao gatilho ao fechar o menu — se for o "Ver
+  // tutorial" abrindo o tour, esse foco brigaria com o `onOpenAutoFocus` do
+  // cartão (`components/tour/tour-card.tsx`).
+  const startingTourRef = useRef(false);
 
   const handle = username ? `@${username}` : displayName;
   const initial = (username ?? displayName).charAt(0).toUpperCase();
@@ -51,6 +58,7 @@ export function AccountMenu({ displayName, username }: AccountMenuProps) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
+          {...tourTarget("conta")}
           variant="ghost"
           aria-label={`Abrir menu da conta (${handle})`}
           className="gap-2 pl-1"
@@ -69,7 +77,16 @@ export function AccountMenu({ displayName, username }: AccountMenuProps) {
         </Button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" className="min-w-56">
+      <DropdownMenuContent
+        align="end"
+        className="min-w-56"
+        onCloseAutoFocus={(event) => {
+          if (startingTourRef.current) {
+            event.preventDefault();
+            startingTourRef.current = false;
+          }
+        }}
+      >
         <DropdownMenuLabel className="flex flex-col gap-0.5 py-2">
           <span className="text-sm font-semibold text-foreground">
             {displayName}
@@ -78,6 +95,17 @@ export function AccountMenu({ displayName, username }: AccountMenuProps) {
             <span className="text-xs text-muted-foreground">@{username}</span>
           )}
         </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className="cursor-pointer"
+          onSelect={() => {
+            startingTourRef.current = true;
+            startTour();
+          }}
+        >
+          <CircleQuestionMark aria-hidden />
+          Ver tutorial
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           variant="destructive"

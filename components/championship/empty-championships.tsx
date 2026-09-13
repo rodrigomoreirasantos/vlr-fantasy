@@ -2,6 +2,7 @@ import { Trophy } from "lucide-react";
 
 import { CreateChampionshipDialog } from "@/components/championship/create-championship-dialog";
 import { regionLabel, type TeamRegion } from "@/lib/round/regions";
+import { tourTarget } from "@/lib/tour/targets";
 
 export type EmptyChampionshipsProps = {
   /**
@@ -14,7 +15,10 @@ export type EmptyChampionshipsProps = {
 /** Estado vazio do Ranking: sem nenhum campeonato (ou nenhum na aba de região atual). */
 export function EmptyChampionships({ region }: EmptyChampionshipsProps) {
   return (
-    <div className="clip-corner flex flex-col items-center gap-4 bg-card p-12 text-center ring-1 ring-border [--clip:16px]">
+    <div
+      {...tourTarget("campeonatos")}
+      className="clip-corner flex flex-col items-center gap-4 bg-card p-12 text-center ring-1 ring-border [--clip:16px]"
+    >
       <Trophy aria-hidden className="size-10 text-muted-foreground" />
       <p className="text-sm text-muted-foreground">
         {region

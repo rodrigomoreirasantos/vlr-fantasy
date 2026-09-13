@@ -14,6 +14,17 @@ import { RegionSwitcher } from "@/components/layout/region-switcher";
 import { LEAGUE_REGIONS, TEAM_REGIONS } from "@/lib/round/regions";
 
 describe("RegionSwitcher", () => {
+  it("o gatilho é o alvo 'regiao' do tour guiado", () => {
+    usePathnameMock.mockReturnValue("/my-team");
+    useSearchParamsMock.mockReturnValue(new URLSearchParams());
+
+    const { container } = render(
+      <RegionSwitcher current="americas" available={LEAGUE_REGIONS} />,
+    );
+
+    expect(container.querySelector('[data-tour="regiao"]')).not.toBeNull();
+  });
+
   it("abre pelo gatilho e lista as 4 regiões de liga, sem torneio internacional", async () => {
     usePathnameMock.mockReturnValue("/my-team");
     useSearchParamsMock.mockReturnValue(new URLSearchParams());

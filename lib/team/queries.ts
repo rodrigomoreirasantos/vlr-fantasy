@@ -63,6 +63,8 @@ export type TeamOverview = {
   roster: RosterSlot[];
   /** Organizações cujo mercado fechou hoje — a trava de `evaluateSubstitution`. */
   lockedTeams: string[];
+  /** `null` = o tour guiado ainda não foi visto nem pulado (`lib/tour/`). */
+  tourCompletedAt: Date | null;
 };
 
 export async function getActiveRound(q: Querier = db) {
@@ -187,6 +189,7 @@ async function loadTeamOverview(
     ),
     roster,
     lockedTeams,
+    tourCompletedAt: team.identity.tourCompletedAt,
   };
 }
 

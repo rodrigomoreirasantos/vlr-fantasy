@@ -141,6 +141,13 @@
       "when": 1789146612363,
       "tag": "0019_player_price_range_and_drop_average_score",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1789254393214,
+      "tag": "0020_lean_wildside",
+      "breakpoints": true
     }
   ]
 }

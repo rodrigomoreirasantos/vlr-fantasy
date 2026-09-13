@@ -36,6 +36,10 @@ export const fantasyIdentity = pgTable(
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
+    // Quando o usuário concluiu ou pulou o tour guiado (lib/tour/). `null` =
+    // o layout ainda abre o tour sozinho no próximo carregamento — nasce
+    // `null` para todo mundo, contas antigas incluídas, sem backfill.
+    tourCompletedAt: timestamp("tour_completed_at", { withTimezone: true }),
   },
   (table) => [
     // Nome do time único globalmente, ignorando maiúsculas e espaços nas

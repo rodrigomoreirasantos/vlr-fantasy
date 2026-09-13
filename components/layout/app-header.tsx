@@ -11,6 +11,7 @@ import { useRegionDisplay } from "@/components/layout/region-display";
 import { PlayerPrice } from "@/components/team/player-price";
 import type { Crest } from "@/lib/crest/types";
 import type { TeamRegion } from "@/lib/round/regions";
+import { tourTarget } from "@/lib/tour/targets";
 import { cn } from "@/lib/utils";
 
 type Section = { label: string; icon: LucideIcon; href: string };
@@ -67,7 +68,7 @@ export function AppHeader({
           </span>
         </span>
         <span aria-hidden className="h-5 w-px bg-border" />
-        <span className="flex items-baseline gap-1">
+        <span {...tourTarget("saldo")} className="flex items-baseline gap-1">
           <span className="sr-only">Saldo</span>
           <PlayerPrice
             priceCents={balanceCents}

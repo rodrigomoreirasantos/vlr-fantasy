@@ -204,7 +204,7 @@ export function RosterPanel({
       )}
 
       <div className="mb-6 grid items-start gap-6 lg:grid-cols-[420px_1fr]">
-        <Panel title="Resumo">
+        <Panel title="Resumo" tourId="escalacao">
           <ul className="flex flex-col gap-2">
             {roster.map((slot, index) =>
               slot.player ? (
@@ -240,7 +240,7 @@ export function RosterPanel({
           </ul>
         </Panel>
 
-        <Panel title="Time Montado">
+        <Panel title="Time Montado" tourId="capitao">
           <FormationBoard
             roster={roster}
             // `handleSelect` já recusa a vaga travada; passar a função

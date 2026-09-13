@@ -143,6 +143,23 @@ describe("RosterPanel", () => {
     marketFixtureBox.current = makeMarketData();
   });
 
+  it("os dois painéis são os alvos 'escalacao' e 'capitao' do tour guiado", () => {
+    const { container } = render(
+      <RosterPanel
+        region="americas"
+        roster={makeRoster()}
+        balanceCents={10_000}
+        marketOpen
+        lockedTeams={[]}
+        closesIn="36h 12m"
+        closesAt={null}
+      />,
+    );
+
+    expect(container.querySelector('[data-tour="escalacao"]')).not.toBeNull();
+    expect(container.querySelector('[data-tour="capitao"]')).not.toBeNull();
+  });
+
   it("clicar na linha da lista abre o mercado para aquela vaga", async () => {
     const user = userEvent.setup();
     render(

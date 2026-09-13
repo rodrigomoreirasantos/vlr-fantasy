@@ -26,6 +26,18 @@ describe("BudgetBar", () => {
     ).toBeInTheDocument();
   });
 
+  it("é o alvo 'orcamento' do tour guiado", () => {
+    const { container } = render(
+      <BudgetBar
+        balanceCents={5_000}
+        squadValueCents={20_000}
+        budgetTrimmedCents={0}
+      />,
+    );
+
+    expect(container.querySelector('[data-tour="orcamento"]')).not.toBeNull();
+  });
+
   it("a barra é um progressbar com aria-valuenow/aria-valuemax corretos", () => {
     render(
       <BudgetBar

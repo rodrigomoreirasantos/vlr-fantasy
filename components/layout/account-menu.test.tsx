@@ -10,6 +10,7 @@ const { pushMock, refreshMock, signOutMock } = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock, refresh: refreshMock }),
+  usePathname: () => "/home",
 }));
 
 vi.mock("@/lib/auth-client", () => ({
@@ -17,14 +18,24 @@ vi.mock("@/lib/auth-client", () => ({
 }));
 
 import { AccountMenu } from "@/components/layout/account-menu";
+import { TourProvider } from "@/components/tour/tour-provider";
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
+/** `AccountMenu` chama `useTour()` — precisa do provider, mesmo parado. */
+function renderMenu(props: React.ComponentProps<typeof AccountMenu>) {
+  return render(
+    <TourProvider autoStart={false}>
+      <AccountMenu {...props} />
+    </TourProvider>,
+  );
+}
+
 describe("AccountMenu", () => {
   it("o gatilho tem nome acessível com o @login e mostra o handle", () => {
-    render(<AccountMenu displayName="Rodrigo Santos" username="rodrigo" />);
+    renderMenu({ displayName: "Rodrigo Santos", username: "rodrigo" });
 
     expect(
       screen.getByRole("button", { name: "Abrir menu da conta (@rodrigo)" }),
@@ -34,7 +45,7 @@ describe("AccountMenu", () => {
 
   it("abrindo o menu, mostra o nome de exibição e o @login no rótulo", async () => {
     const user = userEvent.setup();
-    render(<AccountMenu displayName="Rodrigo Santos" username="rodrigo" />);
+    renderMenu({ displayName: "Rodrigo Santos", username: "rodrigo" });
 
     await user.click(
       screen.getByRole("button", { name: /abrir menu da conta/i }),
@@ -48,7 +59,7 @@ describe("AccountMenu", () => {
   it("clicar em 'Sair' chama signOut e, resolvido, redireciona para /login", async () => {
     const user = userEvent.setup();
     signOutMock.mockResolvedValue(undefined);
-    render(<AccountMenu displayName="Rodrigo Santos" username="rodrigo" />);
+    renderMenu({ displayName: "Rodrigo Santos", username: "rodrigo" });
 
     await user.click(
       screen.getByRole("button", { name: /abrir menu da conta/i }),
@@ -68,7 +79,7 @@ describe("AccountMenu", () => {
         resolveSignOut = resolve;
       }),
     );
-    render(<AccountMenu displayName="Rodrigo Santos" username="rodrigo" />);
+    renderMenu({ displayName: "Rodrigo Santos", username: "rodrigo" });
 
     await user.click(
       screen.getByRole("button", { name: /abrir menu da conta/i }),
@@ -87,7 +98,7 @@ describe("AccountMenu", () => {
 
   it("sem username, o gatilho e o menu caem no nome de exibição", async () => {
     const user = userEvent.setup();
-    render(<AccountMenu displayName="Rodrigo Santos" username={null} />);
+    renderMenu({ displayName: "Rodrigo Santos", username: null });
 
     expect(
       screen.getByRole("button", {
@@ -100,5 +111,35 @@ describe("AccountMenu", () => {
     );
 
     expect(screen.queryByText(/^@/)).not.toBeInTheDocument();
+  });
+
+  it("'Ver tutorial' aparece antes de 'Sair', no mesmo menu", async () => {
+    const user = userEvent.setup();
+    renderMenu({ displayName: "Rodrigo Santos", username: "rodrigo" });
+
+    await user.click(
+      screen.getByRole("button", { name: /abrir menu da conta/i }),
+    );
+
+    const items = (await screen.findAllByRole("menuitem")).map(
+      (item) => item.textContent,
+    );
+    expect(items).toEqual(["Ver tutorial", "Sair"]);
+  });
+
+  it("clicar em 'Ver tutorial' abre o convite do tour guiado", async () => {
+    const user = userEvent.setup();
+    renderMenu({ displayName: "Rodrigo Santos", username: "rodrigo" });
+
+    await user.click(
+      screen.getByRole("button", { name: /abrir menu da conta/i }),
+    );
+    await user.click(
+      await screen.findByRole("menuitem", { name: /ver tutorial/i }),
+    );
+
+    expect(
+      await screen.findByRole("dialog", { name: "Bem-vindo ao VLR Fantasy" }),
+    ).toBeInTheDocument();
   });
 });

@@ -43,6 +43,28 @@ describe("UpcomingMatches", () => {
     ).toBeInTheDocument();
   });
 
+  it("estado vazio: o painel é o alvo 'proximos-jogos' do tour guiado", () => {
+    const { container } = renderPanel([]);
+
+    expect(
+      container.querySelector('[data-tour="proximos-jogos"]'),
+    ).not.toBeNull();
+  });
+
+  it("com jogos: só o MarketCell da próxima partida é o alvo 'fechamento-mercado'", () => {
+    const { container } = renderPanel([
+      match({ id: "a", scheduledAt: new Date("2026-09-03T21:00:00Z") }),
+      match({ id: "b", scheduledAt: new Date("2026-09-04T08:00:00Z") }),
+    ]);
+
+    expect(
+      container.querySelectorAll('[data-tour="fechamento-mercado"]'),
+    ).toHaveLength(1);
+    expect(
+      container.querySelector('[data-tour="proximos-jogos"]'),
+    ).not.toBeNull();
+  });
+
   it("lista os jogos com times, região, campeonato e horário", () => {
     renderPanel([match()]);
 
