@@ -25,6 +25,14 @@ repo): `DATABASE_URL` e `VLR_CONTACT_EMAIL`. As demais (`VLR_BASE_URL`,
 `VLR_RATE_LIMIT_MS`, …) têm default e só precisam ser tocadas para mudar o
 comportamento padrão.
 
+`DATABASE_URL` é a connection string do **Session pooler** do Supabase, com
+`?sslmode=no-verify` no fim (ver comentário em `.env.example`) — o mesmo
+banco que a app usa, não mais o Postgres do `docker-compose.yml` da raiz. Se
+o container já estiver rodando com a `DATABASE_URL` antiga, um
+`docker compose up -d --force-recreate` depois de trocar o `.env` é
+necessário: o `entrypoint.sh` só lê o ambiente na subida, `restart` sozinho
+não pega variável nova.
+
 `docker compose logs -f vlr-cron` mostra a saída de toda execução — o
 `entrypoint.sh` encaminha o log do cron para o stdout do container. O HTML
 bruto fica no volume nomeado `vlr-raw-html`, que sobrevive a
@@ -32,13 +40,22 @@ bruto fica no volume nomeado `vlr-raw-html`, que sobrevive a
 
 Verificar que o container está de fato rodando os scripts:
 
+**`docker compose exec` sem `VLR_USER_AGENT` real na sessão quebra a
+validação** (`Too small: expected string to have >=1 characters`), mesmo com
+a linha de fora do `.env` — o `docker-compose.yml` sempre materializa a
+variável no ambiente do container via `${VLR_USER_AGENT:-}` (vazia, se
+ausente no `.env`), e um `exec` herda esse ambiente direto, sem passar pelo
+filtro que o `entrypoint.sh` aplica para os jobs do cron (comentário lá
+explica). Os jobs agendados pelo cron **não são afetados** — só uma
+invocação manual via `exec` precisa do valor explícito:
+
 ```bash
 # Roda um job manualmente, sem esperar o próximo horário do crontab.
-docker compose exec vlr-cron pnpm vlr:doctor
+docker compose exec -e VLR_USER_AGENT="VlrFantasy/1.0 (+seu@email)" vlr-cron pnpm vlr:doctor
 
 # Prova que o volume preservou o HTML bruto entre execuções.
-docker compose exec vlr-cron pnpm vlr:results --force --pages=1
-docker compose exec vlr-cron pnpm vlr:reprocess --match=<vlrId>
+docker compose exec -e VLR_USER_AGENT="VlrFantasy/1.0 (+seu@email)" vlr-cron pnpm vlr:results --force --pages=1
+docker compose exec -e VLR_USER_AGENT="VlrFantasy/1.0 (+seu@email)" vlr-cron pnpm vlr:reprocess --match=<vlrId>
 
 # O quadro de saúde (Decisão 7, plano 17) — sem rede, uma linha por job.
 docker compose exec vlr-cron pnpm vlr:health

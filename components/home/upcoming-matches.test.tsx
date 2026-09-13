@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { UpcomingMatches } from "@/components/home/upcoming-matches";
+import { TimezoneProvider } from "@/components/layout/timezone";
 import type { RoundMatch } from "@/lib/round/types";
 
 const NOW = new Date("2026-09-03T12:00:00Z");
@@ -24,9 +25,12 @@ function match(overrides: Partial<RoundMatch> = {}): RoundMatch {
 function renderPanel(
   matches: RoundMatch[],
   myOrganizations: readonly string[] = [],
+  tz = "America/Sao_Paulo",
 ) {
   return render(
-    <UpcomingMatches upcoming={{ matches, myOrganizations }} now={NOW} />,
+    <TimezoneProvider tz={tz}>
+      <UpcomingMatches upcoming={{ matches, myOrganizations }} now={NOW} />
+    </TimezoneProvider>,
   );
 }
 
@@ -398,6 +402,54 @@ describe("UpcomingMatches", () => {
     await user.click(screen.getByRole("button", { name: "Ver mais 3 jogos" }));
 
     expect(screen.getByText(/Time 14/)).toBeInTheDocument();
+  });
+
+  it("o mesmo instante, escrito no fuso de quem está lendo", () => {
+    renderPanel([match()], [], "Asia/Tokyo");
+
+    const row = screen.getByRole("listitem");
+    // 17:00Z é 14:00 em São Paulo (teste acima) e 02:00 do dia seguinte em
+    // Tóquio — mesmo instante, outra frase.
+    expect(within(row).getByText("02:00")).toBeInTheDocument();
+    // O fechamento (16:00Z) é 13:00 em São Paulo e 01:00 em Tóquio.
+    expect(screen.getByText("Mercado fecha 01:00")).toBeInTheDocument();
+  });
+
+  it("o instante gravado no dateTime não muda com o fuso de exibição", () => {
+    renderPanel([match()], [], "Asia/Tokyo");
+
+    const [kickoff, marketClose] = screen
+      .getByRole("listitem")
+      .querySelectorAll("time");
+    expect(kickoff).toHaveAttribute(
+      "dateTime",
+      new Date("2026-09-04T17:00:00Z").toISOString(),
+    );
+    expect(marketClose).toHaveAttribute(
+      "dateTime",
+      new Date("2026-09-04T16:00:00Z").toISOString(),
+    );
+  });
+
+  it("a contagem regressiva do fechamento é a mesma em qualquer fuso — é duração, não hora", async () => {
+    const user = userEvent.setup();
+    renderPanel(
+      [match({ id: "a", event: "VCT 2026: Americas Stage 2" })],
+      [],
+      "Asia/Tokyo",
+    );
+
+    await user.click(screen.getByRole("button", { name: /Americas/ }));
+
+    expect(screen.getByText("Mercado fecha em 28h 0m")).toBeInTheDocument();
+  });
+
+  it("mostra em que fuso os horários estão", () => {
+    renderPanel([match()], [], "Asia/Tokyo");
+
+    expect(
+      screen.getByText("Horários em GMT+9 (seu fuso)"),
+    ).toBeInTheDocument();
   });
 
   it("uma grade bem longa cresce em blocos, não tudo de uma vez", async () => {

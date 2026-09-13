@@ -1,3 +1,5 @@
+"use client";
+
 import { PlayerPhoto } from "@/components/player/player-photo";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -10,6 +12,7 @@ import type {
   RosterMatchRecap,
 } from "@/lib/player/types";
 import { EventOrigin } from "@/components/home/event-origin";
+import { useTimezone } from "@/components/layout/timezone";
 import { formatMatchKickoff, toIsoDate } from "@/lib/round/format";
 import { cn } from "@/lib/utils";
 
@@ -73,6 +76,7 @@ export function PlayerMatchResults({
 }
 
 function MatchResult({ recap }: { recap: RosterMatchRecap }) {
+  const tz = useTimezone();
   const { teamA, teamB, scoreA, scoreB, event, scheduledAt, status } = recap;
   const decided = scoreA !== null && scoreB !== null;
 
@@ -107,7 +111,7 @@ function MatchResult({ recap }: { recap: RosterMatchRecap }) {
             dateTime={toIsoDate(scheduledAt)}
             className="text-[10px] text-muted-foreground"
           >
-            {formatMatchKickoff(scheduledAt)}
+            {formatMatchKickoff(scheduledAt, tz)}
           </time>
         </EventOrigin>
       </div>

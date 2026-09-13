@@ -1,6 +1,5 @@
-import dayjs from "dayjs";
-
 import { marketClosesByMatch } from "@/lib/market/window";
+import { isSameDay } from "@/lib/round/day";
 import type { RoundMatch } from "@/lib/round/types";
 
 /**
@@ -20,18 +19,23 @@ import type { RoundMatch } from "@/lib/round/types";
  * **Reabre no dia seguinte.** A trava vale pelo dia inteiro do campeonato — o
  * fechamento é diário, e não a cada partida, senão o mercado viraria um
  * carrossel de abre-fecha entre um jogo e outro da mesma tarde.
+ *
+ * "Hoje" aqui é `GAME_DAY_TZ` (`lib/round/day.ts`), o mesmo fuso que
+ * `marketGroupKey` usa para decidir qual instante é o fechamento — as duas
+ * regras falam do "dia de jogo" e não podem discordar sobre onde ele começa.
+ * Sem isso, a fronteira de dia seguia o relógio do processo (UTC na Vercel) e
+ * a trava podia reabrir horas antes do dia de jogo terminar de verdade.
  */
 export function lockedOrganizations(
   matches: readonly RoundMatch[],
   now: Date = new Date(),
 ): string[] {
-  const today = dayjs(now);
   const closesBy = marketClosesByMatch(matches);
 
   // 1. Os campeonatos que já fecharam hoje.
   const closedEvents = new Set<string>();
   for (const match of matches) {
-    if (!dayjs(match.scheduledAt).isSame(today, "day")) continue;
+    if (!isSameDay(match.scheduledAt, now)) continue;
 
     const closesAt = closesBy.get(match.id);
     if (closesAt && closesAt.getTime() <= now.getTime()) {

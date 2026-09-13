@@ -3,6 +3,7 @@
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 
 import { PlayerPhoto } from "@/components/player/player-photo";
+import { useTimezone } from "@/components/layout/timezone";
 import {
   ChartContainer,
   ChartTooltip,
@@ -11,6 +12,7 @@ import {
 import {
   buildFormSeries,
   metricLabel,
+  seriesColor,
   type FormMetric,
   type FormSeries,
   type RosterChartPlayer,
@@ -25,31 +27,6 @@ import { cn } from "@/lib/utils";
  * eixo estreito no celular.
  */
 export const FORM_WINDOW = 5;
-
-/** As cinco séries, na ordem em que `app/globals.css` as define. */
-const SERIES_TOKENS = [
-  "var(--chart-1)",
-  "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-  "var(--chart-5)",
-] as const;
-
-/**
- * A cor de um jogador, pela posição dele **na escalação** — a mesma ordem que
- * `/my-team` mostra.
- *
- * Uma fonte só de propósito: o gráfico ordena as séries por nickname e os
- * chips seguem a escalação, então derivar a cor de cada um da sua própria
- * ordem daria um ponto verde num chip cuja linha é vermelha.
- */
-export function seriesColor(
-  roster: readonly { playerId: string }[],
-  playerId: string,
-): string {
-  const index = roster.findIndex((slot) => slot.playerId === playerId);
-  return SERIES_TOKENS[(index < 0 ? 0 : index) % SERIES_TOKENS.length]!;
-}
 
 export type PlayerFormChartProps = {
   performances: readonly PlayerMatchPerformance[];
@@ -221,6 +198,7 @@ function FormTooltip({
   label,
   payload,
 }: FormTooltipProps) {
+  const tz = useTimezone();
   if (!active || !payload?.length) return null;
 
   const point = points.find((row) => row.label === label);
@@ -257,7 +235,7 @@ function FormTooltip({
                   // A data vem por jogador: no eixo de recência, o "J-2" de um
                   // é de outro dia que o "J-2" do outro.
                   <span className="text-[10px] text-muted-foreground/70">
-                    {formatMatchKickoff(played.scheduledAt)}
+                    {formatMatchKickoff(played.scheduledAt, tz)}
                   </span>
                 )}
               </span>

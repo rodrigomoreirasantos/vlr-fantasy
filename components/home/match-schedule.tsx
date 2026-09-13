@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { FilterChip } from "@/components/home/filter-chip";
 import { EventOrigin } from "@/components/home/event-origin";
 import { MatchRow } from "@/components/home/match-row";
+import { useTimezone } from "@/components/layout/timezone";
 import { formatKickoffTime, toIsoDate } from "@/lib/round/format";
 import type { EventRegion } from "@/lib/round/regions";
 import {
@@ -131,13 +132,17 @@ function ScheduleDays({
   now,
 }: ScheduleDaysProps) {
   const [limit, setLimit] = useState(VISIBLE_LIMIT);
+  // Um só `useTimezone()` para os três pontos que escrevem hora nesta árvore
+  // (cabeçalho de dia, kickoff, fechamento do mercado) — os três têm de vir
+  // do mesmo fuso, senão o cabeçalho e a linha se contradizem.
+  const tz = useTimezone();
 
   const visible = matches.slice(0, limit);
   const hidden = matches.length - visible.length;
   const step = Math.min(hidden, LOAD_MORE_STEP);
 
   const mine = new Set(myOrganizations);
-  const days = groupMatchesByDay(visible, now);
+  const days = groupMatchesByDay(visible, now, tz);
   // Uma só ênfase na lista inteira, e vinda da grade completa: o próximo jogo
   // a começar é o mesmo esteja o filtro onde estiver.
   const nextId = nextMatchId(allMatches, now);
@@ -179,7 +184,7 @@ function ScheduleDays({
                           isNext ? "text-primary" : "text-muted-foreground",
                         )}
                       >
-                        {formatKickoffTime(match.scheduledAt)}
+                        {formatKickoffTime(match.scheduledAt, tz)}
                       </time>
                     }
                     trailing={
@@ -190,6 +195,7 @@ function ScheduleDays({
                         <MarketCell
                           closesAt={closesBy.get(match.id)}
                           now={now}
+                          tz={tz}
                         />
                       </EventOrigin>
                     }
@@ -217,6 +223,8 @@ function ScheduleDays({
 type MarketCellProps = {
   closesAt: Date | undefined;
   now: Date;
+  /** O mesmo fuso do kickoff e do cabeçalho de dia — vindo de `useTimezone()`. */
+  tz: string;
 };
 
 /**
@@ -224,7 +232,7 @@ type MarketCellProps = {
  * que a janela passou é tão acionável quanto saber quanto falta — some a
  * ênfase, não a informação.
  */
-function MarketCell({ closesAt, now }: MarketCellProps) {
+function MarketCell({ closesAt, now, tz }: MarketCellProps) {
   if (!closesAt) return null;
 
   const closed = closesAt.getTime() <= now.getTime();
@@ -239,7 +247,7 @@ function MarketCell({ closesAt, now }: MarketCellProps) {
     >
       {closed
         ? "Mercado fechado"
-        : `Mercado fecha ${formatKickoffTime(closesAt)}`}
+        : `Mercado fecha ${formatKickoffTime(closesAt, tz)}`}
     </time>
   );
 }

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { respondToFriendRequest } from "@/app/(app)/profile/actions";
 import { Button } from "@/components/ui/button";
+import { useTimezone } from "@/components/layout/timezone";
 import { formatInvitedAt } from "@/lib/championship/format";
 import type { IncomingFriendRequest } from "@/lib/friendship/types";
 
@@ -16,6 +17,7 @@ export type FriendRequestsProps = {
 /** Pedidos de amizade recebidos pelo usuário, ainda sem resposta. Clone estrutural de `PendingInvites`. */
 export function FriendRequests({ requests }: FriendRequestsProps) {
   const [respondingId, setRespondingId] = useState<string | null>(null);
+  const tz = useTimezone();
 
   const { execute, isExecuting } = useAction(respondToFriendRequest, {
     onSuccess: () => {
@@ -58,7 +60,7 @@ export function FriendRequests({ requests }: FriendRequestsProps) {
                     : request.requesterUserName}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {formatInvitedAt(request.requestedAt)}
+                  {formatInvitedAt(request.requestedAt, tz)}
                 </p>
               </div>
               <div className="flex gap-2">

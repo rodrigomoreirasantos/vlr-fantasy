@@ -46,6 +46,9 @@ yarn-error.log*
 # serena mcp local config
 /.serena
 
+# lista pessoal de pendências do Rodrigo — não é documentação do projeto
+/prompts/TODO.md
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

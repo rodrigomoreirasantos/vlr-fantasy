@@ -13,6 +13,7 @@ vi.mock("next-safe-action/hooks", () => ({
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { FriendRequests } from "@/components/profile/friend-requests";
+import { TimezoneProvider } from "@/components/layout/timezone";
 import type { IncomingFriendRequest } from "@/lib/friendship/types";
 
 const REQUEST: IncomingFriendRequest = {
@@ -55,5 +56,21 @@ describe("FriendRequests", () => {
       friendshipId: REQUEST.friendshipId,
       accept: false,
     });
+  });
+
+  it("a data do pedido sai no fuso default (São Paulo)", () => {
+    render(<FriendRequests requests={[REQUEST]} />);
+
+    expect(screen.getByText(/10\/01 às 15:00/)).toBeInTheDocument();
+  });
+
+  it("a data do pedido acompanha o fuso de quem está lendo", () => {
+    render(
+      <TimezoneProvider tz="Asia/Tokyo">
+        <FriendRequests requests={[REQUEST]} />
+      </TimezoneProvider>,
+    );
+
+    expect(screen.getByText(/11\/01 às 03:00/)).toBeInTheDocument();
   });
 });

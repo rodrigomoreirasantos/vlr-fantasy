@@ -1,8 +1,9 @@
 import dayjs from "dayjs";
 import "dayjs/locale/pt-br";
 
-import { APP_TZ, dayKey } from "@/lib/round/day";
+import { GAME_DAY_TZ, dayKey } from "@/lib/round/day";
 import { matchRegion, type TeamRegion } from "@/lib/round/regions";
+import { DISPLAY_FALLBACK_TZ } from "@/lib/round/timezone";
 import type { RoundMatch } from "@/lib/round/types";
 
 // Nenhum componente formata data na mão — sempre via dayjs, aqui ou em
@@ -37,10 +38,12 @@ export function marketClosesAtFor(firstKickoff: Date): Date {
  * de Americas.
  */
 function marketGroupKey(match: RoundMatch): string {
-  // O dia vem de `lib/round/day.ts`, com fuso explícito: é o mesmo "dia de
-  // jogo" que o portão dos destaques usa, e as duas regras não podem discordar
-  // sobre onde ele começa.
-  return `${match.event}@${dayKey(match.scheduledAt)}`;
+  // GAME_DAY_TZ, explícito e não o default de `dayKey`: este arquivo também
+  // importa DISPLAY_FALLBACK_TZ (para `formatClosesAt`, abaixo), e os dois
+  // fusos convivem aqui por razões diferentes — este é o "dia de jogo" que o
+  // portão dos destaques usa, e as duas regras não podem discordar sobre onde
+  // ele começa. Não é o fuso de quem está lendo a tela.
+  return `${match.event}@${dayKey(match.scheduledAt, GAME_DAY_TZ)}`;
 }
 
 /**
@@ -137,12 +140,17 @@ export function formatTimeLeft(closesAt: Date, now: Date = new Date()): string {
 }
 
 /**
- * Data de fechamento por extenso, ex. "Fecha sáb, 14/03 às 18:00" — sempre no
- * fuso do jogo (`APP_TZ`), como todo formatador de data da tela
- * (`lib/round/format.ts`).
+ * Data de fechamento por extenso, ex. "Fecha sáb, 14/03 às 18:00" — no fuso de
+ * EXIBIÇÃO (quem está lendo), como todo formatador de data da tela
+ * (`lib/round/format.ts`). Não confundir com `GAME_DAY_TZ`, usado acima em
+ * `marketGroupKey`: aquele decide **qual** instante é o fechamento (igual
+ * para todo mundo); este só decide **como escrever** esse instante.
  */
-export function formatClosesAt(closesAt: Date): string {
-  return `Fecha ${dayjs(closesAt).tz(APP_TZ).format("ddd, DD/MM [às] HH:mm")}`;
+export function formatClosesAt(
+  closesAt: Date,
+  tz: string = DISPLAY_FALLBACK_TZ,
+): string {
+  return `Fecha ${dayjs(closesAt).tz(tz).format("ddd, DD/MM [às] HH:mm")}`;
 }
 
 /**

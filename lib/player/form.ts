@@ -144,6 +144,38 @@ export type RosterChartPlayer = {
   photoUrl: string | null;
 };
 
+/** As cinco séries, na ordem em que `app/globals.css` as define. */
+const SERIES_TOKENS = [
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+] as const;
+
+/**
+ * A cor de um jogador, pela posição dele **na escalação** — a mesma ordem que
+ * `/my-team` mostra.
+ *
+ * Uma fonte só de propósito: o gráfico ordena as séries por nickname e os
+ * chips seguem a escalação, então derivar a cor de cada um da sua própria
+ * ordem daria um ponto verde num chip cuja linha é vermelha.
+ *
+ * Mora aqui, e não em `player-form-chart.tsx`, para que `team-performance.tsx`
+ * possa importá-la sem puxar o `recharts` do gráfico — que ele carrega sob
+ * demanda via `next/dynamic` (plano 23, fase 2). Este arquivo é puro/sem
+ * React de propósito (comentário no topo); se `seriesColor` voltasse a viver
+ * no componente do gráfico, o import estático dela reintroduziria o
+ * `recharts` no bundle inicial da Home pela porta dos fundos.
+ */
+export function seriesColor(
+  roster: readonly { playerId: string }[],
+  playerId: string,
+): string {
+  const index = roster.findIndex((slot) => slot.playerId === playerId);
+  return SERIES_TOKENS[(index < 0 ? 0 : index) % SERIES_TOKENS.length]!;
+}
+
 /**
  * Os dados do gráfico de linhas, **alinhados por recência**.
  *

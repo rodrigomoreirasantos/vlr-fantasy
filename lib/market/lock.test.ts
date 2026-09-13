@@ -150,6 +150,45 @@ describe("lockedOrganizations", () => {
   it("grade vazia não tranca nada", () => {
     expect(lockedOrganizations([], NOW)).toEqual([]);
   });
+
+  it("a trava não reabre quando o dia UTC vira mas o dia de jogo continua", () => {
+    // Jogo 04/09 20:00 em Brasília (23:00Z); o mercado fechou às 22:00Z (19:00
+    // em Brasília, uma hora antes). `now` já é 05/09 em UTC, mas ainda 04/09
+    // em Brasília — o dia de jogo continua, e a trava tem de continuar também.
+    const grade = [
+      match(
+        "a",
+        "VCT Americas",
+        "SENTINELS",
+        "NRG",
+        new Date("2026-09-04T23:00:00Z"),
+      ),
+    ];
+    const now = new Date("2026-09-05T01:00:00Z");
+
+    expect(lockedOrganizations(grade, now).sort()).toEqual(["NRG", "SENTINELS"]);
+  });
+
+  it("a trava não vaza para o dia seguinte de verdade", () => {
+    // Caso simétrico: o jogo é 04/09 22:00 em Brasília (mesma partida do
+    // teste anterior), mas agora `now` já é 05/09 01:00 em Brasília — um dia
+    // de jogo genuinamente novo, não só a mesma noite vista sob outro fuso.
+    // Sob UTC cru (o bug antigo), as duas datas caem no mesmo dia-calendário
+    // (05/09), e a trava ficaria presa aberta indevidamente; com o fuso da
+    // regra, `isSameDay` já reconhece que o dia de jogo virou.
+    const grade = [
+      match(
+        "a",
+        "VCT Americas",
+        "SENTINELS",
+        "NRG",
+        new Date("2026-09-05T01:00:00Z"),
+      ),
+    ];
+    const now = new Date("2026-09-05T04:00:00Z");
+
+    expect(lockedOrganizations(grade, now)).toEqual([]);
+  });
 });
 
 describe("isTeamLocked", () => {

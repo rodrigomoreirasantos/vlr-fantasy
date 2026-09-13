@@ -62,6 +62,22 @@ describe("groupMatchesByDay", () => {
     expect(days.map((day) => day.matches[0].id)).toEqual(["hoje", "depois"]);
   });
 
+  it("o agrupamento é de exibição — o mesmo par de jogos vira 1 ou 2 dias conforme o fuso", () => {
+    // Mesmo dia em São Paulo (04/09), mas a segunda partida já cai em 05/09
+    // em Tóquio — o cabeçalho é informação de exibição, não de regra.
+    const matches = [
+      match({ id: "a", scheduledAt: new Date("2026-09-04T08:00:00Z") }),
+      match({ id: "b", scheduledAt: new Date("2026-09-05T01:00:00Z") }),
+    ];
+
+    const emSaoPaulo = groupMatchesByDay(matches, NOW, "America/Sao_Paulo");
+    expect(emSaoPaulo).toHaveLength(1);
+    expect(emSaoPaulo[0].matches.map((row) => row.id)).toEqual(["a", "b"]);
+
+    const emToquio = groupMatchesByDay(matches, NOW, "Asia/Tokyo");
+    expect(emToquio).toHaveLength(2);
+  });
+
   it("rotula hoje e amanhã pelo nome, não pela data", () => {
     const days = groupMatchesByDay(
       [

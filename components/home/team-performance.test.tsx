@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { TeamPerformance } from "@/components/home/team-performance";
+import { TimezoneProvider } from "@/components/layout/timezone";
 import type { RoundRecap } from "@/lib/home/types";
 import type { PlayerMatchPerformance } from "@/lib/player/types";
 
@@ -252,5 +253,22 @@ describe("TeamPerformance", () => {
     expect(
       screen.getByRole("group", { name: "Escolher métrica" }),
     ).toBeInTheDocument();
+  });
+
+  it("o kickoff dos placares acompanha o fuso de quem está lendo", () => {
+    render(
+      <TimezoneProvider tz="Asia/Tokyo">
+        <TeamPerformance
+          recap={recap()}
+          hasFinishedRound
+          performances={[performance()]}
+          roster={ROSTER}
+        />
+      </TimezoneProvider>,
+    );
+
+    // 21:00Z de 03/09 é 18:00 em São Paulo (o default) e 06:00 do dia
+    // seguinte em Tóquio — o mesmo `PlayerMatchResults` de dentro do painel.
+    expect(screen.getByText("sex, 04/09 às 06:00")).toBeInTheDocument();
   });
 });
