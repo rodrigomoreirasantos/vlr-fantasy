@@ -25,6 +25,31 @@ function isCrestSymbol(value: string): value is CrestSymbol {
   return (CREST_SYMBOLS as readonly string[]).includes(value);
 }
 
+/**
+ * Símbolo salvo antes do plano 28 (Fase 5, Decisão D1) → equivalente mais
+ * próximo no catálogo novo, todo em SVG original. Sem isto, todo brasão
+ * salvo com o catálogo antigo (ícones lucide) cairia no `DEFAULT_CREST` —
+ * `crosshair` é o único id que sobreviveu sem troca.
+ */
+const LEGACY_SYMBOLS: Readonly<Record<string, CrestSymbol>> = {
+  skull: "spike",
+  ghost: "smoke",
+  star: "radianite",
+  crown: "ace",
+  swords: "knife",
+  eye: "recon",
+  "shield-check": "barrier",
+  bolt: "flash",
+  "zap-off": "flash",
+  flame: "molly",
+  target: "headshot",
+};
+
+/** Aplica o alias antes de validar — um símbolo legado nunca some, vira o novo equivalente. */
+function resolveCrestSymbol(value: string): string {
+  return LEGACY_SYMBOLS[value] ?? value;
+}
+
 function isCrestColor(value: string): value is CrestColor {
   return (CREST_COLORS as readonly string[]).includes(value);
 }
@@ -41,9 +66,11 @@ export function parseCrest(raw: {
   foreground: string;
   border: string;
 }): Crest {
+  const symbol = resolveCrestSymbol(raw.symbol);
+
   return {
     shape: isCrestShape(raw.shape) ? raw.shape : DEFAULT_CREST.shape,
-    symbol: isCrestSymbol(raw.symbol) ? raw.symbol : DEFAULT_CREST.symbol,
+    symbol: isCrestSymbol(symbol) ? symbol : DEFAULT_CREST.symbol,
     background: isCrestColor(raw.background)
       ? raw.background
       : DEFAULT_CREST.background,

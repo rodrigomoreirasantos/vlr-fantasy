@@ -130,7 +130,7 @@ describe("updateTeamName", () => {
 describe("updateTeamCrest", () => {
   const CREST_INPUT = {
     shape: "diamond",
-    symbol: "flame",
+    symbol: "molly",
     background: "cyan",
     foreground: "white",
     border: "amber",

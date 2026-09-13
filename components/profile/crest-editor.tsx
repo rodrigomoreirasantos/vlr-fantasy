@@ -6,7 +6,8 @@ import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { updateTeamCrest } from "@/app/(app)/profile/actions";
-import { TeamCrest } from "@/components/crest/team-crest";
+import { CrestSymbolIcon } from "@/components/crest/crest-symbols";
+import { SHAPE_PATHS, TeamCrest } from "@/components/crest/team-crest";
 import { Button } from "@/components/ui/button";
 import {
   CREST_COLOR_LABELS,
@@ -14,7 +15,6 @@ import {
   CREST_COLORS,
   CREST_SHAPE_LABELS,
   CREST_SHAPES,
-  CREST_SYMBOL_ICONS,
   CREST_SYMBOL_LABELS,
   CREST_SYMBOLS,
   type CrestColor,
@@ -133,7 +133,14 @@ export function CrestEditor({ crest, teamName }: CrestEditorProps) {
             value={field.value}
             options={CREST_SHAPES}
             onChange={field.onChange}
-            renderOption={(shape) => CREST_SHAPE_LABELS[shape]}
+            renderOption={(shape) => (
+              <>
+                <svg aria-hidden viewBox="0 0 64 64" className="size-3.5">
+                  <path d={SHAPE_PATHS[shape]} fill="currentColor" />
+                </svg>
+                {CREST_SHAPE_LABELS[shape]}
+              </>
+            )}
           />
         )}
       />
@@ -148,15 +155,12 @@ export function CrestEditor({ crest, teamName }: CrestEditorProps) {
             value={field.value}
             options={CREST_SYMBOLS}
             onChange={field.onChange}
-            renderOption={(symbol) => {
-              const Icon = CREST_SYMBOL_ICONS[symbol];
-              return (
-                <>
-                  <Icon aria-hidden className="size-3.5" />
-                  {CREST_SYMBOL_LABELS[symbol]}
-                </>
-              );
-            }}
+            renderOption={(symbol) => (
+              <>
+                <CrestSymbolIcon symbol={symbol} className="size-3.5" />
+                {CREST_SYMBOL_LABELS[symbol]}
+              </>
+            )}
           />
         )}
       />

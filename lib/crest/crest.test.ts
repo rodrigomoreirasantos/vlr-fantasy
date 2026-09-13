@@ -6,7 +6,7 @@ describe("parseCrest", () => {
   it("preserva todos os campos válidos", () => {
     const raw = {
       shape: "diamond",
-      symbol: "flame",
+      symbol: "spike",
       background: "cyan",
       foreground: "white",
       border: "amber",
@@ -14,6 +14,45 @@ describe("parseCrest", () => {
 
     expect(parseCrest(raw)).toEqual(raw);
   });
+
+  it("aceita as cores novas do plano 28 (Fase 5)", () => {
+    const raw = {
+      shape: "octagon",
+      symbol: "sentinel",
+      background: "magenta",
+      foreground: "gold",
+      border: "navy",
+    };
+
+    expect(parseCrest(raw)).toEqual(raw);
+  });
+
+  it.each([
+    ["skull", "spike"],
+    ["ghost", "smoke"],
+    ["star", "radianite"],
+    ["crown", "ace"],
+    ["swords", "knife"],
+    ["eye", "recon"],
+    ["shield-check", "barrier"],
+    ["bolt", "flash"],
+    ["zap-off", "flash"],
+    ["flame", "molly"],
+    ["target", "headshot"],
+  ])(
+    "símbolo antigo '%s' vira '%s' no catálogo novo",
+    (legacy, current) => {
+      const result = parseCrest({
+        shape: "shield",
+        symbol: legacy,
+        background: "red",
+        foreground: "red",
+        border: "red",
+      });
+
+      expect(result.symbol).toBe(current);
+    },
+  );
 
   it("cai no default campo a campo quando o valor não está no catálogo", () => {
     const raw = {

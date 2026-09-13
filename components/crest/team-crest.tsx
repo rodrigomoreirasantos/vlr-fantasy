@@ -1,19 +1,34 @@
-import {
-  CREST_COLOR_VARS,
-  CREST_SYMBOL_ICONS,
-  type CrestShape,
-} from "@/lib/crest/catalog";
+import { CREST_SYMBOL_PATHS } from "@/components/crest/crest-symbols";
+import { CREST_COLOR_VARS, type CrestShape } from "@/lib/crest/catalog";
 import type { Crest } from "@/lib/crest/types";
 import { cn } from "@/lib/utils";
 
-/** Um `<path>` por forma, num viewBox 64×64 compartilhado. */
-const SHAPE_PATHS: Record<CrestShape, string> = {
+/**
+ * Um `<path>` por forma, num viewBox 64×64 compartilhado. `chamfer` repete o
+ * mesmo corte de canto do `clip-corner` (`app/globals.css`) — a assinatura
+ * visual do próprio app virando opção de brasão (plano 28, Fase 5).
+ */
+export const SHAPE_PATHS: Record<CrestShape, string> = {
   shield: "M32 4 L58 14 V32 C58 48 46 58 32 62 C18 58 6 48 6 32 V14 Z",
   diamond: "M32 4 L60 32 L32 60 L4 32 Z",
   circle: "M4 32 A28 28 0 1 1 60 32 A28 28 0 1 1 4 32 Z",
   chevron: "M32 4 L60 24 L60 60 L4 60 L4 24 Z",
   hex: "M32 4 L57 18 L57 46 L32 60 L7 46 L7 18 Z",
+  chamfer: "M20 6 L58 6 L58 44 L44 58 L6 58 L6 20 Z",
+  octagon: "M20 6 L44 6 L58 20 L58 44 L44 58 L20 58 L6 44 L6 20 Z",
+  kite: "M8 10 L56 10 L52 34 L32 62 L12 34 Z",
+  delta: "M6 8 L58 8 L32 60 Z",
+  banner: "M8 6 L56 6 L56 56 L32 46 L8 56 Z",
+  heater:
+    "M10 6 L54 6 L54 30 C54 48 44 58 32 62 C20 58 10 48 10 30 Z",
 };
+
+/** O símbolo ocupa metade do brasão, centralizado — mesma proporção do
+ * antigo ícone lucide absoluto, só que agora em unidades do próprio viewBox
+ * (`x`/`y`/`width`/`height` do `<svg>` aninhado), então escala junto com o
+ * brasão inteiro sem depender do tamanho renderizado em pixels. */
+const SYMBOL_BOX = 32;
+const SYMBOL_OFFSET = (64 - SYMBOL_BOX) / 2;
 
 const SIZE_PX = { sm: 28, md: 44, podium: 72, lg: 128 } as const;
 
@@ -39,8 +54,6 @@ export function TeamCrest({
   className,
 }: TeamCrestProps) {
   const box = SIZE_PX[size];
-  const Icon = CREST_SYMBOL_ICONS[crest.symbol];
-  const iconSize = Math.round(box * 0.5);
 
   return (
     <span
@@ -61,14 +74,27 @@ export function TeamCrest({
           }}
           strokeWidth={3}
         />
+        <svg
+          x={SYMBOL_OFFSET}
+          y={SYMBOL_OFFSET}
+          width={SYMBOL_BOX}
+          height={SYMBOL_BOX}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          // `currentColor` só resolve pela propriedade CSS `color` — nunca
+          // pelo atributo de apresentação `stroke` de um ancestral. Os
+          // elementos sólidos de `CREST_SYMBOL_PATHS` (pavio do spike, lâmina
+          // da faca, miolo da chama) usam `fill="currentColor"` e herdam o
+          // mesmo tom daqui.
+          style={{ color: CREST_COLOR_VARS[crest.foreground] }}
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          {CREST_SYMBOL_PATHS[crest.symbol]}
+        </svg>
       </svg>
-      <Icon
-        aria-hidden
-        style={{ color: CREST_COLOR_VARS[crest.foreground] }}
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-        width={iconSize}
-        height={iconSize}
-      />
     </span>
   );
 }
