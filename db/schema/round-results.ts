@@ -81,12 +81,15 @@ export const roundTeamResult = pgTable(
     /** Soma dos preços das 5 vagas antes da repreçificação: o valor do elenco durante a rodada. */
     squadValueCents: integer("squad_value_cents").notNull(),
     /**
-     * Quanto o teto de patrimônio (`MAX_PATRIMONY_CENTS`, `lib/market/budget.ts`)
-     * cortou do caixa nesta virada — `0` quando não cortou (Decisões 3 e 5,
-     * plano 20). É o que permite a Home explicar o corte em vez de o saldo
-     * simplesmente encolher em silêncio.
+     * Quanto a escalação valorizou (positivo) ou desvalorizou (negativo)
+     * neste fechamento: soma de `priceAfterCents − priceBeforeCents` das 5
+     * vagas (`squadValuationCents`, `lib/market/budget.ts` — Suposição S8,
+     * `.claude/plans/26-regras-de-preco-e-saldo.md`). É o "sua escalação
+     * desvalorizou/valorizou X cr" que `BudgetBar` mostra. Substitui
+     * `budgetTrimmedCents` do plano 20 — sem teto de patrimônio, não há mais
+     * corte de caixa para gravar.
      */
-    budgetTrimmedCents: integer("budget_trimmed_cents").notNull().default(0),
+    squadValuationCents: integer("squad_valuation_cents").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

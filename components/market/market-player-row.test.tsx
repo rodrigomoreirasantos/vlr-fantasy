@@ -140,9 +140,8 @@ describe("MarketPlayerRow", () => {
     expect(screen.getByText("148.2")).toBeInTheDocument();
   });
 
-  it("um candidato cujo alvo pela forma é maior que o preço anuncia valorização", () => {
-    // priceCents no piso (20,0) e forma alta (90) → alvo bem acima do preço.
-    const candidate = makePlayer({ priceCents: 2_000, formPoints: 90 });
+  it("candidato de 90,0 cr mostra a régua de verdade: 'Valoriza com 100+ pts'", () => {
+    const candidate = makePlayer({ priceCents: 9_000 });
 
     render(
       <ul>
@@ -154,13 +153,11 @@ describe("MarketPlayerRow", () => {
       </ul>,
     );
 
-    expect(screen.getByTitle("Valorizando")).toBeInTheDocument();
-    expect(screen.queryByTitle("Desvalorizando")).not.toBeInTheDocument();
+    expect(screen.getByText("Valoriza com 100+ pts")).toBeInTheDocument();
   });
 
-  it("um candidato cujo alvo pela forma é menor que o preço anuncia desvalorização", () => {
-    // priceCents no teto (90,0) e forma baixa (0) → alvo bem abaixo do preço.
-    const candidate = makePlayer({ priceCents: 9_000, formPoints: 0 });
+  it("candidato de 48,0 cr mostra 'Valoriza com 52+ pts'", () => {
+    const candidate = makePlayer({ priceCents: 4_800 });
 
     render(
       <ul>
@@ -172,7 +169,7 @@ describe("MarketPlayerRow", () => {
       </ul>,
     );
 
-    expect(screen.getByTitle("Desvalorizando")).toBeInTheDocument();
+    expect(screen.getByText("Valoriza com 52+ pts")).toBeInTheDocument();
   });
 
   it("o bloqueio 'Sem saldo' continua aparecendo quando o preço passa do teto de compra", () => {

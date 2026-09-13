@@ -6,15 +6,15 @@ import { pathToFileURL } from "node:url";
 
 import { db, pool } from "@/db";
 import {
-  fantasyTeam,
   player,
   round,
   roundPlayerScore,
   roundRoster,
   roundTeamResult,
 } from "@/db/schema";
-import { budgetTrimCents, trimmedBalanceCents } from "@/lib/market/budget";
+import { squadValuationCents } from "@/lib/market/budget";
 import { isMarketOpen } from "@/lib/market/window";
+import { listRoundSeriesCounts } from "@/lib/round/queries";
 import { nextPriceCents } from "@/lib/scoring/pricing";
 import { teamPoints } from "@/lib/scoring/team";
 import { getActiveRound, type Transaction } from "@/lib/team/queries";
@@ -26,12 +26,12 @@ const DEFAULT_MARKET_WINDOW_DAYS = 3;
 /**
  * Fecha a rodada ativa: atualiza a forma do catálogo, congela os três
  * snapshots (`round_player_score`, `round_roster`, `round_team_result`),
- * reprecifica pelo alvo da forma (com passo e teto de patrimônio —
- * `.claude/plans/20-preco-dos-jogadores-e-orcamento.md`), zera os scores e
- * promove a próxima rodada — tudo dentro de uma única transação.
- * Idempotente por construção: sem rodada `active`, não faz nada e devolve
- * `null`. Dois consumidores: o script `pnpm db:round:close` (abaixo) e
- * `db/seed.ts`, que a chama uma vez para o ambiente de desenvolvimento
+ * reprecifica pelo jogo real da rodada contra o que o preço promete (sem
+ * teto de patrimônio — `.claude/plans/26-regras-de-preco-e-saldo.md`), zera
+ * os scores e promove a próxima rodada — tudo dentro de uma única
+ * transação. Idempotente por construção: sem rodada `active`, não faz nada e
+ * devolve `null`. Dois consumidores: o script `pnpm db:round:close` (abaixo)
+ * e `db/seed.ts`, que a chama uma vez para o ambiente de desenvolvimento
  * nascer com uma rodada fechada de verdade — nenhuma regra é escrita duas
  * vezes.
  */
@@ -50,23 +50,31 @@ export async function closeActiveRound(
   // contador passa a ter um dono só, e sai certo por construção.
   await refreshPlayerForm(tx);
 
-  // 2. Catálogo + preços — o alvo pela forma de cada jogador, calculado uma
-  // única vez e reaproveitado no snapshot e na repreçificação. Só quem
-  // pontuou na rodada tem o preço mexido (Decisão 7): quem ficou de fora
-  // fica com o preço idêntico e delta 0 — nunca valoriza nem desvaloriza sem
-  // ter entrado em quadra.
+  // 2. Catálogo + preços — o jogo real da rodada contra o que o preço
+  // promete (`expectedSeriesPoints`, `lib/scoring/pricing.ts`), calculado uma
+  // única vez e reaproveitado no snapshot e na repreçificação. Quem tem pelo
+  // menos 1 série na rodada (Suposição S11, plano 26) tem o preço mexido —
+  // inclusive quem jogou e fez exatamente 0 ponto, que agora desvaloriza
+  // (bug do motor anterior, que tratava `score === 0` como "não jogou").
+  // Sem série nenhuma na rodada, `nextPriceCents` já devolve o próprio preço
+  // (delta 0) — o `?? 1` cobre o seed e o fechamento manual sem
+  // `player_match_stat`, onde um `score !== 0` sem série registrada ainda
+  // assim precisa contar como 1 série.
   const players = await tx.select().from(player);
+  const seriesById = await listRoundSeriesCounts(activeRound.id, tx);
   const nextPriceById = new Map(
-    players.map((row) => [
-      row.id,
-      row.score !== 0
-        ? nextPriceCents({
-            priceCents: row.priceCents,
-            formPoints: row.formPoints,
-            gamesPlayed: row.gamesPlayed,
-          })
-        : row.priceCents,
-    ]),
+    players.map((row) => {
+      const series = seriesById.get(row.id) ?? (row.score !== 0 ? 1 : 0);
+      return [
+        row.id,
+        nextPriceCents({
+          priceCents: row.priceCents,
+          roundPoints: row.score,
+          series,
+          gamesPlayed: row.gamesPlayed,
+        }),
+      ];
+    }),
   );
 
   if (players.length > 0) {
@@ -124,19 +132,19 @@ export async function closeActiveRound(
       );
     }
 
-    // Patrimônio depois da repreçificação — recomputado com os preços
-    // **novos** (`nextPriceById`, já pronto), para aplicar o teto (Decisões
-    // 3 e 5, plano 20). `squadValueCents` acima continua com os preços de
-    // antes: é o valor do elenco durante a rodada que acabou.
-    const squadAfterCents = team.slots.reduce(
-      (total, slot) =>
-        total + (slot.playerId ? nextPriceById.get(slot.playerId)! : 0),
-      0,
+    // Quanto a escalação ganhou ou perdeu nesta virada — soma de
+    // `priceAfter − priceBefore` das vagas ocupadas (Suposição S8, plano
+    // 26). Sem teto de patrimônio, o fechamento não mexe mais em saldo: a
+    // perda já é sentida na venda (que paga o preço atual, mais baixo) e
+    // agora também é **mostrada** aqui, em vez de ficar invisível.
+    const valuationCents = squadValuationCents(
+      team.slots
+        .filter((slot) => slot.playerId !== null)
+        .map((slot) => ({
+          priceBeforeCents: slot.player!.priceCents,
+          priceAfterCents: nextPriceById.get(slot.playerId!)!,
+        })),
     );
-    const trimmedCents = budgetTrimCents({
-      balanceCents: team.balanceCents,
-      squadValueCents: squadAfterCents,
-    });
 
     await tx.insert(roundTeamResult).values({
       roundId: activeRound.id,
@@ -144,23 +152,8 @@ export async function closeActiveRound(
       points,
       balanceCents: team.balanceCents,
       squadValueCents,
-      budgetTrimmedCents: trimmedCents,
+      squadValuationCents: valuationCents,
     });
-
-    // O corte mexe **só no caixa**, nunca vende jogador (Decisão 4): entra
-    // no `UPDATE fantasy_team` da mesma transação, nunca num update solto
-    // (CLAUDE.md).
-    if (trimmedCents > 0) {
-      await tx
-        .update(fantasyTeam)
-        .set({
-          balanceCents: trimmedBalanceCents({
-            balanceCents: team.balanceCents,
-            squadValueCents: squadAfterCents,
-          }),
-        })
-        .where(eq(fantasyTeam.id, team.id));
-    }
   }
 
   // 4. Repreça o catálogo e zera os scores — depois de gravar os snapshots,

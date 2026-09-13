@@ -7,10 +7,7 @@ import { pathToFileURL } from "node:url";
 
 import { db, pool } from "@/db";
 import { fantasyTeam, player } from "@/db/schema";
-import {
-  MAX_PATRIMONY_CENTS,
-  STARTING_BUDGET_CENTS,
-} from "@/lib/market/budget";
+import { STARTING_BUDGET_CENTS } from "@/lib/market/budget";
 import { MAX_PRICE_CENTS, MIN_PRICE_CENTS } from "@/lib/scoring/pricing";
 import {
   rebasePlayerPrices,
@@ -31,8 +28,9 @@ import {
  * 2. `rebasePlayerPrices` — leva todo preço direto ao alvo pela forma, sem
  *    passo (Decisão 9). Quem não tem forma vai para `DEBUT_PRICE_CENTS`.
  * 3. Para cada `fantasy_team`: `saldo = max(0, 300,0 − valor do elenco
- *    repreçado)`, nunca acima do teto de patrimônio. Ninguém perde jogador
- *    (Decisão 9) e ninguém fica com saldo negativo.
+ *    repreçado)`. Sem teto de patrimônio (`.claude/plans/26-regras-de-preco-e-saldo.md`).
+ *    Ninguém perde jogador (Decisão 9, plano 20) e ninguém fica com saldo
+ *    negativo.
  *
  * **Idempotente**: rodar duas vezes dá o mesmo resultado — o alvo não
  * depende do preço anterior.
@@ -58,10 +56,7 @@ export async function repriceCatalogAndBalances(): Promise<{
         (total, slot) => total + (slot.player?.priceCents ?? 0),
         0,
       );
-      const balanceCents = Math.max(
-        0,
-        Math.min(STARTING_BUDGET_CENTS - squadValueCents, MAX_PATRIMONY_CENTS),
-      );
+      const balanceCents = Math.max(0, STARTING_BUDGET_CENTS - squadValueCents);
       if (balanceCents === 0 && squadValueCents > 0) teamsZeroed += 1;
 
       await tx

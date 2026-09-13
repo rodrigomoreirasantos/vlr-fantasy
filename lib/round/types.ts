@@ -60,6 +60,8 @@ export type LiveRoundScore = {
   gamesPlayed: number;
   /** Forma atual (média das últimas 5 séries) — o alvo que a projeção compara ao preço. */
   formPoints: number | null;
+  /** Séries (mapas) já disputados na rodada em curso — denominador da média por série. */
+  series: number;
   /** O campeonato em que ele jogou a rodada — de onde sai a região. */
   event: string | null;
   photoUrl: string | null;
@@ -82,6 +84,6 @@ export type RoundTeamResult = {
   balanceCents: number;
   /** Soma dos preços das 5 vagas antes da repreçificação. */
   squadValueCents: number;
-  /** Quanto o teto de patrimônio cortou do caixa nesta virada — `0` quando não cortou. */
-  budgetTrimmedCents: number;
+  /** Quanto a escalação valorizou (positivo) ou desvalorizou (negativo) nesta virada. */
+  squadValuationCents: number;
 };

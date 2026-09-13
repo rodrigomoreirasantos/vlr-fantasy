@@ -1,0 +1,1 @@
+ALTER TABLE "round_team_result" ADD COLUMN "squad_valuation_cents" integer DEFAULT 0 NOT NULL;

@@ -1,14 +1,15 @@
 import { Progress } from "@/components/ui/progress";
 import { PlayerPrice } from "@/components/team/player-price";
-import { MAX_PATRIMONY_CENTS, patrimonyCents } from "@/lib/market/budget";
+import { DREAM_TEAM_CENTS, dreamTeamGapCents, patrimonyCents } from "@/lib/market/budget";
 import { formatCredits } from "@/lib/market/money";
 import { tourTarget } from "@/lib/tour/targets";
+import { cn } from "@/lib/utils";
 
 export type BudgetBarProps = {
   balanceCents: number;
   squadValueCents: number;
-  /** O corte do teto na última rodada fechada — `0` sem corte. */
-  budgetTrimmedCents: number;
+  /** Ganho/perda da última rodada fechada — `null` sem rodada fechada ainda. */
+  lastSquadValuationCents: number | null;
 };
 
 function Stat({
@@ -29,20 +30,21 @@ function Stat({
 }
 
 /**
- * Saldo, valor do elenco e patrimônio contra o teto (Decisões 1 e 3,
- * `.claude/plans/20-preco-dos-jogadores-e-orcamento.md`) — o que transforma
- * "os 5 mais caros nunca cabem" numa conta visível, não numa regra
- * escondida. Fica em "Meu Time", acima do tabuleiro (`FormationBoard`).
+ * Saldo, valor do elenco e patrimônio rumo ao time dos sonhos
+ * (`.claude/plans/26-regras-de-preco-e-saldo.md`) — sem teto de patrimônio
+ * (Suposição S3): o usuário **pode** escalar os 5 jogadores mais caros,
+ * desde que junte dinheiro para isso. Fica em "Meu Time", acima do
+ * tabuleiro (`FormationBoard`).
  */
 export function BudgetBar({
   balanceCents,
   squadValueCents,
-  budgetTrimmedCents,
+  lastSquadValuationCents,
 }: BudgetBarProps) {
   const patrimony = patrimonyCents({ balanceCents, squadValueCents });
-  // O patrimônio pode superar o teto por um instante entre o fechamento de
-  // uma rodada e o corte ser aplicado em produção — a barra nunca extrapola.
-  const clampedPatrimony = Math.min(patrimony, MAX_PATRIMONY_CENTS);
+  const gapCents = dreamTeamGapCents({ balanceCents, squadValueCents });
+  // A barra nunca extrapola: patrimônio acima do time dos sonhos preenche 100%.
+  const clampedPatrimony = Math.min(patrimony, DREAM_TEAM_CENTS);
 
   return (
     <section
@@ -61,25 +63,33 @@ export function BudgetBar({
             <span className="text-lg font-bold text-info">
               {formatCredits(patrimony)}
             </span>
-            <span className="text-xs font-semibold text-muted-foreground">
-              {" "}
-              / {formatCredits(MAX_PATRIMONY_CENTS)}
-            </span>
           </p>
         </Stat>
       </div>
 
       <Progress
         value={clampedPatrimony}
-        max={MAX_PATRIMONY_CENTS}
-        aria-label="Patrimônio contra o teto"
+        max={DREAM_TEAM_CENTS}
+        aria-label="Patrimônio rumo ao time dos sonhos"
         className="mt-3"
       />
 
-      {budgetTrimmedCents > 0 && (
-        <p className="mt-2 text-[11px] font-semibold text-destructive">
-          Seu teto de {formatCredits(MAX_PATRIMONY_CENTS)} cr cortou{" "}
-          {formatCredits(budgetTrimmedCents)} cr nesta rodada.
+      <p className="mt-2 text-[11px] font-semibold text-muted-foreground">
+        {gapCents > 0
+          ? `Faltam ${formatCredits(gapCents)} cr para poder escalar os 5 mais caros.`
+          : "Você já pode escalar os 5 mais caros."}
+      </p>
+
+      {lastSquadValuationCents !== null && lastSquadValuationCents !== 0 && (
+        <p
+          className={cn(
+            "mt-1 text-[11px] font-semibold",
+            lastSquadValuationCents < 0 ? "text-destructive" : "text-success",
+          )}
+        >
+          Última rodada: sua escalação{" "}
+          {lastSquadValuationCents < 0 ? "desvalorizou" : "valorizou"}{" "}
+          {formatCredits(Math.abs(lastSquadValuationCents))} cr.
         </p>
       )}
     </section>

@@ -139,8 +139,32 @@ export async function getTeamRoundResult(
     points: row.points,
     balanceCents: row.balanceCents,
     squadValueCents: row.squadValueCents,
-    budgetTrimmedCents: row.budgetTrimmedCents,
+    squadValuationCents: row.squadValuationCents,
   };
+}
+
+/**
+ * Séries (partidas) que cada jogador disputou nesta rodada — o denominador da
+ * média por série que o motor de preço compara contra a expectativa do preço
+ * (`priceDeltaCents`, `lib/scoring/pricing.ts` — Suposição S5/S11, plano 26).
+ * Quem não tem nenhuma linha aqui não jogou a rodada — `db/close-round.ts`
+ * trata a ausência como `series: 0`.
+ */
+export async function listRoundSeriesCounts(
+  roundId: string,
+  q: Querier = db,
+): Promise<Map<string, number>> {
+  const rows = await q
+    .select({
+      playerId: playerMatchStat.playerId,
+      series: sql<number>`count(distinct ${playerMatchStat.matchId})::int`,
+    })
+    .from(playerMatchStat)
+    .innerJoin(match, eq(match.id, playerMatchStat.matchId))
+    .where(eq(match.roundId, roundId))
+    .groupBy(playerMatchStat.playerId);
+
+  return new Map(rows.map((row) => [row.playerId, row.series]));
 }
 
 /** As cinco vagas congeladas de um time numa rodada — `[]` sem snapshot ainda. */
@@ -284,6 +308,9 @@ export async function listLiveRoundScores(
       priceCents: player.priceCents,
       gamesPlayed: player.gamesPlayed,
       formPoints: player.formPoints,
+      // Séries já jogadas na rodada em curso — o denominador da média que o
+      // motor de preço compara contra a expectativa (Suposição S5, plano 26).
+      series: sql<number>`count(distinct ${playerMatchStat.matchId})::int`,
       // De onde sai a região dos destaques. Um jogador disputa um campeonato
       // por rodada, então o `min` é exato na prática — e determinístico se um
       // dia deixar de ser.

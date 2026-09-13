@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 
-import { listPlayerFormPoints } from "@/lib/round/queries";
+import { listPlayerFormPoints, listRoundSeriesCounts } from "@/lib/round/queries";
 
 /**
  * Teste de contrato (plano 20, Fase 1): `listPlayerFormPoints` não é testada
@@ -63,6 +63,47 @@ describe("listPlayerFormPoints", () => {
     const q = createQuerierStub([]);
 
     const result = await listPlayerFormPoints(q as never);
+
+    expect(result.size).toBe(0);
+  });
+});
+
+/**
+ * Teste de contrato de `listRoundSeriesCounts` (plano 26, Fase 2 —
+ * `.claude/plans/26-regras-de-preco-e-saldo.md`): só prova que a consulta é
+ * montada (`select().from().innerJoin().where().groupBy()`) e que o `Map`
+ * devolvido vem das linhas que o `groupBy` resolve — banco sempre mockado
+ * (CLAUDE.md).
+ */
+function createSeriesQuerierStub(rows: { playerId: string; series: number }[]) {
+  const chain = {
+    from: () => chain,
+    innerJoin: () => chain,
+    where: () => chain,
+    groupBy: () => Promise.resolve(rows),
+  };
+  return { select: () => chain };
+}
+
+describe("listRoundSeriesCounts", () => {
+  it("devolve um Map de playerId → número de séries na rodada", async () => {
+    const q = createSeriesQuerierStub([
+      { playerId: "p1", series: 1 },
+      { playerId: "p2", series: 3 },
+    ]);
+
+    const result = await listRoundSeriesCounts("round-1", q as never);
+
+    expect(result).toBeInstanceOf(Map);
+    expect(result.get("p1")).toBe(1);
+    expect(result.get("p2")).toBe(3);
+    expect(result.size).toBe(2);
+  });
+
+  it("sem nenhuma linha (ninguém jogou), devolve um Map vazio", async () => {
+    const q = createSeriesQuerierStub([]);
+
+    const result = await listRoundSeriesCounts("round-1", q as never);
 
     expect(result.size).toBe(0);
   });

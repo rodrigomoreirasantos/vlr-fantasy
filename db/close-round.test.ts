@@ -4,9 +4,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // (lib/team/queries.ts) — `@/db` também, para o import de topo de
 // `db/close-round.ts` não abrir uma conexão real. `refreshPlayerForm`
 // mockado porque pertence a outro módulo (Fase 2, plano 20) e é testado lá.
-const { getActiveRoundMock, refreshPlayerFormMock } = vi.hoisted(() => ({
+// `listRoundSeriesCounts` mockado pelo mesmo motivo (Fase 2, plano 26).
+const {
+  getActiveRoundMock,
+  refreshPlayerFormMock,
+  listRoundSeriesCountsMock,
+} = vi.hoisted(() => ({
   getActiveRoundMock: vi.fn(),
   refreshPlayerFormMock: vi.fn(),
+  listRoundSeriesCountsMock: vi.fn(),
 }));
 
 vi.mock("@/db", () => ({ db: {}, pool: { end: vi.fn() } }));
@@ -15,6 +21,9 @@ vi.mock("@/lib/team/queries", () => ({
 }));
 vi.mock("@/lib/vlr/jobs/calculate-round", () => ({
   refreshPlayerForm: refreshPlayerFormMock,
+}));
+vi.mock("@/lib/round/queries", () => ({
+  listRoundSeriesCounts: listRoundSeriesCountsMock,
 }));
 
 import { closeActiveRound } from "@/db/close-round";
@@ -26,10 +35,8 @@ import {
   roundRoster as roundRosterTable,
   roundTeamResult as roundTeamResultTable,
 } from "@/db/schema";
-import { MAX_PATRIMONY_CENTS } from "@/lib/market/budget";
 import {
   MAX_PRICE_CENTS,
-  MAX_STEP_CENTS,
   MIN_PRICE_CENTS,
   nextPriceCents,
 } from "@/lib/scoring/pricing";
@@ -45,25 +52,40 @@ const NEXT_UPCOMING_ROUND = {
   marketClosesAt: new Date(Date.now() + DAY_MS),
 };
 
-// `gamesPlayed` alto de propósito: estes dois são veteranos, então
-// `dampingFactor` vale 1. `formPoints` escolhido para o passo bater no teto
-// de 8,0 cr nos dois sentidos — é o caso mais fácil de conferir por fora.
+// `gamesPlayed` alto de propósito: são veteranos, então `dampingFactor` vale
+// 1. Jogador A joga acima do que o preço promete (valoriza); jogador B joga
+// bem abaixo (desvaloriza) — os dois com 1 série só, para o limite de
+// MAX_SWING_RATIO aparecer com clareza.
 const PLAYER_A = {
   id: "player-a",
-  score: 10,
+  score: 70, // 40,0 cr promete 51,4 pts — 70 fica bem acima.
   priceCents: 4_000, // 40,0 cr
-  formPoints: 80, // alvo = 72,5 cr → diferença grande, passo capa em 8,0
+  formPoints: 80,
   gamesPlayed: 9,
 };
 const PLAYER_B = {
   id: "player-b",
-  score: 20,
+  score: 5, // 60,0 cr promete 65,7 pts — 5 fica bem abaixo.
   priceCents: 6_000, // 60,0 cr
-  formPoints: 20, // alvo = MIN (20,0 cr) → diferença grande, passo capa em -8,0
+  formPoints: 20,
   gamesPlayed: 9,
 };
-const PLAYER_A_NEXT_PRICE = PLAYER_A.priceCents + MAX_STEP_CENTS; // 4.800
-const PLAYER_B_NEXT_PRICE = PLAYER_B.priceCents - MAX_STEP_CENTS; // 5.200
+const SERIES_BY_ID = new Map([
+  [PLAYER_A.id, 1],
+  [PLAYER_B.id, 1],
+]);
+const PLAYER_A_NEXT_PRICE = nextPriceCents({
+  priceCents: PLAYER_A.priceCents,
+  roundPoints: PLAYER_A.score,
+  series: 1,
+  gamesPlayed: PLAYER_A.gamesPlayed,
+});
+const PLAYER_B_NEXT_PRICE = nextPriceCents({
+  priceCents: PLAYER_B.priceCents,
+  roundPoints: PLAYER_B.score,
+  series: 1,
+  gamesPlayed: PLAYER_B.gamesPlayed,
+});
 
 const TEAM = {
   id: "team-1",
@@ -105,6 +127,7 @@ function createTxStub(opts: {
   players?: (typeof PLAYER_A)[];
   teams?: (typeof TEAM)[];
   nextUpcoming?: typeof NEXT_UPCOMING_ROUND | null;
+  seriesById?: Map<string, number>;
 }) {
   const players = opts.players ?? [PLAYER_A, PLAYER_B];
   const teams = opts.teams ?? [TEAM];
@@ -114,6 +137,10 @@ function createTxStub(opts: {
   const nextUpcoming =
     "nextUpcoming" in opts ? opts.nextUpcoming : NEXT_UPCOMING_ROUND;
   const calls: Call[] = [];
+
+  listRoundSeriesCountsMock.mockResolvedValue(
+    opts.seriesById ?? SERIES_BY_ID,
+  );
 
   const tx = {
     select: () => ({
@@ -161,6 +188,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   getActiveRoundMock.mockResolvedValue(ACTIVE_ROUND);
   refreshPlayerFormMock.mockResolvedValue({ players: 0 });
+  listRoundSeriesCountsMock.mockResolvedValue(SERIES_BY_ID);
 });
 
 describe("closeActiveRound", () => {
@@ -265,13 +293,14 @@ describe("closeActiveRound", () => {
     expect(teamResultCall?.payload).toEqual({
       roundId: ACTIVE_ROUND.id,
       fantasyTeamId: TEAM.id,
-      // Boaster-like capitão dobra: 10*2 + 20 = 40.
-      points: 40,
+      // Boaster-like capitão dobra: 70*2 + 5 = 145.
+      points: 145,
       balanceCents: TEAM.balanceCents,
       squadValueCents: PLAYER_A.priceCents + PLAYER_B.priceCents,
-      // Patrimônio (3.000 saldo + 10.000 elenco novo) bem abaixo do teto:
-      // nada é cortado nesta rodada.
-      budgetTrimmedCents: 0,
+      squadValuationCents:
+        PLAYER_A_NEXT_PRICE -
+        PLAYER_A.priceCents +
+        (PLAYER_B_NEXT_PRICE - PLAYER_B.priceCents),
     });
   });
 
@@ -298,15 +327,18 @@ describe("closeActiveRound", () => {
     ).toBe(true);
   });
 
-  it("quem não pontuou fica com preço idêntico e delta 0 (Decisão 7)", async () => {
+  it("quem não tem nenhuma série na rodada fica com preço idêntico e delta 0", async () => {
     const benched = {
       id: "player-c",
       score: 0,
       priceCents: 8_000,
-      formPoints: 90, // mesmo com alvo bem acima, não pontuou → não mexe.
+      formPoints: 90,
       gamesPlayed: 4,
     };
-    const { tx, calls } = createTxStub({ players: [PLAYER_A, benched] });
+    const { tx, calls } = createTxStub({
+      players: [PLAYER_A, benched],
+      seriesById: new Map([[PLAYER_A.id, 1]]), // benched sem entrada = sem série
+    });
 
     await closeActiveRound(tx as never);
 
@@ -324,38 +356,98 @@ describe("closeActiveRound", () => {
     });
   });
 
-  it("um jogador com forma alta sobe no máximo 8,0 cr; um com forma baixa desce no máximo 8,0 cr", async () => {
+  it("jogou 1 série e fez exatamente 0 ponto: desvaloriza (bug do motor anterior corrigido)", async () => {
+    const zeroed = {
+      id: "player-zero",
+      score: 0,
+      priceCents: 5_000, // promete ~ 54,3 pts/série
+      formPoints: 60,
+      gamesPlayed: 9,
+    };
+    const { tx, calls } = createTxStub({
+      players: [zeroed],
+      seriesById: new Map([[zeroed.id, 1]]), // jogou 1 série, fez 0 ponto
+    });
+
+    await closeActiveRound(tx as never);
+
+    const update = calls.find((c) => c.op === "update:player");
+    expect((update!.payload as { priceCents: number }).priceCents).toBeLessThan(
+      zeroed.priceCents,
+    );
+  });
+
+  it("score !== 0 sem série registrada (seed/fechamento manual) conta como 1 série", async () => {
+    const seeded = {
+      id: "player-seed",
+      score: 40,
+      priceCents: 4_800, // promete 52 pts
+      formPoints: 60,
+      gamesPlayed: 9,
+    };
+    const { tx, calls } = createTxStub({
+      players: [seeded],
+      seriesById: new Map(), // nenhuma linha de player_match_stat
+    });
+
+    await closeActiveRound(tx as never);
+
+    const expectedNext = nextPriceCents({
+      priceCents: seeded.priceCents,
+      roundPoints: seeded.score,
+      series: 1,
+      gamesPlayed: seeded.gamesPlayed,
+    });
+    const update = calls.find((c) => c.op === "update:player");
+    expect((update!.payload as { priceCents: number }).priceCents).toBe(
+      expectedNext,
+    );
+  });
+
+  it("o delta nunca passa de MAX_SWING_RATIO (10%) do preço atual", async () => {
     const { tx, calls } = createTxStub({});
 
     await closeActiveRound(tx as never);
 
     const updates = calls.filter((c) => c.op === "update:player");
-    expect(
+    const deltaA =
       (updates[0].payload as { priceCents: number }).priceCents -
-        PLAYER_A.priceCents,
-    ).toBe(MAX_STEP_CENTS);
-    expect(
+      PLAYER_A.priceCents;
+    const deltaB =
       (updates[1].payload as { priceCents: number }).priceCents -
-        PLAYER_B.priceCents,
-    ).toBe(-MAX_STEP_CENTS);
+      PLAYER_B.priceCents;
+    expect(deltaA).toBeGreaterThan(0);
+    expect(Math.abs(deltaA)).toBeLessThanOrEqual(
+      Math.round((PLAYER_A.priceCents * 0.1) / 10) * 10 + 10,
+    );
+    expect(deltaB).toBeLessThan(0);
+    expect(Math.abs(deltaB)).toBeLessThanOrEqual(
+      Math.round((PLAYER_B.priceCents * 0.1) / 10) * 10 + 10,
+    );
   });
 
   it("preço prende em MAX_PRICE_CENTS e em MIN_PRICE_CENTS — nunca passa", async () => {
     const atMax = {
       id: "player-max",
-      score: 5,
-      priceCents: MAX_PRICE_CENTS, // já no teto
-      formPoints: 200, // alvo continua no teto — nada empurra para além dele
+      score: 500, // jogo excepcional — nada empurra além do teto
+      priceCents: MAX_PRICE_CENTS,
+      formPoints: 200,
       gamesPlayed: 9,
     };
     const atMin = {
       id: "player-min",
-      score: 5,
-      priceCents: MIN_PRICE_CENTS, // já no piso
-      formPoints: -50, // alvo continua no piso — nada empurra abaixo dele
+      score: 0, // jogo péssimo — nada empurra abaixo do piso
+      priceCents: MIN_PRICE_CENTS,
+      formPoints: -50,
       gamesPlayed: 9,
     };
-    const { tx, calls } = createTxStub({ players: [atMax, atMin] });
+    const { tx, calls } = createTxStub({
+      players: [atMax, atMin],
+      seriesById: new Map([
+        [atMax.id, 1],
+        [atMin.id, 1],
+      ]),
+    });
 
     await closeActiveRound(tx as never);
 
@@ -487,12 +579,13 @@ describe("closeActiveRound", () => {
     ).toEqual(teams.map((t) => t.id));
   });
 
-  describe("teto de patrimônio (Decisões 3, 4 e 5)", () => {
-    // Cinco jogadores presos no teto (MAX_PRICE_CENTS) para o patrimônio do
-    // time estourar MAX_PATRIMONY_CENTS de propósito.
+  describe("sem teto de patrimônio (plano 26)", () => {
+    // Cinco jogadores presos no teto (MAX_PRICE_CENTS) com jogo excepcional —
+    // patrimônio bem acima de qualquer teto do plano 20, mas o fechamento
+    // não mexe mais em saldo nenhuma vez.
     const STAR_PLAYERS = Array.from({ length: 5 }, (_, index) => ({
       id: `star-${index}`,
-      score: 10,
+      score: 500,
       priceCents: MAX_PRICE_CENTS,
       formPoints: 200,
       gamesPlayed: 9,
@@ -511,30 +604,19 @@ describe("closeActiveRound", () => {
       };
     }
 
-    it("patrimônio acima do teto: corta o caixa, grava budgetTrimmedCents, elenco intacto", async () => {
-      // Elenco (5 × 90,0 = 450,0) + saldo 50,0 = patrimônio 500,0 — bem acima
-      // do teto de 360,0. Excedente = 140,0, mas o corte nunca passa do
-      // caixa disponível (5.000 cents = 50,0 cr).
+    it("patrimônio bem acima de 450,0 cr: nenhum update:fantasy_team é emitido", async () => {
       const { tx, calls } = createTxStub({
         players: STAR_PLAYERS,
-        teams: [starTeam(5_000)],
+        teams: [starTeam(50_000)],
+        seriesById: new Map(STAR_PLAYERS.map((p) => [p.id, 1])),
       });
 
       await closeActiveRound(tx as never);
 
-      const teamResult = calls.find(
-        (c) => c.op === "insert:round_team_result",
-      )?.payload as { budgetTrimmedCents: number };
-      // O caixa inteiro (5.000) é menor que o excedente teórico — o corte é
-      // o caixa inteiro.
-      expect(teamResult.budgetTrimmedCents).toBe(5_000);
-
-      const balanceUpdate = calls.find((c) => c.op === "update:fantasy_team")
-        ?.payload as { balanceCents: number };
-      expect(balanceUpdate.balanceCents).toBe(0);
+      expect(calls.some((c) => c.op === "update:fantasy_team")).toBe(false);
 
       // Nenhum jogador foi vendido: os 5 `update:player` continuam lá, cada
-      // um preso em MAX_PRICE_CENTS.
+      // um preso em MAX_PRICE_CENTS (jogo excepcional não passa do teto).
       const playerUpdates = calls.filter((c) => c.op === "update:player");
       expect(playerUpdates).toHaveLength(5);
       expect(
@@ -546,40 +628,49 @@ describe("closeActiveRound", () => {
       ).toBe(true);
     });
 
-    it("elenco sozinho já vale mais que o teto: saldo fica 0, nunca negativo", async () => {
-      // Elenco (450,0) sozinho já passa do teto (360,0) — mesmo cortando o
-      // caixa inteiro (20,0), o patrimônio continua acima dele. O saldo vai
-      // a 0, nunca fica negativo.
+    it("squadValuationCents é a soma dos deltas das vagas ocupadas — 0 aqui, todos já no teto", async () => {
       const { tx, calls } = createTxStub({
         players: STAR_PLAYERS,
-        teams: [starTeam(2_000)],
+        teams: [starTeam(5_000)],
+        seriesById: new Map(STAR_PLAYERS.map((p) => [p.id, 1])),
       });
 
       await closeActiveRound(tx as never);
 
-      const balanceUpdate = calls.find((c) => c.op === "update:fantasy_team")
-        ?.payload as { balanceCents: number };
-      expect(balanceUpdate.balanceCents).toBe(0);
-
       const teamResult = calls.find(
         (c) => c.op === "insert:round_team_result",
-      )?.payload as { budgetTrimmedCents: number };
-      expect(teamResult.budgetTrimmedCents).toBe(2_000);
+      )?.payload as { squadValuationCents: number; balanceCents: number };
+      expect(teamResult.squadValuationCents).toBe(0);
+      // O saldo gravado no snapshot é o de antes do fechamento — o
+      // fechamento não escreve mais em `fantasy_team.balance_cents`.
+      expect(teamResult.balanceCents).toBe(5_000);
     });
 
-    it("patrimônio dentro do teto: não corta nada, não atualiza fantasy_team", async () => {
-      const { tx, calls } = createTxStub({});
+    it("squadValuationCents negativo quando a escalação desvaloriza", async () => {
+      const badGame = STAR_PLAYERS.map((p) => ({ ...p, score: 0 })); // jogo péssimo
+      const { tx, calls } = createTxStub({
+        players: badGame,
+        teams: [
+          {
+            id: "team-stars-bad",
+            balanceCents: 1_000,
+            slots: badGame.map((p, index) => ({
+              position: index + 1,
+              playerId: p.id,
+              captain: index === 0,
+              player: p,
+            })),
+          },
+        ],
+        seriesById: new Map(badGame.map((p) => [p.id, 1])),
+      });
 
       await closeActiveRound(tx as never);
 
-      expect(
-        calls.some((c) => c.op === "update:fantasy_team"),
-      ).toBe(false);
-      // Referência viva às constantes — se `MAX_PATRIMONY_CENTS` cair abaixo
-      // do patrimônio de `TEAM`, este teste passa a mentir sobre o motivo.
-      expect(
-        TEAM.balanceCents + PLAYER_A.priceCents + PLAYER_B.priceCents,
-      ).toBeLessThan(MAX_PATRIMONY_CENTS);
+      const teamResult = calls.find(
+        (c) => c.op === "insert:round_team_result",
+      )?.payload as { squadValuationCents: number };
+      expect(teamResult.squadValuationCents).toBeLessThan(0);
     });
   });
 });
@@ -591,14 +682,16 @@ describe("consistência com o motor de preço", () => {
     expect(
       nextPriceCents({
         priceCents: PLAYER_A.priceCents,
-        formPoints: PLAYER_A.formPoints,
+        roundPoints: PLAYER_A.score,
+        series: 1,
         gamesPlayed: PLAYER_A.gamesPlayed,
       }),
     ).toBe(PLAYER_A_NEXT_PRICE);
     expect(
       nextPriceCents({
         priceCents: PLAYER_B.priceCents,
-        formPoints: PLAYER_B.formPoints,
+        roundPoints: PLAYER_B.score,
+        series: 1,
         gamesPlayed: PLAYER_B.gamesPlayed,
       }),
     ).toBe(PLAYER_B_NEXT_PRICE);

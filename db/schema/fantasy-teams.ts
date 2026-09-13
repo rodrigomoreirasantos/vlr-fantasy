@@ -49,16 +49,14 @@ export const fantasyTeam = pgTable(
     // Um time por usuário **por região** — substitui o antigo
     // `fantasy_team_user_uidx` (um time por usuário, período).
     uniqueIndex("fantasy_team_user_region_uidx").on(table.userId, table.region),
-    // Faixa do saldo (Decisão 3, plano 20) — troca
-    // `fantasy_team_balance_non_negative`. Condição necessária, não
-    // suficiente: o teto real é sobre saldo + elenco
-    // (`MAX_PATRIMONY_CENTS`, `lib/market/budget.ts`), que nenhum CHECK de
-    // uma tabela só alcança — mas é a rede que impede um bug de crédito de
-    // inflar o caixa sozinho. ⚠️ Um `CHECK` não aceita parâmetro de query —
-    // o literal tem de bater com `MAX_PATRIMONY_CENTS`.
+    // Sem teto de patrimônio (Suposição S3, plano 26 —
+    // `.claude/plans/26-regras-de-preco-e-saldo.md`): o usuário pode escalar
+    // os 5 jogadores mais caros, desde que junte dinheiro para isso. O saldo
+    // só não pode ficar negativo (Suposição S2) — substitui o antigo
+    // `fantasy_team_balance_range`, que também limitava o teto.
     check(
-      "fantasy_team_balance_range",
-      sql`${table.balanceCents} BETWEEN 0 AND 36000`,
+      "fantasy_team_balance_non_negative",
+      sql`${table.balanceCents} >= 0`,
     ),
     check("fantasy_team_region_is_team", sql`${table.region} <> 'other'`),
   ],

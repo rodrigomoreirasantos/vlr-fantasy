@@ -68,7 +68,7 @@ export default async function MyTeamPage(props: PageProps<"/my-team">) {
       <BudgetBar
         balanceCents={summary.balanceCents}
         squadValueCents={summary.squadValueCents}
-        budgetTrimmedCents={summary.budgetTrimmedCents}
+        lastSquadValuationCents={summary.lastSquadValuationCents}
       />
 
       <RosterPanel

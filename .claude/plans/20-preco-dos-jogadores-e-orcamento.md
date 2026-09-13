@@ -552,3 +552,8 @@ que Saldo + Valor do elenco = Patrimônio e que a barra chega no máximo ao teto
   qualquer no ranking (fato 8); histórico de preço por jogador na tela do jogador
   (`round_player_score` já guarda o dado, mas nenhuma tela nova o exibe aqui); e preço diferente
   por região.
+
+---
+
+**Revisto pelo plano 26** (`.claude/plans/26-regras-de-preco-e-saldo.md`): teto de patrimônio
+removido, motor de preço trocado.
