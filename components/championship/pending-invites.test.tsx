@@ -1,16 +1,26 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const executeMock = vi.hoisted(() => vi.fn());
+const toastSuccessMock = vi.hoisted(() => vi.fn());
+// Guarda as opções de `useAction` para o teste disparar o `onSuccess`.
+const actionOptions = vi.hoisted(() => ({
+  current: null as null | { onSuccess?: () => void },
+}));
 
 vi.mock("@/app/(app)/ranking/actions", () => ({
   respondToInvite: "respondToInvite-token",
 }));
 vi.mock("next-safe-action/hooks", () => ({
-  useAction: () => ({ execute: executeMock, isExecuting: false }),
+  useAction: (_action: unknown, options: { onSuccess?: () => void }) => {
+    actionOptions.current = options;
+    return { execute: executeMock, isExecuting: false };
+  },
 }));
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("sonner", () => ({
+  toast: { success: toastSuccessMock, error: vi.fn() },
+}));
 
 import { PendingInvites } from "@/components/championship/pending-invites";
 import { TimezoneProvider } from "@/components/layout/timezone";
@@ -31,6 +41,7 @@ function invite(overrides: Partial<PendingInvite> = {}): PendingInvite {
 describe("PendingInvites", () => {
   beforeEach(() => {
     executeMock.mockClear();
+    toastSuccessMock.mockClear();
   });
 
   it("não renderiza nada sem convites pendentes", () => {
@@ -92,5 +103,68 @@ describe("PendingInvites", () => {
     );
 
     expect(screen.getByText(/15\/03 às 03:00/)).toBeInTheDocument();
+  });
+
+  it("com mais de 2 convites, mostra 2 e um botão para ver o resto", async () => {
+    const user = userEvent.setup();
+    render(
+      <PendingInvites
+        invites={[
+          invite({ memberId: "m1", championshipName: "Liga 1" }),
+          invite({ memberId: "m2", championshipName: "Liga 2" }),
+          invite({ memberId: "m3", championshipName: "Liga 3" }),
+          invite({ memberId: "m4", championshipName: "Liga 4" }),
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(screen.queryByText("Liga 3")).not.toBeInTheDocument();
+
+    const toggle = screen.getByRole("button", {
+      name: "Ver todos os convites (+2)",
+    });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await user.click(toggle);
+
+    expect(screen.getAllByRole("listitem")).toHaveLength(4);
+    expect(screen.getByText("Liga 4")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Mostrar menos" }),
+    ).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("com até 2 convites, não há botão de ver todos", () => {
+    render(
+      <PendingInvites
+        invites={[invite({ memberId: "m1" }), invite({ memberId: "m2" })]}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: /ver todos/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("aceitar avisa em qual campeonato o usuário entrou", async () => {
+    const user = userEvent.setup();
+    render(<PendingInvites invites={[invite()]} />);
+
+    await user.click(screen.getByRole("button", { name: /aceitar/i }));
+    act(() => actionOptions.current?.onSuccess?.());
+
+    expect(toastSuccessMock).toHaveBeenCalledWith("Você entrou em Liga dos Cria.");
+  });
+
+  it("recusar avisa qual convite foi recusado", async () => {
+    const user = userEvent.setup();
+    render(<PendingInvites invites={[invite()]} />);
+
+    await user.click(screen.getByRole("button", { name: /recusar/i }));
+    act(() => actionOptions.current?.onSuccess?.());
+
+    expect(toastSuccessMock).toHaveBeenCalledWith(
+      "Convite para Liga dos Cria recusado.",
+    );
   });
 });

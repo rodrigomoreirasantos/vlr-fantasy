@@ -40,19 +40,38 @@ describe("StandingsPodium", () => {
     expect(screen.queryByText("Time 4")).not.toBeInTheDocument();
   });
 
-  it("empate em 2º: as duas linhas de posição 2 aparecem", () => {
+  it("empate em 2º: um card só na posição, avisando quantos empataram", () => {
     render(
       <StandingsPodium
         standings={[
-          row({ userId: "a", teamName: "Time 1", position: 1 }),
+          row({ userId: "a", teamName: "Time 1", points: 9, position: 1 }),
           row({ userId: "b", teamName: "Time 2", position: 2 }),
           row({ userId: "c", teamName: "Time 3", position: 2 }),
+          row({ userId: "d", teamName: "Time 4", position: 2 }),
         ]}
       />,
     );
 
     expect(screen.getByText("Time 2")).toBeInTheDocument();
-    expect(screen.getByText("Time 3")).toBeInTheDocument();
+    expect(screen.getAllByText("2º")).toHaveLength(1);
+    expect(screen.getByText("+2 empatados")).toBeInTheDocument();
+    // Os outros empatados seguem na lista (StandingsList), não aqui.
+    expect(screen.queryByText("Time 3")).not.toBeInTheDocument();
+    expect(screen.queryByText("Time 4")).not.toBeInTheDocument();
+  });
+
+  it("todo mundo empatado (ex.: começo da rodada, todos com 0): sem pódio", () => {
+    const { container } = render(
+      <StandingsPodium
+        standings={[
+          row({ userId: "a", teamName: "Time 1", position: 1 }),
+          row({ userId: "b", teamName: "Time 2", position: 1 }),
+          row({ userId: "c", teamName: "Time 3", position: 1 }),
+        ]}
+      />,
+    );
+
+    expect(container).toBeEmptyDOMElement();
   });
 
   it("com menos de 3 membros, mostra só quem existe", () => {

@@ -137,8 +137,15 @@
 
 /* Cantos chanfrados — assinatura visual do Valorant (corta os cantos
    superior-esquerdo e inferior-direito). Ajuste o tamanho com `[--clip:6px]`;
-   sem isso o corte segue em 12px. */
+   sem isso o corte segue em 12px.
+
+   `--tw-ring-inset`: o `ring-*` do Tailwind é uma box-shadow **por fora** do
+   elemento, e o `clip-path` corta tudo o que fica fora — a borda e o destaque
+   de selecionado sumiam de todo card chanfrado. Ligado aqui, todo `ring-*`
+   num elemento chanfrado é desenhado por dentro, sem precisar lembrar de
+   `ring-inset` em cada uso. */
 @utility clip-corner {
+  --tw-ring-inset: inset;
   clip-path: polygon(
     var(--clip, 12px) 0,
     100% 0,
@@ -147,4 +154,16 @@
     0 100%,
     0 var(--clip, 12px)
   );
+}
+
+/* Abaixo de `md` a barra inferior fixa (`bottom-nav.tsx`) ocupa o rodapé —
+   o aviso (sonner) sobe acima dela. O sonner grava o offset como estilo
+   inline no `<ol>`; o `!important` é o que vence o inline sem mexer na lib.
+   `--mobile-offset-bottom` vale abaixo de 600px, `--offset-bottom` entre
+   600px e `md`. */
+@media (width < 48rem) {
+  [data-sonner-toaster][data-y-position="bottom"] {
+    --offset-bottom: calc(4.5rem + env(safe-area-inset-bottom)) !important;
+    --mobile-offset-bottom: calc(4.5rem + env(safe-area-inset-bottom)) !important;
+  }
 }

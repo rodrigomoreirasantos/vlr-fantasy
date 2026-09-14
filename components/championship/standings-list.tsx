@@ -1,5 +1,5 @@
 import { TeamCrest } from "@/components/crest/team-crest";
-import { PODIUM_SIZE } from "@/lib/championship/standings";
+import { splitPodium } from "@/lib/championship/standings";
 import type { RankedStanding } from "@/lib/championship/types";
 import { formatScore } from "@/lib/team/score";
 import { cn } from "@/lib/utils";
@@ -9,16 +9,17 @@ export type StandingsListProps = {
 };
 
 /**
- * Do 4º lugar em diante — as posições 1 a 3 vivem em `StandingsPodium`.
- * Substitui a antiga `StandingsTable` (tabela) por uma lista de cards
- * chanfrados, que cabe melhor em telas estreitas (plano 28, Fase 4).
+ * Quem não está no pódio — do 4º em diante e os empatados com quem está no
+ * pódio (`splitPodium`). Com todo mundo empatado não há pódio, e a lista
+ * mostra o campeonato inteiro. Substitui a antiga `StandingsTable` (tabela)
+ * por uma lista de cards chanfrados, que cabe melhor em telas estreitas
+ * (plano 28, Fase 4).
  *
- * Sem faixa de líder/pódio aqui: essas duas zonas (`standingZone`) só
- * existiam para as posições 1-3, que saíram para o pódio — a lista só
- * precisa destacar a linha do usuário atual.
+ * A posição de cada linha é a real (`rankStandings`): um empatado em 2º
+ * aparece aqui como "2". Só a linha do usuário atual é destacada.
  */
 export function StandingsList({ standings }: StandingsListProps) {
-  const rest = standings.filter((row) => row.position > PODIUM_SIZE);
+  const { rest } = splitPodium(standings);
   if (rest.length === 0) return null;
 
   return (

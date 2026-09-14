@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
 
@@ -15,14 +15,24 @@ export type PendingInvitesProps = {
   invites: PendingInvite[];
 };
 
+/**
+ * Quantos convites aparecem antes do "Ver todos" — com mais que isso a
+ * seção empurrava a classificação para fora da primeira tela do celular.
+ */
+export const VISIBLE_INVITES = 2;
+
 /** Convites de campeonato recebidos pelo usuário, ainda sem resposta. */
 export function PendingInvites({ invites }: PendingInvitesProps) {
   const [respondingId, setRespondingId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  // A mensagem é montada no clique: quando o `onSuccess` roda, a revalidação
+  // do `/ranking` pode já ter tirado o convite da lista (e o nome junto).
+  const successMessage = useRef("");
   const tz = useTimezone();
 
   const { execute, isExecuting } = useAction(respondToInvite, {
     onSuccess: () => {
-      toast.success("Convite atualizado!");
+      toast.success(successMessage.current);
       setRespondingId(null);
     },
     onError: ({ error }) => {
@@ -35,10 +45,16 @@ export function PendingInvites({ invites }: PendingInvitesProps) {
 
   if (invites.length === 0) return null;
 
-  function respond(memberId: string, accept: boolean) {
-    setRespondingId(memberId);
-    execute({ memberId, accept });
+  function respond(invite: PendingInvite, accept: boolean) {
+    successMessage.current = accept
+      ? `Você entrou em ${invite.championshipName}.`
+      : `Convite para ${invite.championshipName} recusado.`;
+    setRespondingId(invite.memberId);
+    execute({ memberId: invite.memberId, accept });
   }
+
+  const hiddenCount = invites.length - VISIBLE_INVITES;
+  const visible = expanded ? invites : invites.slice(0, VISIBLE_INVITES);
 
   return (
     <section
@@ -47,17 +63,18 @@ export function PendingInvites({ invites }: PendingInvitesProps) {
     >
       <h2 className="mb-3.5 text-[10px] font-bold tracking-[0.14em] text-muted-foreground uppercase">
         Convites pendentes
+        <span className="ml-1.5 text-primary tabular-nums">{invites.length}</span>
       </h2>
-      <ul className="flex flex-col gap-3">
-        {invites.map((invite) => {
+      <ul id="pending-invites-list" className="flex flex-col gap-2 sm:gap-3">
+        {visible.map((invite) => {
           const disabled = isExecuting && respondingId === invite.memberId;
           return (
             <li
               key={invite.memberId}
               className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-background/40 px-3 py-2.5"
             >
-              <div>
-                <p className="flex items-center gap-2 text-sm font-semibold">
+              <div className="min-w-0">
+                <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm font-semibold">
                   {invite.championshipName}
                   <span
                     className="flex items-center gap-1 text-[10px] font-bold tracking-wide text-muted-foreground uppercase"
@@ -76,7 +93,9 @@ export function PendingInvites({ invites }: PendingInvitesProps) {
                     `de @${invite.invitedByUsername} · `}
                   {formatInvitedAt(invite.invitedAt, tz)}
                 </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
+                {/* No celular a região já está no chip ao lado do nome — esta
+                    linha só repetiria a informação num espaço apertado. */}
+                <p className="mt-0.5 hidden text-xs text-muted-foreground sm:block">
                   Você entra com o seu time de {regionLabel(invite.region)}.
                 </p>
               </div>
@@ -85,7 +104,7 @@ export function PendingInvites({ invites }: PendingInvitesProps) {
                   type="button"
                   size="sm"
                   disabled={disabled}
-                  onClick={() => respond(invite.memberId, true)}
+                  onClick={() => respond(invite, true)}
                 >
                   Aceitar
                 </Button>
@@ -94,7 +113,7 @@ export function PendingInvites({ invites }: PendingInvitesProps) {
                   size="sm"
                   variant="outline"
                   disabled={disabled}
-                  onClick={() => respond(invite.memberId, false)}
+                  onClick={() => respond(invite, false)}
                 >
                   Recusar
                 </Button>
@@ -103,6 +122,21 @@ export function PendingInvites({ invites }: PendingInvitesProps) {
           );
         })}
       </ul>
+      {hiddenCount > 0 && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          aria-expanded={expanded}
+          aria-controls="pending-invites-list"
+          onClick={() => setExpanded((open) => !open)}
+          className="mt-2 w-full text-muted-foreground"
+        >
+          {expanded
+            ? "Mostrar menos"
+            : `Ver todos os convites (+${hiddenCount})`}
+        </Button>
+      )}
     </section>
   );
 }

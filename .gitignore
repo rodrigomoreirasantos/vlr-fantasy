@@ -52,3 +52,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# saída do Playwright MCP (capturas e snapshots de QA)
+.playwright-mcp/

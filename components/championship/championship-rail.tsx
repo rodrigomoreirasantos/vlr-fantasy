@@ -5,7 +5,7 @@ import Link from "next/link";
 
 import { CreateChampionshipDialog } from "@/components/championship/create-championship-dialog";
 import type { ChampionshipCardData } from "@/lib/championship/types";
-import { regionColor, regionLabel, type TeamRegion } from "@/lib/round/regions";
+import type { TeamRegion } from "@/lib/round/regions";
 import { cn } from "@/lib/utils";
 
 export type ChampionshipRailProps = {
@@ -21,6 +21,11 @@ export type ChampionshipRailProps = {
  * ("Você: Nº"), então não é preciso abrir o campeonato para saber onde se
  * está. "Criar campeonato" vira o último card, tracejado, em vez de um botão
  * solto ao lado da faixa.
+ *
+ * Rola na horizontal só abaixo de `md` (dedo); no desktop vira grade que
+ * quebra em linhas — com mouse, uma faixa rolável esconde campeonatos sem
+ * nenhuma pista de que existem. Sem rótulo de região no card: a aba de região acima já
+ * filtra a faixa, então todo card repetiria a mesma palavra.
  */
 export function ChampionshipRail({
   championships,
@@ -29,7 +34,7 @@ export function ChampionshipRail({
 }: ChampionshipRailProps) {
   return (
     <ul
-      className="mb-6 flex list-none snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 pb-1"
+      className="mb-6 flex list-none snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 pb-1 md:grid md:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] md:overflow-visible md:pb-0"
       aria-label="Seus campeonatos"
     >
       {championships.map((championship) => {
@@ -40,20 +45,14 @@ export function ChampionshipRail({
             href={`/ranking?c=${championship.id}`}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "clip-corner flex w-[200px] shrink-0 snap-start flex-col gap-2 bg-card p-3.5 ring-1 ring-border transition-colors [--clip:12px] hover:ring-foreground/25",
+              "clip-corner flex w-[200px] shrink-0 md:w-auto snap-start flex-col gap-2 bg-card p-3.5 ring-1 ring-border transition-colors [--clip:12px] hover:ring-foreground/25",
               active && "ring-2 ring-primary hover:ring-primary",
             )}
           >
-            <span className="flex items-center gap-1.5 text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
-              <span
-                aria-hidden
-                className="size-1.5 rounded-full"
-                style={{ backgroundColor: regionColor(championship.region) }}
-              />
-              {regionLabel(championship.region)}
-            </span>
-
-            <span className="truncate text-sm font-extrabold uppercase">
+            <span
+              title={championship.name}
+              className="truncate text-sm font-extrabold uppercase"
+            >
               {championship.name}
             </span>
 
@@ -84,7 +83,7 @@ export function ChampionshipRail({
           trigger={
             <button
               type="button"
-              className="clip-corner flex w-[200px] shrink-0 cursor-pointer snap-start flex-col items-center justify-center gap-1.5 border border-dashed border-border p-3.5 text-muted-foreground transition-colors [--clip:12px] hover:border-primary hover:text-primary"
+              className="clip-corner flex w-[200px] shrink-0 md:w-auto cursor-pointer snap-start flex-col items-center justify-center gap-1.5 border border-dashed border-border p-3.5 text-muted-foreground transition-colors [--clip:12px] hover:border-primary hover:text-primary"
             >
               <Plus aria-hidden className="size-5" />
               <span className="text-xs font-bold uppercase">
