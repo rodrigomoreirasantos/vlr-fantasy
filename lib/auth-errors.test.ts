@@ -14,7 +14,7 @@ describe("translateAuthError", () => {
     ],
     [
       "EMAIL_NOT_VERIFIED",
-      "Confirme seu e-mail antes de entrar. Acabamos de enviar um novo link para você.",
+      "Confirme seu e-mail para continuar.",
     ],
   ])("traduz %s para a frase pt-BR esperada", (code, expected) => {
     expect(translateAuthError(code)).toBe(expected);

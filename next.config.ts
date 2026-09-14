@@ -7,8 +7,16 @@ const nextConfig: NextConfig = {
   // própria página de login. Temporário (307) de propósito: um 308 fica
   // guardado no navegador e nos buscadores, e prenderia `/` no login se um
   // dia a raiz voltar a ter conteúdo.
+  //
+  // `/check-email` ("confirme seu e-mail para entrar") deixou de existir
+  // quando a confirmação virou opcional (lib/auth.ts). Quem ainda tem essa aba
+  // aberta ou o link no histórico cai no login, não num 404 — a conta já
+  // entra com a senha.
   async redirects() {
-    return [{ source: "/", destination: "/login", permanent: false }];
+    return [
+      { source: "/", destination: "/login", permanent: false },
+      { source: "/check-email", destination: "/login", permanent: false },
+    ];
   },
   images: {
     remotePatterns: [

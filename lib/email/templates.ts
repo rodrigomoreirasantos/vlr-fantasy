@@ -69,8 +69,8 @@ export function verificationEmail(params: {
   url: string;
 }): EmailContent {
   const name = params.name || "jogador";
-  const subject = "Confirme seu e-mail e entre em campo";
-  const bodyHtml = `<p>Olá, ${escapeHtml(name)}!</p><p>Falta um passo para você montar seu time: confirme seu e-mail clicando no botão abaixo.</p><p>O link expira em 1 hora.</p>`;
+  const subject = "Confirme seu e-mail";
+  const bodyHtml = `<p>Olá, ${escapeHtml(name)}!</p><p>Sua conta já está pronta para jogar. Confirme seu e-mail clicando no botão abaixo — é por ele que você recupera a senha se esquecer.</p><p>O link expira em 1 hora.</p>`;
   const html = baseTemplate({
     preheader: subject,
     heading: subject,
@@ -78,7 +78,7 @@ export function verificationEmail(params: {
     ctaLabel: "Confirmar e-mail",
     ctaUrl: params.url,
   });
-  const text = `Olá, ${name}!\n\nConfirme seu e-mail para entrar em campo: ${params.url}\n\nO link expira em 1 hora.\n\nSe você não pediu isso, ignore este e-mail.`;
+  const text = `Olá, ${name}!\n\nSua conta já está pronta para jogar. Confirme seu e-mail — é por ele que você recupera a senha se esquecer: ${params.url}\n\nO link expira em 1 hora.\n\nSe você não pediu isso, ignore este e-mail.`;
   return { subject, html, text };
 }
 
@@ -107,14 +107,5 @@ export function passwordChangedEmail(params: { name: string }): EmailContent {
   const bodyHtml = `<p>Olá, ${escapeHtml(name)}!</p><p>Sua senha foi alterada com sucesso. Por segurança, você foi desconectado de todos os outros aparelhos.</p><p>Se não foi você, entre em contato com o suporte imediatamente.</p>`;
   const html = baseTemplate({ preheader: subject, heading: subject, bodyHtml });
   const text = `Olá, ${name}!\n\nSua senha foi alterada com sucesso. Por segurança, você foi desconectado de todos os outros aparelhos.\n\nSe não foi você, entre em contato com o suporte imediatamente.`;
-  return { subject, html, text };
-}
-
-export function existingAccountEmail(params: { name: string }): EmailContent {
-  const name = params.name || "jogador";
-  const subject = "Alguém tentou criar uma conta com seu e-mail";
-  const bodyHtml = `<p>Olá, ${escapeHtml(name)}!</p><p>Alguém tentou criar uma conta usando este e-mail, mas você já tem uma conta na VLR Fantasy.</p><p>Se foi você, é só entrar normalmente. Esqueceu a senha? Use a recuperação de senha na tela de entrar.</p>`;
-  const html = baseTemplate({ preheader: subject, heading: subject, bodyHtml });
-  const text = `Olá, ${name}!\n\nAlguém tentou criar uma conta usando este e-mail, mas você já tem uma conta na VLR Fantasy.\n\nSe foi você, é só entrar normalmente. Esqueceu a senha? Use a recuperação de senha na tela de entrar.`;
   return { subject, html, text };
 }

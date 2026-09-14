@@ -7,7 +7,6 @@ import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { assignUniqueUsername } from "@/lib/auth/username";
 import {
-  existingAccountEmail,
   passwordChangedEmail,
   resetPasswordEmail,
   verificationEmail,
@@ -23,17 +22,40 @@ const twitchConfigured = Boolean(
 );
 
 // Reset em 15 minutos, sincronizado com `resetPasswordEmail` (lib/email/templates.ts).
+
+/**
+ * O domínio de produção que a própria Vercel informa em runtime (sem
+ * protocolo). O `baseURL` (`BETTER_AUTH_URL`) continua sendo a origem
+ * principal; este só entra como origem **extra** confiável, para uma troca de
+ * domínio na Vercel não recusar todo login e cadastro com `INVALID_ORIGIN`
+ * enquanto a variável não é atualizada — foi o que aconteceu ao trocar
+ * `vlr-fantasy.vercel.app` por `vlrfantasygame.vercel.app`. Fora da Vercel
+ * (dev, testes) a variável não existe e nada muda.
+ */
+const vercelProductionOrigin = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  : null;
 const RESET_PASSWORD_TOKEN_EXPIRES_IN_SECONDS = 15 * 60;
 
 export const auth = betterAuth({
   appName: "VLR Fantasy",
+  ...(vercelProductionOrigin && { trustedOrigins: [vercelProductionOrigin] }),
   database: drizzleAdapter(db, {
     provider: "pg",
     schema,
   }),
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: true,
+    // Entrar **não** depende de confirmar o e-mail (decisão de 14/09/2026):
+    // quem cria a conta já entra jogando, e o cadastro cria a sessão na hora
+    // (`autoSignIn`, default `true`). Com a exigência ligada, um e-mail que
+    // não chegasse (provedor fora, spam, envio não configurado) deixava a
+    // pessoa trancada do lado de fora — foi o que aconteceu em produção.
+    //
+    // O custo aceito: uma conta pode nascer com e-mail de outra pessoa ou
+    // digitado errado. Ver `accountLinking` abaixo para o que continua
+    // protegido.
+    requireEmailVerification: false,
     minPasswordLength: 8,
     resetPasswordTokenExpiresIn: RESET_PASSWORD_TOKEN_EXPIRES_IN_SECONDS,
     revokeSessionsOnPasswordReset: true,
@@ -49,25 +71,12 @@ export const auth = betterAuth({
       const email = passwordChangedEmail({ name: user.name });
       await sendEmail({ to: user.email, ...email });
     },
-    onExistingUserSignUp: async ({ user }) => {
-      const email = existingAccountEmail({ name: user.name });
-      await sendEmail({ to: user.email, ...email });
-    },
-    // O plugin `username` acrescenta colunas ao `user` (db/schema/auth.ts).
-    // Sem isto, a resposta sintética de e-mail duplicado sai com menos
-    // campos que um cadastro real e denuncia que a conta existe.
-    customSyntheticUser: ({ coreFields, additionalFields, id }) => ({
-      ...coreFields,
-      username: null,
-      displayUsername: null,
-      ...additionalFields,
-      id,
-    }),
   },
   emailVerification: {
-    // Tentar entrar sem verificar reenvia o link automaticamente — evita o
-    // beco sem saída de "não recebi o e-mail" (ver sign-in.mjs).
-    sendOnSignIn: true,
+    // O link de confirmação continua saindo no cadastro — só não trava mais o
+    // login. Explícito porque o default (`undefined`) segue
+    // `requireEmailVerification` e deixaria de enviar.
+    sendOnSignUp: true,
     // Quem clica no link de verificação já entra logado em `/home`.
     autoSignInAfterVerification: true,
     sendVerificationEmail: async ({ user, url }) => {
@@ -81,6 +90,12 @@ export const auth = betterAuth({
   // e-mail. O caso "cadastrou por e-mail, não verificou, tenta o Google/
   // Twitch com o mesmo e-mail" é tratado com mensagem
   // (`translateOAuthError("account_not_linked")`), não afrouxando a política.
+  //
+  // Sem a verificação obrigatória, essa trava pesa ainda mais: é ela que
+  // impede quem cadastrou o e-mail de outra pessoa com senha de passar a
+  // controlar a conta Google/Twitch dessa pessoa. O efeito colateral aceito é
+  // o dono do e-mail não conseguir entrar pelo Google até confirmar o e-mail
+  // ou redefinir a senha.
   //
   // `rateLimit` também fica no default: já cobre sign-in/sign-up (3 req/10s)
   // e request-password-reset/send-verification-email (3 req/60s) — ver

@@ -32,10 +32,6 @@ vi.mock("next-safe-action/hooks", () => ({
       if (serverErrorRef.current) {
         options.onError?.({ error: { serverError: serverErrorRef.current } });
       } else {
-        // O servidor sempre devolve sucesso com o e-mail informado — mesmo
-        // quando ele já existe (sucesso sintético, ver
-        // `app/(auth)/signup/actions.ts`). Do ponto de vista do cliente os
-        // dois casos são indistinguíveis, de propósito.
         options.onSuccess?.({ data: { email: input.email } });
       }
     },
@@ -125,29 +121,35 @@ describe("SignUpForm", () => {
         confirmPassword: "senha1234",
       }),
     );
-    expect(pushMock).toHaveBeenCalledWith(
-      "/check-email?email=joao%40example.com",
-    );
   });
 
-  it("e-mail duplicado leva para /check-email do mesmo jeito, sem mostrar erro", async () => {
-    // A action devolve sucesso (sintético) mesmo quando o e-mail já existe —
-    // é a proteção contra enumeração de e-mail (`onExistingUserSignUp`,
-    // lib/auth.ts). Este teste trava esse comportamento no cliente: nenhum
-    // alerta deve aparecer, e o redirecionamento é idêntico ao de um cadastro
-    // novo.
+  it("cadastro com sucesso entra direto em /home — sem esperar confirmar o e-mail", async () => {
     const user = userEvent.setup();
     render(<SignUpForm />);
 
     await fillValidForm(user);
     await user.click(screen.getByRole("button", { name: /criar conta/i }));
 
-    await waitFor(() =>
-      expect(pushMock).toHaveBeenCalledWith(
-        "/check-email?email=joao%40example.com",
-      ),
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/home"));
+    expect(refreshMock).toHaveBeenCalled();
+    expect(pushMock).not.toHaveBeenCalledWith(
+      expect.stringContaining("/check-email"),
     );
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("e-mail já cadastrado mostra o motivo e não sai da tela", async () => {
+    serverErrorRef.current = "Já existe uma conta com este e-mail.";
+    const user = userEvent.setup();
+    render(<SignUpForm />);
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole("button", { name: /criar conta/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Já existe uma conta com este e-mail.",
+    );
+    expect(pushMock).not.toHaveBeenCalled();
   });
 
   it("mostra a mensagem do servidor quando o nome do time já existe", async () => {
