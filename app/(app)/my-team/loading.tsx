@@ -1,3 +1,4 @@
+import { PageContainer } from "@/components/layout/page-container";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**
@@ -20,7 +21,7 @@ function PanelFrame({ children }: { children: React.ReactNode }) {
 
 export default function MyTeamLoading() {
   return (
-    <main className="mx-auto max-w-7xl px-6 py-9">
+    <PageContainer>
       {/* RegionTabs */}
       <div className="mb-6 flex flex-wrap gap-2">
         {Array.from({ length: 5 }, (_, index) => (
@@ -42,7 +43,7 @@ export default function MyTeamLoading() {
       </div>
 
       {/* RosterPanel: Resumo + Time Montado */}
-      <div className="mb-6 grid items-start gap-6 lg:grid-cols-[420px_1fr]">
+      <div className="mb-6 grid gap-6 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:items-stretch">
         <PanelFrame>
           <ul className="flex flex-col gap-2">
             {Array.from({ length: 5 }, (_, index) => (
@@ -51,7 +52,7 @@ export default function MyTeamLoading() {
           </ul>
         </PanelFrame>
         <PanelFrame>
-          <Skeleton className="w-full pt-[78%]" />
+          <Skeleton className="h-[300px] w-full lg:h-full lg:min-h-[320px]" />
         </PanelFrame>
       </div>
 
@@ -72,6 +73,6 @@ export default function MyTeamLoading() {
         <Skeleton className="h-28 w-full" />
         <Skeleton className="h-28 w-full" />
       </div>
-    </main>
+    </PageContainer>
   );
 }

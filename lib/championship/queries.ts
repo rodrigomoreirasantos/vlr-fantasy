@@ -13,11 +13,13 @@ import {
 } from "@/db/schema";
 import { parseCrest } from "@/lib/crest/crest";
 import type {
+  ChampionshipCardData,
   ChampionshipSummary,
   PendingInvite,
   PendingMember,
   StandingRow,
 } from "@/lib/championship/types";
+import { rankStandings } from "@/lib/championship/standings";
 import { toTeamRegion, type TeamRegion } from "@/lib/round/regions";
 import { CAPTAIN_MULTIPLIER } from "@/lib/scoring/team";
 import type { Querier } from "@/lib/team/queries";
@@ -77,6 +79,32 @@ export async function listUserChampionships(
     region: toTeamRegion(m.region),
     memberCount: countByChampionship.get(m.id) ?? 0,
   }));
+}
+
+/**
+ * `listUserChampionships` + a posição do usuário em cada um, para a faixa de
+ * campeonatos do Ranking (`ChampionshipRail`, plano 28 Fase 4) — "Você: Nº"
+ * sem repetir uma consulta por card. Uma única ida ao banco para a
+ * classificação de todos os campeonatos (`getStandingRowsByChampionship`),
+ * igual ao que `/profile` já faz para `ChampionshipPlacements`.
+ */
+export async function listUserChampionshipsWithPosition(
+  userId: string,
+): Promise<ChampionshipCardData[]> {
+  const championships = await listUserChampionships(userId);
+  if (championships.length === 0) return [];
+
+  const standingsByChampionship = await getStandingRowsByChampionship(
+    championships.map((c) => c.id),
+  );
+
+  return championships.map((c) => {
+    const rows = standingsByChampionship.get(c.id) ?? [];
+    const mine = rankStandings(rows, userId).find(
+      (row) => row.isCurrentUser,
+    );
+    return { ...c, myPosition: mine?.position ?? null };
+  });
 }
 
 export async function getChampionship(championshipId: string, q: Querier = db) {

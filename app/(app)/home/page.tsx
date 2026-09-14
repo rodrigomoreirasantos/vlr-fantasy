@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { LiveRefresh } from "@/components/layout/live-refresh";
+import { PageContainer } from "@/components/layout/page-container";
 import { RegionDisplaySync } from "@/components/layout/region-display";
 import { RoundHighlights } from "@/components/home/round-highlights";
 import { TeamPerformance } from "@/components/home/team-performance";
@@ -50,7 +51,7 @@ export default async function HomePage() {
   );
 
   return (
-    <main className="mx-auto flex max-w-7xl flex-col gap-6 px-6 py-9">
+    <PageContainer className="flex flex-col gap-6">
       {/* A tela é uma coluna de painéis com `<h2>` cada; o `<h1>` dá o nível
           que faltava para a navegação por leitor de tela. */}
       <h1 className="sr-only">Início</h1>
@@ -87,6 +88,6 @@ export default async function HomePage() {
         roster={roster}
       />
       <RoundHighlights highlights={summary.highlights} />
-    </main>
+    </PageContainer>
   );
 }

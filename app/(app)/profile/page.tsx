@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { Panel } from "@/components/layout/panel";
+import { PageContainer } from "@/components/layout/page-container";
 import { RegionDisplaySync } from "@/components/layout/region-display";
 import { AccountPanel } from "@/components/profile/account-panel";
 import { AddFriendForm } from "@/components/profile/add-friend-form";
@@ -10,10 +11,9 @@ import {
   ChampionshipPlacements,
   type ChampionshipPlacement,
 } from "@/components/profile/championship-placements";
-import { CrestEditor } from "@/components/profile/crest-editor";
 import { FriendRequests } from "@/components/profile/friend-requests";
 import { FriendsList } from "@/components/profile/friends-list";
-import { TeamNameForm } from "@/components/profile/team-name-form";
+import { TeamIdentityForm } from "@/components/profile/team-identity-form";
 import { auth } from "@/lib/auth";
 import {
   getStandingRowsByChampionship,
@@ -86,7 +86,7 @@ export default async function ProfilePage() {
   );
 
   return (
-    <main className="mx-auto max-w-7xl px-6 py-9">
+    <PageContainer>
       {/* Mantém o header na região desta navegação — ver
           `components/layout/region-display.tsx`. */}
       <RegionDisplaySync
@@ -101,13 +101,10 @@ export default async function ProfilePage() {
               Decisão D3) — é do que o texto do passo fala, e o recorte
               passa a apontar para algo específico em vez da tela toda. */}
           <Panel title="Identidade do time" tourId="perfil">
-            <div className="flex flex-col gap-6">
-              <TeamNameForm name={overview.summary.name} />
-              <CrestEditor
-                crest={overview.summary.crest}
-                teamName={overview.summary.name}
-              />
-            </div>
+            <TeamIdentityForm
+              name={overview.summary.name}
+              crest={overview.summary.crest}
+            />
           </Panel>
         </div>
 
@@ -133,6 +130,6 @@ export default async function ProfilePage() {
           </Panel>
         </div>
       </div>
-    </main>
+    </PageContainer>
   );
 }

@@ -25,6 +25,66 @@ function isCrestSymbol(value: string): value is CrestSymbol {
   return (CREST_SYMBOLS as readonly string[]).includes(value);
 }
 
+/**
+ * Símbolo de um catálogo anterior → equivalente mais próximo no atual (poderes
+ * dos agentes). Sem isto, todo brasão salvo antes da troca cairia no
+ * `DEFAULT_CREST`. Mapa plano, sem encadear: cada id antigo aponta direto para
+ * um id atual. `crosshair` sobreviveu a todas as trocas.
+ */
+const LEGACY_SYMBOLS: Readonly<Record<string, CrestSymbol>> = {
+  // Catálogo original (ícones lucide).
+  skull: "shade",
+  ghost: "shade",
+  star: "black-hole",
+  crown: "crosshair",
+  swords: "blade-storm",
+  eye: "spycam",
+  "shield-check": "hex-shield",
+  bolt: "sonic-bolt",
+  "zap-off": "sonic-bolt",
+  flame: "fireball",
+  target: "headhunter",
+  // Objetos táticos (primeira versão do plano 28).
+  headshot: "headhunter",
+  spike: "blast-pack",
+  knife: "blade-storm",
+  radianite: "black-hole",
+  "ult-orb": "black-hole",
+  smoke: "shade",
+  flash: "sonic-bolt",
+  molly: "fireball",
+  barrier: "hex-shield",
+  recon: "bow",
+  duelist: "blade-storm",
+  initiator: "sonic-bolt",
+  controller: "shade",
+  sentinel: "spycam",
+  ace: "crosshair",
+  // Primeira leva de poderes, antes da curadoria.
+  "orbital-strike": "crosshair",
+  "owl-drone": "bow",
+  healing: "frost-orb",
+  "flame-bird": "fireball",
+  "soul-eye": "shade",
+  rocket: "blast-pack",
+  "fault-line": "power-punch",
+  cosmos: "black-hole",
+  emp: "sonic-bolt",
+  lightning: "sonic-bolt",
+  nightmare: "shade",
+  creature: "toxin",
+  net: "turret",
+  "barrier-shield": "hex-shield",
+  "thorn-vine": "rose",
+  "missile-swarm": "blast-pack",
+  prism: "crosshair",
+};
+
+/** Aplica o alias antes de validar — um símbolo legado nunca some, vira o novo equivalente. */
+function resolveCrestSymbol(value: string): string {
+  return LEGACY_SYMBOLS[value] ?? value;
+}
+
 function isCrestColor(value: string): value is CrestColor {
   return (CREST_COLORS as readonly string[]).includes(value);
 }
@@ -41,9 +101,11 @@ export function parseCrest(raw: {
   foreground: string;
   border: string;
 }): Crest {
+  const symbol = resolveCrestSymbol(raw.symbol);
+
   return {
     shape: isCrestShape(raw.shape) ? raw.shape : DEFAULT_CREST.shape,
-    symbol: isCrestSymbol(raw.symbol) ? raw.symbol : DEFAULT_CREST.symbol,
+    symbol: isCrestSymbol(symbol) ? symbol : DEFAULT_CREST.symbol,
     background: isCrestColor(raw.background)
       ? raw.background
       : DEFAULT_CREST.background,

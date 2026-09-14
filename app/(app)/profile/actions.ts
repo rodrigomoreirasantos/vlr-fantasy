@@ -25,26 +25,32 @@ import {
 } from "@/lib/team/queries";
 import { normalizeTeamName } from "@/lib/team/team-name";
 import {
-  crestSchema,
   inviteFriendToChampionshipSchema,
   removeFriendSchema,
   respondToFriendRequestSchema,
   sendFriendRequestSchema,
-  updateTeamNameSchema,
+  teamIdentitySchema,
 } from "@/lib/validations/profile";
 
 /**
- * Renomeia o time do usuário. O banco (`fantasy_identity_name_uidx`) é a
- * autoridade sobre a unicidade — checar antes com um `SELECT` deixaria
- * brecha entre abas; a violação é capturada aqui e traduzida.
+ * Nome do time e brasão, salvos juntos — a seção "Identidade do time" tem um
+ * botão só (plano 28: dois botões para a mesma seção era ruído de UX). O
+ * banco (`fantasy_identity_name_uidx`) é a autoridade sobre a unicidade do
+ * nome — checar antes com um `SELECT` deixaria brecha entre abas; a violação
+ * é capturada aqui e traduzida. As duas colunas mudam na mesma transação:
+ * nunca o nome salvo com o brasão antigo, ou vice-versa.
  */
-export const updateTeamName = authActionClient
-  .inputSchema(updateTeamNameSchema)
+export const updateTeamIdentity = authActionClient
+  .inputSchema(teamIdentitySchema)
   .action(async ({ parsedInput, ctx }) => {
-    const name = normalizeTeamName(parsedInput.name);
+    const { name, ...crest } = parsedInput;
+    const normalizedName = normalizeTeamName(name);
 
     try {
-      await db.transaction((tx) => updateTeamNameForUser(tx, ctx.userId, name));
+      await db.transaction(async (tx) => {
+        await updateTeamNameForUser(tx, ctx.userId, normalizedName);
+        await updateTeamCrestForUser(tx, ctx.userId, crest);
+      });
     } catch (error) {
       if (isUniqueViolation(error)) {
         throw new ActionError(
@@ -53,18 +59,6 @@ export const updateTeamName = authActionClient
       }
       throw error;
     }
-
-    revalidatePath("/profile");
-    return { success: true as const };
-  });
-
-/** Atualiza o brasão do time do usuário. */
-export const updateTeamCrest = authActionClient
-  .inputSchema(crestSchema)
-  .action(async ({ parsedInput, ctx }) => {
-    await db.transaction((tx) =>
-      updateTeamCrestForUser(tx, ctx.userId, parsedInput),
-    );
 
     revalidatePath("/profile");
     return { success: true as const };

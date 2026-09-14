@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 import { Plus, TriangleAlert } from "lucide-react";
 
 import { PlayerPhoto } from "@/components/player/player-photo";
@@ -12,20 +14,46 @@ type Position = {
   anchor: "left" | "center" | "right";
 };
 
-/** Posições em losango, na ordem das vagas da escalação. */
+/**
+ * Posições em losango achatado, na ordem das vagas da escalação. Topos entre
+ * 8% e 58% e laterais entre 8% e 92% (plano 28, Fase 2): mais baixo que a
+ * versão anterior (`pt-[78%]`, topos até 64%) para caber na mesma altura do
+ * painel "Resumo" — e com margem lateral suficiente para o marcador nunca
+ * encostar na borda do tabuleiro.
+ */
 const POSITIONS: Position[] = [
-  { top: "6%", left: "50%", anchor: "center" },
-  { top: "30%", left: "16%", anchor: "left" },
-  { top: "26%", left: "78%", anchor: "right" },
-  { top: "60%", left: "4%", anchor: "left" },
-  { top: "64%", left: "98%", anchor: "right" },
+  { top: "8%", left: "50%", anchor: "center" },
+  { top: "34%", left: "10%", anchor: "left" },
+  { top: "34%", left: "90%", anchor: "right" },
+  { top: "58%", left: "8%", anchor: "left" },
+  { top: "58%", left: "92%", anchor: "right" },
 ];
 
-const anchorTransform = {
-  left: undefined,
+const ANCHOR_TRANSFORM: Record<Position["anchor"], string> = {
+  left: "none",
   center: "translateX(-50%)",
   right: "translateX(-100%)",
-} as const;
+};
+
+/**
+ * Variáveis CSS que carregam a posição do marcador — só viram `top`/`left`/
+ * `transform` de verdade a partir de `sm` (ver `MARKER_WRAPPER_CLASS`
+ * abaixo). Abaixo de `sm` o marcador é um item de `flex-wrap` comum: nenhum
+ * `style` de posição atua, e a formação vira 3 + 2 centralizados pelo
+ * `justify-content` de cada linha — efeito nativo do flexbox, sem grid
+ * manual nem duplicar o marcador em duas árvores (o que quebraria consultas
+ * de teste por haver dois elementos com o mesmo texto/label).
+ */
+function markerStyle(position: Position): CSSProperties {
+  return {
+    "--m-top": position.top,
+    "--m-left": position.left,
+    "--m-x": ANCHOR_TRANSFORM[position.anchor],
+  } as CSSProperties;
+}
+
+const MARKER_WRAPPER_CLASS =
+  "relative flex w-16 shrink-0 flex-col items-center gap-[5px] sm:absolute sm:w-auto sm:shrink sm:top-[var(--m-top)] sm:left-[var(--m-left)] sm:[transform:var(--m-x)]";
 
 function Marker({
   slot,
@@ -53,7 +81,7 @@ function Marker({
       photoUrl={player.photoUrl}
       nickname={player.nickname}
       shape="circle"
-      size={56}
+      size={48}
       className={cn(
         "ring-2",
         captain ? "ring-primary" : "ring-border",
@@ -67,7 +95,7 @@ function Marker({
   ) : (
     <div
       className={cn(
-        "flex size-14 items-center justify-center rounded-full border border-dashed border-border text-border transition-colors",
+        "flex size-12 items-center justify-center rounded-full border border-dashed border-border text-border transition-colors",
         onSelect && "group-hover:border-primary group-hover:text-primary",
         selected && "border-primary text-primary",
       )}
@@ -77,14 +105,7 @@ function Marker({
   );
 
   return (
-    <div
-      style={{
-        top: position.top,
-        left: position.left,
-        transform: anchorTransform[position.anchor],
-      }}
-      className="absolute flex flex-col items-center gap-[5px]"
-    >
+    <div style={markerStyle(position)} className={MARKER_WRAPPER_CLASS}>
       <div className="relative">
         {onSelect ? (
           <button
@@ -150,7 +171,9 @@ function Marker({
       {player ? (
         <>
           <PlayerScore score={player.score} surface="card" size="sm" />
-          <p className="text-[11px] font-bold uppercase">{player.nickname}</p>
+          <p className="w-full truncate text-center text-[11px] font-bold uppercase">
+            {player.nickname}
+          </p>
         </>
       ) : (
         <p className="text-[11px] font-semibold text-muted-foreground">
@@ -170,7 +193,17 @@ export type FormationBoardProps = {
   onSetCaptain?: (index: number) => void;
 };
 
-/** O time disposto em campo, como o usuário o montou. */
+/**
+ * O time disposto em campo, como o usuário o montou.
+ *
+ * Abaixo de `sm`: `flex flex-wrap justify-center` — com 5 marcadores de
+ * largura fixa, o próprio flexbox quebra em 3 + 2 e centraliza cada linha
+ * (comportamento nativo de `justify-content` em contêineres com quebra),
+ * sem precisar de grid manual. De `sm` em diante os marcadores flutuam em
+ * posição absoluta (`POSITIONS`) sobre uma altura fixa — a mesma ideia do
+ * tabuleiro antigo, só que baixa o bastante para bater com a altura do
+ * "Resumo" ao lado (`components/team/roster-panel.tsx`).
+ */
 export function FormationBoard({
   roster,
   onSelect,
@@ -178,7 +211,18 @@ export function FormationBoard({
   onSetCaptain,
 }: FormationBoardProps) {
   return (
-    <div className="relative w-full overflow-hidden bg-card pt-[78%] ring-1 ring-border">
+    <div className="relative flex w-full flex-wrap content-center justify-center gap-x-6 gap-y-5 overflow-hidden bg-card p-4 ring-1 ring-border sm:block sm:h-[300px] sm:p-0 lg:h-full lg:min-h-[320px]">
+      {/* Detalhe tático discreto — o tabuleiro não pode parecer um vazio na
+          versão mais baixa. Puramente decorativo, atrás dos marcadores. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-[0.06]"
+        style={{
+          backgroundImage:
+            "repeating-linear-gradient(45deg, var(--color-border) 0, var(--color-border) 1px, transparent 1px, transparent 24px)",
+        }}
+      />
+
       {roster.slice(0, POSITIONS.length).map((slot, index) => (
         <Marker
           key={slot.player?.id ?? `slot-${index}`}

@@ -1,49 +1,56 @@
-import {
-  Bolt,
-  Crosshair,
-  Crown,
-  Eye,
-  Flame,
-  Ghost,
-  ShieldCheck,
-  Skull,
-  Star,
-  Swords,
-  Target,
-  ZapOff,
-  type LucideIcon,
-} from "lucide-react";
-
-/** As cinco formas de moldura do brasão. */
+/**
+ * As formas de moldura do brasão — 5 originais + 6 novas (plano 28, Fase 5).
+ * `chamfer` é a assinatura visual do próprio app (o mesmo corte de
+ * `clip-corner`, `app/globals.css`).
+ */
 export const CREST_SHAPES = [
   "shield",
   "diamond",
   "circle",
   "chevron",
   "hex",
+  "chamfer",
+  "octagon",
+  "kite",
+  "delta",
+  "banner",
+  "heater",
 ] as const;
 export type CrestShape = (typeof CREST_SHAPES)[number];
 
 /**
- * Os símbolos são nomes de ícones lucide (`lucide-react` já é dependência) —
- * nada de path SVG escrito à mão. Ver `CREST_SYMBOL_ICONS`.
+ * Um símbolo por poder marcante de cada agente, mais a mira neutra (padrão de
+ * time novo — `DEFAULT_CREST`). Os ids e rótulos descrevem o **poder**, nunca
+ * o nome do agente, e os desenhos são ícones licenciados do game-icons.net
+ * (`components/crest/crest-symbols.tsx`), não arte da Riot. Símbolos de
+ * catálogos anteriores são remapeados em `lib/crest/crest.ts`.
  */
 export const CREST_SYMBOLS = [
   "crosshair",
-  "skull",
-  "bolt",
-  "flame",
-  "star",
-  "swords",
-  "eye",
-  "shield-check",
-  "zap-off",
-  "target",
-  "crown",
-  "ghost",
+  "blade-storm",
+  "fireball",
+  "blast-pack",
+  "sonic-bolt",
+  "rift-mask",
+  "bolt-shield",
+  "hex-shield",
+  "bow",
+  "wolf-hound",
+  "power-punch",
+  "shade",
+  "toxin",
+  "black-hole",
+  "tidal-wave",
+  "butterfly",
+  "turret",
+  "spycam",
+  "frost-orb",
+  "rose",
+  "headhunter",
 ] as const;
 export type CrestSymbol = (typeof CREST_SYMBOLS)[number];
 
+/** 8 cores originais + 8 novas (plano 28, Fase 5) — dobra a paleta. */
 export const CREST_COLORS = [
   "red",
   "cyan",
@@ -53,6 +60,14 @@ export const CREST_COLORS = [
   "blue",
   "white",
   "graphite",
+  "crimson",
+  "orange",
+  "gold",
+  "teal",
+  "navy",
+  "purple",
+  "magenta",
+  "black",
 ] as const;
 export type CrestColor = (typeof CREST_COLORS)[number];
 
@@ -66,6 +81,14 @@ export const CREST_COLOR_VARS: Record<CrestColor, string> = {
   blue: "var(--crest-blue)",
   white: "var(--crest-white)",
   graphite: "var(--crest-graphite)",
+  crimson: "var(--crest-crimson)",
+  orange: "var(--crest-orange)",
+  gold: "var(--crest-gold)",
+  teal: "var(--crest-teal)",
+  navy: "var(--crest-navy)",
+  purple: "var(--crest-purple)",
+  magenta: "var(--crest-magenta)",
+  black: "var(--crest-black)",
 };
 
 export const CREST_COLOR_LABELS: Record<CrestColor, string> = {
@@ -77,6 +100,14 @@ export const CREST_COLOR_LABELS: Record<CrestColor, string> = {
   blue: "Azul",
   white: "Branco",
   graphite: "Grafite",
+  crimson: "Carmesim",
+  orange: "Laranja",
+  gold: "Dourado",
+  teal: "Verde-azulado",
+  navy: "Marinho",
+  purple: "Roxo",
+  magenta: "Magenta",
+  black: "Obsidiana",
 };
 
 export const CREST_SHAPE_LABELS: Record<CrestShape, string> = {
@@ -85,34 +116,34 @@ export const CREST_SHAPE_LABELS: Record<CrestShape, string> = {
   circle: "Círculo",
   chevron: "Seta",
   hex: "Hexágono",
+  chamfer: "Chanfrado",
+  octagon: "Octógono",
+  kite: "Escudo pipa",
+  delta: "Delta",
+  banner: "Flâmula",
+  heater: "Brasão clássico",
 };
 
 export const CREST_SYMBOL_LABELS: Record<CrestSymbol, string> = {
   crosshair: "Mira",
-  skull: "Caveira",
-  bolt: "Raio",
-  flame: "Chama",
-  star: "Estrela",
-  swords: "Espadas",
-  eye: "Olho",
-  "shield-check": "Escudo com check",
-  "zap-off": "Raio cortado",
-  target: "Alvo",
-  crown: "Coroa",
-  ghost: "Fantasma",
-};
-
-export const CREST_SYMBOL_ICONS: Record<CrestSymbol, LucideIcon> = {
-  crosshair: Crosshair,
-  skull: Skull,
-  bolt: Bolt,
-  flame: Flame,
-  star: Star,
-  swords: Swords,
-  eye: Eye,
-  "shield-check": ShieldCheck,
-  "zap-off": ZapOff,
-  target: Target,
-  crown: Crown,
-  ghost: Ghost,
+  "blade-storm": "Lâminas de arremesso",
+  fireball: "Meteoro em chamas",
+  "blast-pack": "Carga explosiva",
+  "sonic-bolt": "Relâmpago sônico",
+  "rift-mask": "Máscara dimensional",
+  "bolt-shield": "Escudo com raio",
+  "hex-shield": "Escudo hexagonal",
+  bow: "Arco",
+  "wolf-hound": "Lobo rastreador",
+  "power-punch": "Soco explosivo",
+  shade: "Sombra encapuzada",
+  toxin: "Toxina",
+  "black-hole": "Buraco negro",
+  "tidal-wave": "Onda",
+  butterfly: "Borboleta",
+  turret: "Torreta",
+  spycam: "Câmera espiã",
+  "frost-orb": "Orbe congelado",
+  rose: "Rosa",
+  headhunter: "Pistola de precisão",
 };

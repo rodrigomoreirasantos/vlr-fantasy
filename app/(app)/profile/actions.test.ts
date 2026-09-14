@@ -67,8 +67,7 @@ import {
   removeFriend,
   respondToFriendRequest,
   sendFriendRequest,
-  updateTeamCrest,
-  updateTeamName,
+  updateTeamIdentity,
 } from "@/app/(app)/profile/actions";
 
 const USER_ID = "user-a";
@@ -93,23 +92,43 @@ beforeEach(() => {
   getSessionMock.mockResolvedValue({ user: { id: USER_ID } });
 });
 
-describe("updateTeamName", () => {
-  it("sucesso: normaliza o nome e escreve no time do próprio usuário", async () => {
-    const result = await updateTeamName({ name: "  Sentinels   BR  " });
+describe("updateTeamIdentity", () => {
+  const CREST_INPUT = {
+    shape: "diamond",
+    symbol: "fireball",
+    background: "cyan",
+    foreground: "white",
+    border: "amber",
+  } as const;
 
+  it("sucesso: normaliza o nome e escreve nome + brasão do próprio usuário, na mesma transação", async () => {
+    const result = await updateTeamIdentity({
+      name: "  Sentinels   BR  ",
+      ...CREST_INPUT,
+    });
+
+    expect(transactionMock).toHaveBeenCalledTimes(1);
     expect(updateTeamNameForUserMock).toHaveBeenCalledWith(
       txStub,
       USER_ID,
       "Sentinels BR",
     );
+    expect(updateTeamCrestForUserMock).toHaveBeenCalledWith(
+      txStub,
+      USER_ID,
+      CREST_INPUT,
+    );
     expect(result?.data).toEqual({ success: true });
     expect(revalidatePathMock).toHaveBeenCalledWith("/profile");
   });
 
-  it("violação de unicidade: traduz para a mensagem pt-BR", async () => {
+  it("violação de unicidade do nome: traduz para a mensagem pt-BR", async () => {
     updateTeamNameForUserMock.mockRejectedValue(uniqueViolation());
 
-    const result = await updateTeamName({ name: "Sentinels BR" });
+    const result = await updateTeamIdentity({
+      name: "Sentinels BR",
+      ...CREST_INPUT,
+    });
 
     expect(result?.serverError).toBe(
       "Já existe um time com esse nome. Escolha outro.",
@@ -119,33 +138,14 @@ describe("updateTeamName", () => {
   it("qualquer outro erro sobe (mensagem genérica, não a de nome duplicado)", async () => {
     updateTeamNameForUserMock.mockRejectedValue(new Error("conexão perdida"));
 
-    const result = await updateTeamName({ name: "Sentinels BR" });
+    const result = await updateTeamIdentity({
+      name: "Sentinels BR",
+      ...CREST_INPUT,
+    });
 
     expect(result?.serverError).not.toBe(
       "Já existe um time com esse nome. Escolha outro.",
     );
-  });
-});
-
-describe("updateTeamCrest", () => {
-  const CREST_INPUT = {
-    shape: "diamond",
-    symbol: "flame",
-    background: "cyan",
-    foreground: "white",
-    border: "amber",
-  } as const;
-
-  it("escreve o brasão no time do próprio usuário", async () => {
-    const result = await updateTeamCrest(CREST_INPUT);
-
-    expect(updateTeamCrestForUserMock).toHaveBeenCalledWith(
-      txStub,
-      USER_ID,
-      CREST_INPUT,
-    );
-    expect(result?.data).toEqual({ success: true });
-    expect(revalidatePathMock).toHaveBeenCalledWith("/profile");
   });
 });
 

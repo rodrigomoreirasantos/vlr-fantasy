@@ -112,6 +112,15 @@
   --crest-blue: #4a90ff;
   --crest-white: #f2f3f4;
   --crest-graphite: #5a616d;
+  /* 8 cores novas (plano 28, Fase 5) — dobra a paleta de 8 para 16. */
+  --crest-crimson: #c81e3a;
+  --crest-orange: #ff7a3d;
+  --crest-gold: #e8c547;
+  --crest-teal: #2bb3a3;
+  --crest-navy: #33447a;
+  --crest-purple: #8b2fd1;
+  --crest-magenta: #e63fa1;
+  --crest-black: #14161a;
 }
 
 @layer base {
