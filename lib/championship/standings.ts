@@ -37,6 +37,48 @@ export function rankStandings(
 /** Quantas vagas a faixa de classificação destaca — o pódio de sempre. */
 export const PODIUM_SIZE = 3;
 
+export type PodiumPlace = 1 | 2 | 3;
+
+export type PodiumEntry = {
+  place: PodiumPlace;
+  /** Quem representa a posição — o primeiro do grupo na ordem da lista. */
+  standing: RankedStanding;
+  /** Quantos outros dividem a mesma posição (e seguem na lista abaixo). */
+  tiedCount: number;
+};
+
+/**
+ * Separa a classificação em pódio e lista. O pódio mostra **um** time por
+ * posição (1º, 2º, 3º que existirem); os empatados com ele não somem — vão
+ * para a lista, na posição que dividem, e o pódio avisa "+N empatados". Sem
+ * isso, um empate largo (todo mundo com 0 no começo da rodada) virava uma
+ * coluna com o campeonato inteiro empilhado.
+ *
+ * Todo mundo empatado (2+ membros): não há pódio — ninguém se destaca, então
+ * a lista mostra todos. Um membro só ainda ganha o pódio.
+ */
+export function splitPodium(standings: readonly RankedStanding[]): {
+  podium: PodiumEntry[];
+  rest: RankedStanding[];
+} {
+  const allTied =
+    standings.length > 1 && standings.every((row) => row.position === 1);
+  if (allTied) return { podium: [], rest: [...standings] };
+
+  const podium: PodiumEntry[] = [];
+  for (const place of [1, 2, 3] as const) {
+    const group = standings.filter((row) => row.position === place);
+    if (group.length === 0) continue;
+    podium.push({ place, standing: group[0], tiedCount: group.length - 1 });
+  }
+
+  const onPodium = new Set(podium.map((entry) => entry.standing.userId));
+  return {
+    podium,
+    rest: standings.filter((row) => !onPodium.has(row.userId)),
+  };
+}
+
 export type StandingZone = "leader" | "podium" | null;
 
 /**

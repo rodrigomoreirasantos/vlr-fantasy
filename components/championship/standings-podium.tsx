@@ -1,5 +1,9 @@
 import { TeamCrest } from "@/components/crest/team-crest";
-import { PODIUM_SIZE } from "@/lib/championship/standings";
+import {
+  splitPodium,
+  type PodiumEntry,
+  type PodiumPlace,
+} from "@/lib/championship/standings";
 import type { RankedStanding } from "@/lib/championship/types";
 import { formatScore } from "@/lib/team/score";
 import { cn } from "@/lib/utils";
@@ -8,39 +12,43 @@ export type StandingsPodiumProps = {
   standings: RankedStanding[];
 };
 
-type Place = 1 | 2 | 3;
-
 /**
- * No mobile a ordem do DOM já é 1º → 2º → 3º (empilhados, 1º primeiro — "1º
- * maior" do plano 28, D3); a partir de `sm` a única mudança é a posição
- * visual, com o 1º ao centro.
+ * No mobile a ordem do DOM já é 1º → 2º → 3º (linhas empilhadas, 1º
+ * primeiro); a partir de `sm` a única mudança é a posição visual, com o 1º
+ * ao centro.
  */
-const ORDER_CLASS: Record<Place, string> = {
+const ORDER_CLASS: Record<PodiumPlace, string> = {
   1: "sm:order-2",
   2: "sm:order-1",
   3: "sm:order-3",
 };
 
-function PodiumEntry({
-  standing,
-  place,
-}: {
-  standing: RankedStanding;
-  place: Place;
-}) {
+function tiedLabel(count: number) {
+  return `+${count} ${count === 1 ? "empatado" : "empatados"}`;
+}
+
+/**
+ * Abaixo de `sm`, uma linha compacta (posição · brasão · time · pontos) —
+ * três cards altos e centralizados tomavam a tela inteira do celular. De
+ * `sm` em diante, a coluna centralizada do pódio.
+ */
+function PodiumCard({ entry }: { entry: PodiumEntry }) {
+  const { place, standing, tiedCount } = entry;
   const isFirst = place === 1;
 
   return (
     <div
       className={cn(
-        "clip-corner flex flex-col items-center gap-1.5 bg-card p-4 text-center ring-1 [--clip:14px]",
-        isFirst ? "pb-5 ring-primary/50" : "ring-border",
+        "clip-corner flex items-center gap-3 bg-secondary px-3 py-2.5 ring-1 [--clip:12px]",
+        "sm:flex-1 sm:flex-col sm:gap-1.5 sm:p-4 sm:text-center",
+        ORDER_CLASS[place],
+        isFirst ? "ring-primary/50 sm:pb-5" : "ring-border",
         standing.isCurrentUser && "ring-2 ring-primary",
       )}
     >
       <span
         className={cn(
-          "text-xs font-extrabold tracking-wide",
+          "w-7 shrink-0 text-center text-sm font-extrabold tracking-wide sm:w-auto sm:text-xs",
           isFirst ? "text-primary" : "text-muted-foreground",
         )}
       >
@@ -50,63 +58,59 @@ function PodiumEntry({
         crest={standing.crest}
         size={isFirst ? "podium" : "md"}
         title={`Brasão de ${standing.teamName}`}
+        // O `size` vira width/height inline; no celular a linha é baixa, então
+        // o brasão encolhe com `!important` só abaixo de `sm`.
+        className={isFirst ? "max-sm:size-11!" : "max-sm:size-9!"}
       />
-      <span
-        className={cn(
-          "max-w-full truncate text-sm font-extrabold uppercase",
-          standing.isCurrentUser && "text-primary",
-        )}
-      >
-        {standing.teamName}
-      </span>
-      <span className="max-w-full truncate text-xs text-muted-foreground">
-        {standing.username ? `@${standing.username}` : "—"}
-      </span>
-      <span className="text-lg font-black tabular-nums text-info">
-        {formatScore(standing.points)}
-      </span>
-      {standing.isCurrentUser && (
-        <span className="text-[10px] font-bold uppercase text-primary">
-          Você
+      <span className="flex min-w-0 flex-1 flex-col sm:max-w-full sm:flex-none sm:items-center">
+        <span
+          className={cn(
+            "truncate text-sm font-extrabold uppercase",
+            standing.isCurrentUser && "text-primary",
+          )}
+        >
+          {standing.teamName}
         </span>
-      )}
+        <span className="truncate text-xs text-muted-foreground">
+          {standing.username ? `@${standing.username}` : "—"}
+        </span>
+      </span>
+      <span className="flex shrink-0 flex-col items-end gap-0.5 sm:items-center">
+        <span className="text-base font-black tabular-nums text-info sm:text-lg">
+          {formatScore(standing.points)}
+        </span>
+        {standing.isCurrentUser && (
+          <span className="text-[10px] font-bold uppercase text-primary">
+            Você
+          </span>
+        )}
+        {tiedCount > 0 && (
+          <span className="text-[11px] font-semibold text-muted-foreground">
+            {tiedLabel(tiedCount)}
+          </span>
+        )}
+      </span>
     </div>
   );
 }
 
 /**
  * O pódio (posições 1 a 3) do campeonato selecionado — plano 28, Fase 4,
- * Decisão D3. Recebe a classificação inteira e filtra sozinho: quem chama
- * (`/ranking`) passa o mesmo array para `StandingsPodium` e `StandingsList`,
- * sem duplicar a filtragem.
+ * Decisão D3. Recebe a classificação inteira e separa sozinho com
+ * `splitPodium`, a mesma função que `StandingsList` usa — as duas nunca
+ * divergem sobre quem está em qual lugar.
  *
- * Empate divide a mesma posição (`rankStandings`) — cada coluna pode ter
- * mais de um time; a coluna correspondente simplesmente empilha os
- * empatados. Com menos de 3 membros no campeonato, só as colunas que
- * existem aparecem.
+ * Um card por posição: empatados ficam na lista, e o card avisa "+N
+ * empatados". Com todo mundo empatado, não há pódio.
  */
 export function StandingsPodium({ standings }: StandingsPodiumProps) {
-  const podium = standings.filter((row) => row.position <= PODIUM_SIZE);
+  const { podium } = splitPodium(standings);
   if (podium.length === 0) return null;
 
-  const groups = ([1, 2, 3] as const)
-    .map((place) => ({
-      place,
-      members: podium.filter((row) => row.position === place),
-    }))
-    .filter((group) => group.members.length > 0);
-
   return (
-    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-4">
-      {groups.map(({ place, members }) => (
-        <div
-          key={place}
-          className={cn("flex flex-1 flex-col gap-3", ORDER_CLASS[place])}
-        >
-          {members.map((standing) => (
-            <PodiumEntry key={standing.userId} standing={standing} place={place} />
-          ))}
-        </div>
+    <div className="mb-4 flex flex-col gap-2 sm:mb-6 sm:flex-row sm:items-end sm:gap-4">
+      {podium.map((entry) => (
+        <PodiumCard key={entry.place} entry={entry} />
       ))}
     </div>
   );

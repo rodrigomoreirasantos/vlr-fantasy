@@ -40,6 +40,36 @@ describe("StandingsList", () => {
     expect(screen.getByText("4")).toBeInTheDocument();
   });
 
+  it("empatados com quem está no pódio aparecem na lista, com a posição real", () => {
+    render(
+      <StandingsList
+        standings={[
+          row({ userId: "a", teamName: "Time 1", points: 9, position: 1 }),
+          row({ userId: "b", teamName: "Time 2", position: 2 }),
+          row({ userId: "c", teamName: "Time 3", position: 2 }),
+        ]}
+      />,
+    );
+
+    expect(screen.queryByText("Time 2")).not.toBeInTheDocument();
+    const tiedRow = screen.getByText("Time 3").closest("li");
+    expect(tiedRow).toHaveTextContent("2");
+  });
+
+  it("todo mundo empatado: a lista mostra o campeonato inteiro", () => {
+    render(
+      <StandingsList
+        standings={[
+          row({ userId: "a", teamName: "Time 1", position: 1 }),
+          row({ userId: "b", teamName: "Time 2", position: 1 }),
+          row({ userId: "c", teamName: "Time 3", position: 1 }),
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+  });
+
   it("mostra travessão quando o membro não tem login", () => {
     render(
       <StandingsList

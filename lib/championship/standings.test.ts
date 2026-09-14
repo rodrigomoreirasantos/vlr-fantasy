@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_CREST } from "@/lib/crest/crest";
-import { rankStandings, standingZone } from "@/lib/championship/standings";
+import {
+  rankStandings,
+  splitPodium,
+  standingZone,
+} from "@/lib/championship/standings";
 import type { StandingRow } from "@/lib/championship/types";
 
 function row(
@@ -102,5 +106,60 @@ describe("standingZone", () => {
     expect(standingZone(1, 4)).toBe("leader");
     expect(standingZone(2, 4)).toBe("podium");
     expect(standingZone(4, 4)).toBeNull();
+  });
+});
+
+describe("splitPodium", () => {
+  const ranked = (points: number[]) =>
+    rankStandings(
+      points.map((p, i) => row({ userId: `u${i + 1}`, points: p })),
+      "u1",
+    );
+  const ids = (rows: { userId: string }[]) => rows.map((r) => r.userId);
+
+  it("sem empate: 1º, 2º e 3º no pódio, o resto na lista", () => {
+    const { podium, rest } = splitPodium(ranked([90, 80, 70, 60, 50]));
+
+    expect(podium.map((e) => [e.place, e.standing.userId, e.tiedCount])).toEqual([
+      [1, "u1", 0],
+      [2, "u2", 0],
+      [3, "u3", 0],
+    ]);
+    expect(ids(rest)).toEqual(["u4", "u5"]);
+  });
+
+  it("empate largo em 2º: um time por posição, os empatados seguem na lista", () => {
+    const { podium, rest } = splitPodium(ranked([90, 50, 50, 50, 50]));
+
+    expect(podium.map((e) => [e.place, e.standing.userId, e.tiedCount])).toEqual([
+      [1, "u1", 0],
+      [2, "u2", 3],
+    ]);
+    expect(ids(rest)).toEqual(["u3", "u4", "u5"]);
+    expect(rest.every((r) => r.position === 2)).toBe(true);
+  });
+
+  it("todo mundo empatado: sem pódio, a lista mostra todos", () => {
+    const { podium, rest } = splitPodium(ranked([0, 0, 0, 0]));
+
+    expect(podium).toEqual([]);
+    expect(rest).toHaveLength(4);
+  });
+
+  it("um membro só ainda ganha o pódio", () => {
+    const { podium, rest } = splitPodium(ranked([0]));
+
+    expect(podium).toHaveLength(1);
+    expect(rest).toEqual([]);
+  });
+
+  it("empate em 1º com mais gente abaixo: 1º e 3º no pódio (2º não existe)", () => {
+    const { podium, rest } = splitPodium(ranked([80, 80, 40, 10]));
+
+    expect(podium.map((e) => [e.place, e.tiedCount])).toEqual([
+      [1, 1],
+      [3, 0],
+    ]);
+    expect(ids(rest)).toEqual(["u2", "u4"]);
   });
 });

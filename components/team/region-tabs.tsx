@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { chipClasses } from "@/components/home/chip-classes";
 import { regionHref } from "@/lib/team/region-href";
+import { cn } from "@/lib/utils";
 import { regionColor, regionLabel, type TeamRegion } from "@/lib/round/regions";
 
 export type RegionTabsProps = {
@@ -33,6 +34,10 @@ export type RegionTabsProps = {
  *
  * A aba Internacional some sozinha quando `available` não a inclui — nada é
  * apagado no banco, só a oferta some da tela (ver `resolveRegion`).
+ *
+ * Abaixo de `sm`, as 5 abas não cabem numa linha: em vez de quebrar e deixar
+ * "Internacional" sozinha embaixo, a faixa rola na horizontal e vai até a
+ * borda da tela (`-mx-4 px-4` desfaz o respiro do `PageContainer`).
  */
 export function RegionTabs({
   current,
@@ -41,7 +46,10 @@ export function RegionTabs({
   params,
 }: RegionTabsProps) {
   return (
-    <nav aria-label="Região" className="mb-6 flex flex-wrap items-center gap-2">
+    <nav
+      aria-label="Região"
+      className="-mx-4 mb-6 flex items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
+    >
       {available.map((region) => {
         const active = region === current;
         return (
@@ -50,7 +58,7 @@ export function RegionTabs({
             href={regionHref(pathname, region, params)}
             prefetch={false}
             aria-current={active ? "page" : undefined}
-            className={chipClasses({ active })}
+            className={cn(chipClasses({ active }), "shrink-0")}
           >
             <span
               aria-hidden
