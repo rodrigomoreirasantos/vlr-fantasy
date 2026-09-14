@@ -25,7 +25,9 @@ const NAME_TAKEN_MESSAGE = "Já existe um time com esse nome. Escolha outro.";
  *
  * O cookie de sessão é gravado pelo plugin `nextCookies()` do better-auth, que
  * intercepta o `Set-Cookie` de `auth.api.*` dentro de Server Actions — por isso
- * ele é o último da lista de plugins.
+ * ele é o último da lista de plugins. Sem verificação obrigatória de e-mail
+ * (lib/auth.ts), o cadastro já sai com sessão: o formulário leva direto para
+ * `/home`.
  */
 export const signUpWithTeam = actionClient
   .inputSchema(signUpSchema)
@@ -48,19 +50,20 @@ export const signUpWithTeam = actionClient
           username: parsedInput.username,
           email: parsedInput.email,
           password: parsedInput.password,
-          // Para onde o link do e-mail de verificação leva depois de validar
-          // o token (ver `app/(auth)/verify-email/page.tsx`).
+          // Para onde o link do e-mail de confirmação leva depois de validar
+          // o token (ver `app/(auth)/verify-email/page.tsx`). Confirmar é
+          // opcional — só não pode apontar para o lugar errado.
           callbackURL: "/verify-email",
         },
         headers: await headers(),
       });
       userId = user.id;
     } catch (error) {
-      // Com `requireEmailVerification: true`, e-mail duplicado não lança
-      // mais `USER_ALREADY_EXISTS` aqui — o better-auth devolve um sucesso
-      // sintético (proteção contra enumeração de e-mail) e quem avisa o dono
-      // do e-mail é `onExistingUserSignUp` (lib/auth.ts). Este catch trata
-      // só falhas de verdade (senha fraca, rate limit etc).
+      // E-mail ou login já em uso, senha fraca, rate limit — tudo chega
+      // aqui como `APIError` com código, traduzido por `translateAuthError`.
+      // Sem a verificação obrigatória, o better-auth não devolve mais o
+      // sucesso sintético para e-mail duplicado: ele lança
+      // `USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL`, e a pessoa vê o motivo.
       if (error instanceof APIError) {
         throw new ActionError(translateAuthError(error.body?.code));
       }
@@ -75,17 +78,14 @@ export const signUpWithTeam = actionClient
       // Janela mínima entre a checagem lá em cima e este `UPDATE`: outro
       // cadastro levou o nome. A conta já está criada, então não dá para
       // "desfazer" o cadastro — o time fica com o nome derivado e a mensagem
-      // manda renomear no perfil depois de verificar o e-mail.
+      // manda renomear no perfil (a sessão já existe, é só entrar).
       if (isUniqueViolation(error)) {
         throw new ActionError(
-          "Sua conta foi criada, mas esse nome de time acabou de ser escolhido por outra pessoa. Confirme seu e-mail e renomeie o time no seu perfil.",
+          "Sua conta foi criada, mas esse nome de time acabou de ser escolhido por outra pessoa. Entre e renomeie o time no seu perfil.",
         );
       }
       throw error;
     }
 
-    // Quando o e-mail já existe, `userId` é um id sintético e este `UPDATE`
-    // acerta 0 linhas de propósito. Não tentar detectar isso: detectar é
-    // vazar que a conta já existia.
     return { email: parsedInput.email };
   });

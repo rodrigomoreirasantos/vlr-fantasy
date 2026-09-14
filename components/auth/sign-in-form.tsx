@@ -21,9 +21,6 @@ import { signInSchema, type SignInInput } from "@/lib/validations/auth";
 export function SignInForm() {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
-  // Guarda o e-mail digitado só quando o erro é EMAIL_NOT_VERIFIED — é o que
-  // permite montar o link para `/check-email?email=...`.
-  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
 
   const form = useForm<SignInInput>({
     resolver: zodResolver(signInSchema),
@@ -32,7 +29,6 @@ export function SignInForm() {
 
   const onSubmit = async (values: SignInInput) => {
     setServerError(null);
-    setUnverifiedEmail(null);
 
     const { error } = await signIn.email({
       email: values.email,
@@ -41,12 +37,6 @@ export function SignInForm() {
 
     if (error) {
       setServerError(translateAuthError(error.code));
-      // `emailVerification.sendOnSignIn: true` (lib/auth.ts) já reenviou o
-      // link sozinho — por isso o rótulo do link é "Não recebeu? Reenviar",
-      // não "Enviar".
-      if (error.code === "EMAIL_NOT_VERIFIED") {
-        setUnverifiedEmail(values.email);
-      }
       return;
     }
 
@@ -67,14 +57,6 @@ export function SignInForm() {
           className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
         >
           <p>{serverError}</p>
-          {unverifiedEmail && (
-            <Link
-              href={`/check-email?email=${encodeURIComponent(unverifiedEmail)}`}
-              className="font-medium underline underline-offset-2"
-            >
-              Não recebeu? Reenviar
-            </Link>
-          )}
         </div>
       )}
 

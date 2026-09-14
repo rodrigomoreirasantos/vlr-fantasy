@@ -12,9 +12,9 @@ type AuthShellProps = {
   description: string;
   children: ReactNode;
   /**
-   * `ReactNode`, não texto + link fixos: `/check-email` e `/reset-password`
-   * têm rodapés que não são "texto + um link" (botão de reenvio, aviso de
-   * segurança etc).
+   * `ReactNode`, não texto + link fixos: `/reset-password` e `/verify-email`
+   * têm rodapés que não são "texto + um link" (aviso de segurança, link de
+   * volta etc).
    */
   footer?: ReactNode;
 };

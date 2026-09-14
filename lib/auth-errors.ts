@@ -20,10 +20,9 @@ const errorMessages: Partial<
   PASSWORD_TOO_LONG: "A senha é muito longa.",
   CREDENTIAL_ACCOUNT_NOT_FOUND:
     "Esta conta não possui login por e-mail e senha. Tente entrar com o Google ou a Twitch.",
-  // Reescrita para refletir `emailVerification.sendOnSignIn: true`
-  // (lib/auth.ts): tentar entrar sem verificar já reenvia o link sozinho.
-  EMAIL_NOT_VERIFIED:
-    "Confirme seu e-mail antes de entrar. Acabamos de enviar um novo link para você.",
+  // Não acontece mais no login (a verificação não é obrigatória, lib/auth.ts);
+  // fica traduzido porque outros endpoints de e-mail ainda podem emiti-lo.
+  EMAIL_NOT_VERIFIED: "Confirme seu e-mail para continuar.",
   SOCIAL_ACCOUNT_ALREADY_LINKED:
     "Esta conta já está vinculada a outro usuário.",
   FAILED_TO_CREATE_USER: "Não foi possível criar a conta. Tente novamente.",

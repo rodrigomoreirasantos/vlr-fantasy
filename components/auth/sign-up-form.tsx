@@ -36,15 +36,14 @@ export function SignUpForm() {
   // Conta e nome do time nascem juntos numa única Server Action — ver
   // `app/(auth)/signup/actions.ts` para o porquê de não ser `signUp.email`.
   //
-  // Com verificação de e-mail obrigatória, o cadastro não cria sessão — o
-  // destino é `/check-email`, não `/home`. Sem `router.refresh()`: não há
-  // sessão nova para refrescar.
+  // O cadastro já cria a sessão (confirmar o e-mail é opcional, lib/auth.ts):
+  // o destino é `/home`, igual ao login. `router.refresh()` descarta o cache
+  // do roteador montado ainda sem sessão.
   const { execute, isExecuting } = useAction(signUpWithTeam, {
     onExecute: () => setServerError(null),
-    onSuccess: ({ data }) => {
-      router.push(
-        `/check-email?email=${encodeURIComponent(data?.email ?? "")}`,
-      );
+    onSuccess: () => {
+      router.push("/home");
+      router.refresh();
     },
     onError: ({ error }) =>
       setServerError(

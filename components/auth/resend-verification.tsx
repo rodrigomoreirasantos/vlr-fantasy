@@ -13,8 +13,9 @@ const COOLDOWN_SECONDS = 60;
 
 type ResendVerificationProps = {
   /**
-   * E-mail já conhecido (`/check-email`). Quando ausente (`/verify-email`
-   * com link expirado/inválido) o componente pede o e-mail para digitar.
+   * E-mail já conhecido, quando quem chama já o tem. Quando ausente
+   * (`/verify-email` com link expirado/inválido) o componente pede o e-mail
+   * para digitar.
    */
   email?: string;
 };

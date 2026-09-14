@@ -2,7 +2,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  existingAccountEmail,
   passwordChangedEmail,
   resetPasswordEmail,
   verificationEmail,
@@ -13,7 +12,7 @@ const URL = "https://vlrfantasy.example/verify?token=abc123";
 describe("verificationEmail", () => {
   it("tem assunto em pt-BR", () => {
     const email = verificationEmail({ name: "João", url: URL });
-    expect(email.subject).toBe("Confirme seu e-mail e entre em campo");
+    expect(email.subject).toBe("Confirme seu e-mail");
   });
 
   it("inclui a URL no html e no text", () => {
@@ -93,20 +92,6 @@ describe("passwordChangedEmail", () => {
 
   it("não interpola nome vazio como 'undefined'", () => {
     const email = passwordChangedEmail({ name: "" });
-    expect(email.html).not.toContain("undefined");
-    expect(email.text).not.toContain("undefined");
-  });
-});
-
-describe("existingAccountEmail", () => {
-  it("tem assunto em pt-BR e não contém tags HTML no text", () => {
-    const email = existingAccountEmail({ name: "João" });
-    expect(email.subject).toBe("Alguém tentou criar uma conta com seu e-mail");
-    expect(email.text).not.toMatch(/<[^>]+>/);
-  });
-
-  it("não interpola nome vazio como 'undefined'", () => {
-    const email = existingAccountEmail({ name: "" });
     expect(email.html).not.toContain("undefined");
     expect(email.text).not.toContain("undefined");
   });
