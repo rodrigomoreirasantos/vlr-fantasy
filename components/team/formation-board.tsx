@@ -16,15 +16,16 @@ type Position = {
 
 /**
  * Posições em losango achatado, na ordem das vagas da escalação. Topos entre
- * 8% e 58% e laterais entre 8% e 92% (plano 28, Fase 2): mais baixo que a
- * versão anterior (`pt-[78%]`, topos até 64%) para caber na mesma altura do
- * painel "Resumo" — e com margem lateral suficiente para o marcador nunca
- * encostar na borda do tabuleiro.
+ * 8% e 58% (plano 28, Fase 2): mais baixo que a versão anterior
+ * (`pt-[78%]`, topos até 64%) para caber na mesma altura do painel "Resumo".
+ * As vagas 2 e 3 (linha do meio) ficam em 22%/78% — mais para dentro que a
+ * linha de baixo (8%/92%) — para desenhar um "V" de verdade entre as três
+ * linhas em vez de uma coluna reta dos dois lados.
  */
 const POSITIONS: Position[] = [
   { top: "8%", left: "50%", anchor: "center" },
-  { top: "34%", left: "10%", anchor: "left" },
-  { top: "34%", left: "90%", anchor: "right" },
+  { top: "34%", left: "22%", anchor: "left" },
+  { top: "34%", left: "78%", anchor: "right" },
   { top: "58%", left: "8%", anchor: "left" },
   { top: "58%", left: "92%", anchor: "right" },
 ];
