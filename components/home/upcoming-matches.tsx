@@ -14,7 +14,12 @@ import {
 } from "@/lib/market/window";
 import { formatTimezoneOffset } from "@/lib/round/format";
 import type { EventRegion } from "@/lib/round/regions";
-import { matchesInRegion, regionLabel } from "@/lib/round/regions";
+import {
+  matchesInRegion,
+  regionFilterOptions,
+  regionLabel,
+} from "@/lib/round/regions";
+import type { RoundMatch } from "@/lib/round/types";
 
 export type UpcomingMatchesProps = {
   upcoming: UpcomingMatchesData;
@@ -37,13 +42,31 @@ export type UpcomingMatchesProps = {
  * horário que quase nunca era o do usuário, e que fazia parecer que o mercado
  * dele ia trancar de madrugada por causa de um jogo de Pacific.
  */
+/**
+ * A região que o filtro abre selecionada: Internacional, quando há jogo
+ * internacional no calendário — Masters e Champions são o que move o mercado.
+ * Sem jogo internacional o chip nem existe (`regionFilterOptions`), então abre
+ * em "Todos" em vez de numa grade vazia.
+ */
+export function initialScheduleRegion(
+  matches: readonly RoundMatch[],
+): EventRegion | null {
+  return regionFilterOptions(matches).some(
+    (option) => option.region === "international",
+  )
+    ? "international"
+    : null;
+}
+
 export function UpcomingMatches({
   upcoming,
   now = new Date(),
 }: UpcomingMatchesProps) {
   const { matches, myOrganizations } = upcoming;
+  // Só na montagem: depois disso a escolha é do usuário — um refresh que
+  // traga ou tire jogo internacional não troca o filtro debaixo dele.
   const [selectedRegion, setSelectedRegion] = useState<EventRegion | null>(
-    null,
+    () => initialScheduleRegion(matches),
   );
   const tz = useTimezone();
 

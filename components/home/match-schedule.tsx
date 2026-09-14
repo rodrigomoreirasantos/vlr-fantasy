@@ -147,6 +147,11 @@ function ScheduleDays({
   // Uma só ênfase na lista inteira, e vinda da grade completa: o próximo jogo
   // a começar é o mesmo esteja o filtro onde estiver.
   const nextId = nextMatchId(allMatches, now);
+  // O alvo do tour ("fechamento-mercado") é outro caso: precisa estar na tela.
+  // O filtro abre em Internacional (`initialScheduleRegion`), e o próximo jogo
+  // do circuito pode ser de uma liga — sem isto o passo perdia a linha e caía
+  // no painel inteiro (`fallback` do passo).
+  const tourAnchorId = nextMatchId(visible, now);
 
   return (
     <>
@@ -197,7 +202,7 @@ function ScheduleDays({
                           closesAt={closesBy.get(match.id)}
                           now={now}
                           tz={tz}
-                          tourAnchor={isNext}
+                          tourAnchor={match.id === tourAnchorId}
                         />
                       </EventOrigin>
                     }

@@ -65,6 +65,31 @@ describe("UpcomingMatches", () => {
     ).not.toBeNull();
   });
 
+  it("abrindo em 'Internacional', o alvo do tour é o próximo jogo da lista na tela", () => {
+    const { container } = renderPanel([
+      // O próximo do circuito é de liga — fica fora da lista filtrada.
+      match({
+        id: "liga",
+        teamA: "NRG",
+        event: "VCT 2026: Americas Stage 2",
+        scheduledAt: new Date("2026-09-03T21:00:00Z"),
+      }),
+      match({
+        id: "champions",
+        teamA: "FNATIC",
+        teamB: "LOUD",
+        event: "Valorant Champions 2026",
+        scheduledAt: new Date("2026-09-04T08:00:00Z"),
+      }),
+    ]);
+
+    const targets = container.querySelectorAll(
+      '[data-tour="fechamento-mercado"]',
+    );
+    expect(targets).toHaveLength(1);
+    expect(targets[0].closest("li")).toHaveTextContent(/FNATIC/);
+  });
+
   it("lista os jogos com times, região, campeonato e horário", () => {
     renderPanel([match()]);
 
@@ -186,6 +211,63 @@ describe("UpcomingMatches", () => {
     // jogo do dia.
     expect(screen.getAllByText("Mercado fecha 13:00")).toHaveLength(2);
     expect(screen.queryByText("Mercado fecha 16:00")).not.toBeInTheDocument();
+  });
+
+  it("com jogo internacional no calendário, abre com 'Internacional' selecionado", () => {
+    renderPanel([
+      match({ id: "a", teamA: "NRG", event: "VCT 2026: Americas Stage 2" }),
+      match({
+        id: "b",
+        teamA: "FNATIC",
+        teamB: "LOUD",
+        event: "Valorant Champions 2026",
+      }),
+    ]);
+
+    expect(
+      screen.getByRole("button", { name: /^Internacional/ }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /^Todos/ })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    // A grade já vem filtrada: só o jogo internacional, com o relógio dele.
+    expect(screen.getByText(/FNATIC/)).toBeInTheDocument();
+    expect(screen.queryByText(/NRG/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Mercado fecha em/)).toBeInTheDocument();
+  });
+
+  it("sem jogo internacional, abre em 'Todos' — nunca numa grade vazia", () => {
+    renderPanel([
+      match({ id: "a", event: "VCT 2026: Americas Stage 2" }),
+      match({ id: "b", event: "VCT 2026: EMEA Stage 2" }),
+    ]);
+
+    expect(screen.getByRole("button", { name: /^Todos/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(
+      screen.queryByRole("button", { name: /^Internacional/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("abrindo em 'Internacional', 'Todos' continua a um clique", async () => {
+    const user = userEvent.setup();
+    renderPanel([
+      match({ id: "a", teamA: "NRG", event: "VCT 2026: Americas Stage 2" }),
+      match({
+        id: "b",
+        teamA: "FNATIC",
+        teamB: "LOUD",
+        event: "Valorant Champions 2026",
+      }),
+    ]);
+
+    await user.click(screen.getByRole("button", { name: /^Todos/ }));
+
+    expect(screen.getByText(/NRG/)).toBeInTheDocument();
+    expect(screen.getByText(/FNATIC/)).toBeInTheDocument();
   });
 
   it("em 'Todos', não há relógio de mercado — só a regra", () => {
